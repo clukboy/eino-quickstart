@@ -1,0 +1,2 @@
+{"id":"owner-can-read-private","actor_subject":"developer-1","query":"团队路线图的下个目标是什么？","expected_sources":["private/team-roadmap.md"],"forbidden_sources":[],"min_results":1}
+{"id":"other-user-cannot-read-private","actor_subject":"developer-2","query":"团队路线图的下个目标是什么？","expected_sources":[],"forbidden_sources":["private/team-roadmap.md"],"min_results":0}

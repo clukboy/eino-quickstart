@@ -1,0 +1,151 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+agent:
+  name: "eino-harness"
+  instruction: |
+    You are an autonomous software engineering assistant.
+    Use tools when you need to inspect or modify the workspace.
+    Never claim that a command succeeded unless you actually ran it.
+    Prefer filesystem tools for inspecting files and shell for build/test commands.
+    Keep destructive operations to the minimum necessary.
+  max_iterations: 20
+
+model:
+  provider: "qwen"
+  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  apiKey: ""
+  model: "qwen3.8-max"
+  temperature: 0.2
+
+workspace:
+  root: "./workspace"
+  shellTimeoutSeconds: 30
+  maxOutputBytes: 65536
+
+skills:
+  root: "./skills"
+  maxReadBytes: 32768
+security:
+  allowedTools:
+    - read_file
+    - list_dir
+    - write_file
+    - search_knowledge
+  requireApprovalForShell: true
+  requireApprovalForWrite: false
+  maxApprovalArgumentBytes: 65536
+  approvalTTLSeconds: 1800
+  sensitiveArgumentKeys:
+    - apiKey
+    - api_key
+    - authorization
+    - cookie
+    - password
+    - secret
+    - token
+    - access_token
+    - refresh_token
+    - private_key
+context:
+  maxHistoryMessages: 40
+  maxToolOutputBytes: 131072
+
+storage:
+  host: 10.10.2.180
+  port: 5432
+  dbName: postgres
+  username: postgres
+  password: 'tutti@coredb'
+  maxOpenConn: 100
+  sslMode: disable
+
+
+auth:
+  enabled: true
+  apiKeys:
+    - subject: "developer-1"
+      role: "agent"
+      keyEnv: "EINO_API_KEY_DEVELOPER"
+    - subject: "reviewer-1"
+      role: "approver"
+      keyEnv: "EINO_API_KEY_APPROVER"
+    - subject: "platform-admin"
+      role: "admin"
+      keyEnv: "EINO_API_KEY_ADMIN"
+
+runtime:
+  readTimeoutSeconds: 15
+  writeTimeoutSeconds: 120
+  idleTimeoutSeconds: 60
+  maxRequestBodyBytes: 1048576
+
+observability:
+  logLevel: "info"
+  metricsEnabled: true
+  
+  serviceName: "eino-harness-server"
+  environment: "development"
+
+  otlpEndpoint: "otel-collector:4317"
+  otlpInsecure: true
+  traceSampleRatio: 1.0
+
+  logFilePath: "/var/log/eino/server.json"
+  logMaxSizeMB: 100
+  logMaxBackups: 5
+  logMaxAgeDays: 14
+
+execution:
+  mode: "docker"
+  dockerBinary: "docker"
+  image: "eino-harness-executor:0.1.0"
+  user: "10001:10001"
+  memoryLimit: "512m"
+  cpuLimit: "1.0"
+  pidsLimit: 128
+  tmpFSSize: "64m"
+  allowNetwork: false
+  allowLocalRunner: false
+
+knowledge:
+  root: "./knowledge"
+  maxDocumentBytes: 5242880
+  chunkSizeCharacters: 1200
+  chunkOverlapCharacters: 200
+  maxChunksPerDocument: 2000
+  defaultTopK: 5
+  maxTopK: 10
+  maxQueryCharacters: 2000
+  maxResultBytes: 32768
+
+embedding:
+  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  apiKeyEnv: "EINO_EMBEDDING_API_KEY"
+  model: "text-embedding-v4"
+  dimensions: 1024
+  batchSize: 32
+
+milvus:
+  address: "milvus:19530"
+  collection: "eino_document_chunks_v1"
+  metricType: "COSINE"
+  topKCandidate: 30
+  searchTimeoutMS: 3000
+
+maintenance:
+  cleanupIntervalSeconds: 300
+  approvalRetentionHours: 168
+  checkpointRetentionHours: 24
+  turnRetentionHours: 720
+  cleanupBatchSize: 100
+
+retrieval:
+  vectorWeight: 1.0
+  keywordWeight: 1.0
+  rrfSmoothing: 60
+  vectorCandidateLimit: 30
+  keywordCandidateLimit: 30
+  enableRerank: false
+  maxRerankCandidates: 20

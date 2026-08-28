@@ -1,0 +1,4 @@
+{"id":"read-file-is-allowed","tool":"read_file","allowed":true,"requires_approval":false}
+{"id":"knowledge-search-is-allowed","tool":"search_knowledge","allowed":true,"requires_approval":false}
+{"id":"shell-requires-approval","tool":"shell","allowed":true,"requires_approval":true}
+{"id":"unknown-tool-is-denied","tool":"future_tool","allowed":false,"requires_approval":false}

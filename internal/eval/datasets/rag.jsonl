@@ -1,0 +1,2 @@
+{"id":"go-concurrency-context","actor_subject":"developer-1","query":"Go 并发任务如何正确取消？","expected_sources":["handbook/go-concurrency.md"],"forbidden_sources":[],"min_results":1}
+{"id":"incident-first-step","actor_subject":"developer-1","query":"发生线上事故后第一步应该做什么？","expected_sources":["runbooks/incident.md"],"forbidden_sources":[],"min_results":1}
