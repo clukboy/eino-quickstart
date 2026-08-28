@@ -69,30 +69,32 @@ func (r *HybridRetriever) Search(ctx context.Context, actorSubject string, query
 	if r.KeywordCandidates <= 0 {
 		return nil, fmt.Errorf("keyword candidate limit must be greater than zero")
 	}
+	var vectorCandidates []Candidate
 
 	vectors, err := r.Embedder.Embed(ctx, []string{query})
-	if err != nil {
-		return nil, fmt.Errorf("embed knowledge query: %w", err)
-	}
-	if len(vectors) != 1 {
-		return nil, fmt.Errorf("query embedding response has invalid count")
+
+	if err == nil {
+		if len(vectors) != 1 {
+			err = fmt.Errorf("query embedding response has invalid count")
+		}
 	}
 
-	vectorResults, err := r.VectorStore.Search(
-		ctx,
-		vectors[0],
-		r.VectorCandidates,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("vector search: %w", err)
-	}
+	if err == nil {
+		vectorResults, searchErr := r.VectorStore.Search(
+			ctx,
+			vectors[0],
+			r.VectorCandidates,
+		)
 
-	vectorCandidates := make([]Candidate, 0, len(vectorResults))
-	for _, item := range vectorResults {
-		vectorCandidates = append(vectorCandidates, Candidate{
-			ChunkID: item.ChunkID,
-			Score:   item.Score,
-		})
+		if searchErr == nil {
+			vectorCandidates = make([]Candidate, 0, len(vectorResults))
+			for _, item := range vectorResults {
+				vectorCandidates = append(vectorCandidates, Candidate{
+					ChunkID: item.ChunkID,
+					Score:   item.Score,
+				})
+			}
+		}
 	}
 
 	keywordCandidates, err := r.KeywordSearcher.Search(

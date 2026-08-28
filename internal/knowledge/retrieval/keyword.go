@@ -30,29 +30,44 @@ func (s *PostgresKeywordSearcher) Search(
 	rows, err := s.client.QueryContext(
 		ctx,
 		`
-		SELECT
-			dc.id,
+	SELECT
+		dc.id,
+		(
 			ts_rank(
 				to_tsvector('simple', dc.content),
 				plainto_tsquery('simple', $1)
-			) AS score
-		FROM document_chunks AS dc
-		JOIN documents AS d
-			ON d.id = dc.document_chunks_document
-		WHERE d.status = 'ready'
-		  AND dc.vector_status = 'indexed'
-		  AND (
-			d.visibility = 'system'
-			OR (
-				d.visibility = 'private'
-				AND d.owner_subject = $2
 			)
-		  )
-		  AND to_tsvector('simple', dc.content)
-		      @@ plainto_tsquery('simple', $1)
-		ORDER BY score DESC
-		LIMIT $3
-		`,
+			+
+			CASE
+				WHEN position(
+					lower($1) in lower(dc.content)
+				) > 0
+				THEN 1.0
+				ELSE 0.0
+			END
+		) AS score
+	FROM document_chunks AS dc
+	JOIN documents AS d
+		ON d.id = dc.document_chunks_document
+	WHERE d.status = 'ready'
+	  AND (
+		d.visibility = 'system'
+		OR (
+			d.visibility = 'private'
+			AND d.owner_subject = $2
+		)
+	  )
+	  AND (
+		to_tsvector('simple', dc.content)
+			@@ plainto_tsquery('simple', $1)
+		OR
+		position(
+			lower($1) in lower(dc.content)
+		) > 0
+	  )
+	ORDER BY score DESC, dc.id
+	LIMIT $3
+	`,
 		query,
 		actorSubject,
 		limit,

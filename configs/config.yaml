@@ -149,3 +149,12 @@ retrieval:
   keywordCandidateLimit: 30
   enableRerank: false
   maxRerankCandidates: 20
+
+indexer:
+  enabled: true
+  batchSize: 32
+  intervalSeconds: 2
+  leaseDurationSeconds: 60
+  maxAttempts: 5
+  initialRetryDelaySeconds: 1
+  maxRetryDelaySeconds: 60

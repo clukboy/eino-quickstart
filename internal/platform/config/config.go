@@ -28,6 +28,7 @@ type Config struct {
 	Milvus      MilvusConfig      `yaml:"milvus"`
 	Maintenance MaintenanceConfig `yaml:"maintenance"`
 	Retrieval   RetrievalConfig   `yaml:"retrieval"`
+	Indexer     IndexerConfig     `yaml:"indexer"`
 }
 
 type ServerConfig struct {
@@ -173,6 +174,16 @@ type RetrievalConfig struct {
 	KeywordCandidateLimit int     `yaml:"keywordCandidateLimit"`
 	EnableRerank          bool    `yaml:"enableRerank"`
 	MaxRerankCandidates   int     `yaml:"maxRerankCandidates"`
+}
+
+type IndexerConfig struct {
+	Enabled                  bool `yaml:"enabled"`
+	BatchSize                int  `yaml:"batchSize"`
+	IntervalSeconds          int  `yaml:"intervalSeconds"`
+	LeaseDurationSeconds     int  `yaml:"leaseDurationSeconds"`
+	MaxAttempts              int  `yaml:"maxAttempts"`
+	InitialRetryDelaySeconds int  `yaml:"initialRetryDelaySeconds"`
+	MaxRetryDelaySeconds     int  `yaml:"maxRetryDelaySeconds"`
 }
 
 func Load(path string) (*Config, error) {
@@ -513,6 +524,43 @@ func Load(path string) (*Config, error) {
 		cfg.Retrieval.MaxRerankCandidates <= 0 {
 		return nil, fmt.Errorf(
 			"retrieval.maxRerankCandidates must be greater than zero when rerank is enabled",
+		)
+	}
+
+	if cfg.Indexer.BatchSize <= 0 {
+		return nil, fmt.Errorf(
+			"indexer.batchSize must be greater than zero",
+		)
+	}
+
+	if cfg.Indexer.IntervalSeconds <= 0 {
+		return nil, fmt.Errorf(
+			"indexer.intervalSeconds must be greater than zero",
+		)
+	}
+
+	if cfg.Indexer.LeaseDurationSeconds <= 0 {
+		return nil, fmt.Errorf(
+			"indexer.leaseDurationSeconds must be greater than zero",
+		)
+	}
+
+	if cfg.Indexer.MaxAttempts <= 0 {
+		return nil, fmt.Errorf(
+			"indexer.maxAttempts must be greater than zero",
+		)
+	}
+
+	if cfg.Indexer.InitialRetryDelaySeconds <= 0 {
+		return nil, fmt.Errorf(
+			"indexer.initialRetryDelaySeconds must be greater than zero",
+		)
+	}
+
+	if cfg.Indexer.MaxRetryDelaySeconds <
+		cfg.Indexer.InitialRetryDelaySeconds {
+		return nil, fmt.Errorf(
+			"indexer.maxRetryDelaySeconds must be >= initialRetryDelaySeconds",
 		)
 	}
 

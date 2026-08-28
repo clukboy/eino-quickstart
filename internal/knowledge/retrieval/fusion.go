@@ -29,8 +29,11 @@ func FuseRRF(smoothing int, inputs ...WeightedCandidates) []Candidate {
 	}
 
 	sort.Slice(result, func(i, j int) bool {
+		if result[i].Score == result[j].Score {
+			return result[i].ChunkID < result[j].ChunkID
+		}
+
 		return result[i].Score > result[j].Score
 	})
-
 	return result
 }

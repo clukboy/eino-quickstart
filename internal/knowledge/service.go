@@ -67,13 +67,8 @@ func NewService(config ServiceConfig) (*Service, error) {
 	return service, nil
 }
 
-// IngestRoot loads documents from loader and ingests them in source order.
-func (s *Service) IngestRoot(
-	ctx context.Context,
-	loader *Loader,
-	ownerSubject string,
-	visibility string,
-) (IngestRootResult, error) {
+// IngestRoot loads documents from a loader and ingests them in source order.
+func (s *Service) IngestRoot(ctx context.Context, loader *Loader, ownerSubject string, visibility string) (IngestRootResult, error) {
 	if loader == nil {
 		return IngestRootResult{}, errors.New("knowledge loader is required")
 	}
