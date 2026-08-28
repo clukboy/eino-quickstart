@@ -4,6 +4,9 @@ import (
 	"context"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/middleware"
+	"eino-quickstart/internal/knowledge/embedding"
+	retriever "eino-quickstart/internal/knowledge/retrieval"
+	"eino-quickstart/internal/knowledge/vectorstore"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/config"
 	"eino-quickstart/internal/platform/execution"
@@ -16,6 +19,7 @@ import (
 	"eino-quickstart/internal/platform/privacy"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/skill"
+	"eino-quickstart/internal/tool"
 	"eino-quickstart/internal/tool/builtin"
 	"eino-quickstart/internal/tool/registry"
 	server "eino-quickstart/internal/transport/httpapi"
@@ -138,6 +142,54 @@ func main() {
 	)
 	checkpoints := checkpoint.NewStore(entClient)
 
+	embedder, err := embedding.NewOpenAIEmbedder(embedding.OpenAIConfig{
+		BaseURL:    cfg.Embedding.BaseURL,
+		APIKey:     os.Getenv(cfg.Embedding.APIKeyEnv),
+		Model:      cfg.Embedding.Model,
+		Dimensions: cfg.Embedding.Dimensions,
+		BatchSize:  cfg.Embedding.BatchSize,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	vecStore, err := vectorstore.NewMilvusStore(ctx, vectorstore.MilvusConfig{
+		Address:    cfg.Milvus.Address,
+		Collection: cfg.Milvus.Collection,
+		Dimensions: cfg.Embedding.Dimensions,
+		MetricType: cfg.Milvus.MetricType,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := vecStore.EnsureCollection(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	hybridRetriever := &retriever.HybridRetriever{
+		Client:             entClient,
+		Embedder:           embedder,
+		VectorStore:        vecStore,
+		KeywordSearcher:    retriever.NewPostgresKeywordSearcher(entClient),
+		DefaultTopK:        cfg.Knowledge.DefaultTopK,
+		MaxTopK:            cfg.Knowledge.MaxTopK,
+		VectorCandidates:   cfg.Milvus.TopKCandidate,
+		KeywordCandidates:  cfg.Retrieval.KeywordCandidateLimit,
+		MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
+		MaxResultBytes:     cfg.Knowledge.MaxResultBytes,
+		VectorWeight:       cfg.Retrieval.VectorWeight,
+		KeywordWeight:      cfg.Retrieval.KeywordWeight,
+		RRFSmoothing:       cfg.Retrieval.RRFSmoothing,
+	}
+
+	knowledgeSearchTool, err := tool.NewKnowledgeSearch(hybridRetriever, "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := reg.Register(knowledgeSearchTool); err != nil {
+		log.Fatal(err)
+	}
+
 	ag, err := agent.NewHarness(ctx, cfg, reg, policy, checkpoints)
 	if err != nil {
 		log.Fatal(err)
@@ -244,7 +296,13 @@ func main() {
 				"error", err,
 			)
 		}
-
+		err := vecStore.Close(ctx)
+		if err != nil {
+			logger.Error(
+				"vector store close failed",
+				"error", err,
+			)
+		}
 		if err := entClient.Close(); err != nil {
 			logger.Error(
 				"database close failed",
