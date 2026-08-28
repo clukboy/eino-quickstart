@@ -4,7 +4,6 @@ import (
 	"context"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/middleware"
-	"eino-quickstart/internal/knowledge"
 	"eino-quickstart/internal/knowledge/embedding"
 	retriever "eino-quickstart/internal/knowledge/retrieval"
 	"eino-quickstart/internal/knowledge/vectorstore"
@@ -192,65 +191,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := os.MkdirAll(cfg.Workspace.Root, 0755); err != nil {
-		log.Fatal(err)
-	}
-	knowledgeLoader, err := knowledge.NewLoader(knowledge.LoaderConfig{
-		Root:             cfg.Knowledge.Root,
-		MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	knowledgeService, err := knowledge.NewService(knowledge.ServiceConfig{
-		Client: entClient,
-		Chunker: knowledge.Chunker{
-			Size:    cfg.Knowledge.ChunkSizeCharacters,
-			Overlap: cfg.Knowledge.ChunkOverlapChars,
-		},
-		MaxChunksPerDoc: cfg.Knowledge.MaxChunksPerDoc,
-		EmbeddingModel:  cfg.Embedding.Model,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	knowledgeIndexer, err := knowledge.NewIndexer(knowledge.IndexerConfig{
-		Client:            entClient,
-		Embedder:          embedder,
-		VectorStore:       vecStore,
-		BatchSize:         cfg.Indexer.BatchSize,
-		LeaseDuration:     time.Duration(cfg.Indexer.LeaseDurationSeconds) * time.Second,
-		MaxAttempts:       cfg.Indexer.MaxAttempts,
-		InitialRetryDelay: time.Duration(cfg.Indexer.InitialRetryDelaySeconds) * time.Second,
-		MaxRetryDelay:     time.Duration(cfg.Indexer.MaxRetryDelaySeconds) * time.Second,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	ingestResult, err := knowledgeService.IngestRoot(
-		ctx,
-		knowledgeLoader,
-		"system",
-		"system",
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf(
-		"knowledge ingestion completed: loaded=%d ingested=%d",
-		ingestResult.Loaded,
-		ingestResult.Ingested,
-	)
-	if cfg.Indexer.Enabled {
-		indexerWorker := knowledge.NewIndexerWorker(
-			knowledgeIndexer,
-			time.Duration(cfg.Indexer.IntervalSeconds)*time.Second,
-		)
-
-		go indexerWorker.Run(ctx)
-	}
-	
 	ag, err := agent.NewHarness(ctx, cfg, reg, policy, checkpoints)
 	if err != nil {
 		log.Fatal(err)
