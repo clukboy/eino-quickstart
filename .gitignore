@@ -1,3 +1,5 @@
 .env
 configs/config.local.yaml
 workspace/
+
+.idea/
