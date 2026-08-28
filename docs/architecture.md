@@ -88,4 +88,4 @@ knowledge workspace automation
 
 文档和切块记录保存在 PostgreSQL；Milvus 仅保存 `chunk_id` 与向量。最终查询会再次按文档可见性过滤，因此向量库的候选结果不能直接暴露给用户。
 
-具体未完成的启动和索引接线见 [待完善项](known-gaps.md)。
+本地上传、分块、索引和检索的验证步骤见 [RAG 本地验证](rag-testing.md)。

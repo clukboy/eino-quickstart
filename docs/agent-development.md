@@ -1,6 +1,6 @@
 # 扩展 Agent、工具与 Skill
 
-本项目使用 Eino ADK 组装多 Agent Harness。运行时入口在 `cmd/server/main.go`：它创建工具注册表、注册内置工具和 Skill 加载工具，再调用 `agent.NewHarness` 构造根 Agent。知识库工具的启动接线仍在完善中，详见 [待完善项](known-gaps.md)。
+本项目使用 Eino ADK 组装多 Agent Harness。运行时入口在 `cmd/server/main.go`：它创建工具注册表，注册内置、Skill 和知识检索工具，再调用 `agent.NewHarness` 构造根 Agent。
 
 ## 现有架构
 
