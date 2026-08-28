@@ -1,10 +1,10 @@
 # 扩展 Agent、工具与 Skill
 
-本项目使用 Eino ADK 组装多 Agent Harness。运行时入口在 `cmd/server/main.go`：它创建工具注册表、注册内置工具和 Skill 加载工具，再调用 `agent.NewHarness` 构造根 Agent。
+本项目使用 Eino ADK 组装多 Agent Harness。运行时入口在 `cmd/server/main.go`：它创建工具注册表、注册内置工具和 Skill 加载工具，再调用 `agent.NewHarness` 构造根 Agent。知识库工具的启动接线仍在完善中，详见 [待完善项](known-gaps.md)。
 
 ## 现有架构
 
-`internal/agent/factory.go` 负责组装下列 Agent：
+`internal/application/agent/factory.go` 负责组装下列 Agent：
 
 | Agent | 职责 | 当前工具 |
 | --- | --- | --- |
@@ -19,14 +19,14 @@
 
 以“代码审查 Agent”为例，完整接入需要同时完成定义、工具授权、工厂装配和根路由四件事。
 
-1. 在 `internal/agent/review.go` 定义职责边界和构造函数。指令应只描述该 Agent 被允许处理的任务、可用工具和必须遵守的限制。
+1. 在 `internal/application/agent/review.go` 定义职责边界和构造函数。指令应只描述该 Agent 被允许处理的任务、可用工具和必须遵守的限制。
 
    ```go
    package agent
 
    import (
        "context"
-       "eino-quickstart/internal/config"
+       "eino-quickstart/internal/platform/config"
 
        "github.com/cloudwego/eino/adk"
        "github.com/cloudwego/eino/components/tool"
@@ -76,7 +76,7 @@
 
 4. 如果 Agent 使用新工具，在 `cmd/server/main.go` 注册该工具，并在 `configs/config.yaml` 的 `security.allowedTools` 中显式允许它。工具被注册不等于被某个 Agent 授予，也不等于通过安全策略。
 
-目前 Agent 不是由 YAML 声明式创建的；`agent` 配置只提供所有 Agent 共用的名称、基础指令和 `max_iterations`。专项 Agent 的名称、指令、工具集和路由关系均在 `internal/agent` 中维护。
+目前 Agent 不是由 YAML 声明式创建的；`agent` 配置只提供所有 Agent 共用的名称、基础指令和 `max_iterations`。专项 Agent 的名称、指令、工具集和路由关系均在 `internal/application/agent` 中维护。
 
 ## 编写并接入工具
 
@@ -130,7 +130,7 @@ if err := reg.Register(projectStatus); err != nil {
 3. 在 `internal/tool/policy.go` 的 `RiskFor` 中声明风险等级：无副作用查询使用 `RiskRead`，写操作使用 `RiskWrite`，执行命令、外部副作用或未知影响使用 `RiskHigh`。未分类工具默认需要审批。
 4. 为输入校验、路径边界、超时、输出大小和错误路径编写单元测试。可参考 `internal/tool/builtin/filesystem_test.go` 与 `shell_test.go`。
 
-涉及文件系统时，不要直接拼接或信任调用方路径；复用 `FileSystem.safePath` 的“相对路径 + 解析符号链接后仍在根目录内”模式。涉及执行时，复用 `execution.Runner`，不要在工具内直接启动本地 shell。
+涉及文件系统时，不要直接拼接或信任调用方路径；复用 `FileSystem.safePath` 的“相对路径 + 解析符号链接后仍在根目录内”模式。涉及执行时，复用 `internal/platform/execution.Runner`，不要在工具内直接启动本地 shell。
 
 ## 配置和使用 Skill
 
@@ -159,7 +159,7 @@ skills:
 
 Skill 名称只能由字母、数字、`-` 和 `_` 组成；加载器会拒绝路径穿越和指向根目录外的符号链接。`skills.root` 必须在启动前存在且是目录。
 
-当前启动代码已注册 Skill 工具，但默认三个专项 Agent 均未取得它们。因此，仅新增 `SKILL.md` 不会让 Agent 使用它。要启用某个 Agent 的 Skill 能力，应在该 Agent 的 `registry.Require(...)` 中加入 `list_skills` 和 `load_skill`，并在其指令中说明先列举、再按需加载的规则；“代码审查 Agent”示例展示了该方式。
+当前启动代码已注册 Skill 工具，但默认三个专项 Agent 均未取得它们。因此，仅新增 `SKILL.md` 不会让 Agent 使用它。要启用某个 Agent 的 Skill 能力，应在该 Agent 的 `registry.Require(...)` 中加入 `list_skills` 和 `load_skill`，并在其指令中说明先列举、再按需加载的规则；“代码审查 Agent”示例展示了该方式。此项也记录在 [待完善项](known-gaps.md#p1skill-未授予任何默认-agent)。
 
 如果使用了带 `middleware.Policy` 的 Agent，还要将这两个工具加入 `security.allowedTools`：
 

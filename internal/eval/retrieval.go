@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"eino-quickstart/internal/retriever"
+	"eino-quickstart/internal/knowledge/retrieval"
 )
 
 type RetrievalEvaluator struct {

@@ -2,23 +2,23 @@ package main
 
 import (
 	"context"
-	"eino-quickstart/internal/agent"
-	"eino-quickstart/internal/approval"
-	"eino-quickstart/internal/auth"
-	"eino-quickstart/internal/checkpoint"
-	"eino-quickstart/internal/config"
-	"eino-quickstart/internal/execution"
-	"eino-quickstart/internal/middleware"
-	"eino-quickstart/internal/observability"
-	"eino-quickstart/internal/privacy"
-	"eino-quickstart/internal/run"
-	"eino-quickstart/internal/server"
-	"eino-quickstart/internal/session"
+	"eino-quickstart/internal/application/agent"
+	"eino-quickstart/internal/application/middleware"
+	"eino-quickstart/internal/platform/auth"
+	"eino-quickstart/internal/platform/config"
+	"eino-quickstart/internal/platform/execution"
+	"eino-quickstart/internal/platform/observability"
+	"eino-quickstart/internal/platform/persistence/approval"
+	"eino-quickstart/internal/platform/persistence/checkpoint"
+	"eino-quickstart/internal/platform/persistence/run"
+	"eino-quickstart/internal/platform/persistence/session"
+	"eino-quickstart/internal/platform/persistence/turn"
+	"eino-quickstart/internal/platform/privacy"
+	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/skill"
-	"eino-quickstart/internal/storage/entx"
 	"eino-quickstart/internal/tool/builtin"
 	"eino-quickstart/internal/tool/registry"
-	"eino-quickstart/internal/turn"
+	server "eino-quickstart/internal/transport/httpapi"
 	"errors"
 	"fmt"
 	"log"
@@ -160,7 +160,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger := observability.NewLogger(cfg.Observability.LogLevel)
+	logger, err := observability.NewLogger(
+		cfg.Observability.LogLevel,
+		cfg.Observability.ServiceName,
+		cfg.Observability.Environment,
+		cfg.Observability.LogFilePath,
+		cfg.Observability.LogMaxSizeMB,
+		cfg.Observability.LogMaxBackups,
+		cfg.Observability.LogMaxAgeDays,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var metrics *observability.Metrics
 	if cfg.Observability.MetricsEnabled {

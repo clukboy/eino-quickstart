@@ -93,7 +93,11 @@ func (l *Loader) load(_ context.Context, in loadSkillInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve skill %q: %w", in.Name, err)
 	}
-	relative, err := filepath.Rel(l.root, resolvedPath)
+	resolvedRoot, err := filepath.EvalSymlinks(l.root)
+	if err != nil {
+		return "", fmt.Errorf("resolve skills root: %w", err)
+	}
+	relative, err := filepath.Rel(resolvedRoot, resolvedPath)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("skill %q is outside the skills root", in.Name)
 	}

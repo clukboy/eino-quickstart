@@ -57,7 +57,7 @@ storage:
   port: 5432
   dbName: postgres
   username: postgres
-  password: 'tutti@coredb'
+  passwordEnv: "EINO_STORAGE_PASSWORD"
   maxOpenConn: 100
   sslMode: disable
 

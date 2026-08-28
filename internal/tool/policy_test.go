@@ -8,10 +8,10 @@ func TestRiskFor(t *testing.T) {
 		"list_dir":     RiskRead,
 		"write_file":   RiskWrite,
 		"shell":        RiskHigh,
-		"unknown_tool": RiskHigh,
+		"unknown_tool": "",
 	}
 	for name, want := range tests {
-		if got := RiskFor(name); got != want {
+		if got, known := RiskFor(name); got != want || known != (name != "unknown_tool") {
 			t.Errorf("RiskFor(%q) = %q, want %q", name, got, want)
 		}
 	}
