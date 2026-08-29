@@ -24,10 +24,7 @@ type knowledgeSearchInput struct {
 }
 
 // NewKnowledgeSearch creates the search_knowledge Eino tool.
-func NewKnowledgeSearch(
-	retriever retrieval.Retriever,
-	actorSubject string,
-) (einotool.InvokableTool, error) {
+func NewKnowledgeSearch(retriever retrieval.Retriever, actorSubject string) (einotool.InvokableTool, error) {
 	if retriever == nil {
 		return nil, errors.New("knowledge retriever is required")
 	}
@@ -36,25 +33,15 @@ func NewKnowledgeSearch(
 		Retriever:    retriever,
 		ActorSubject: strings.TrimSpace(actorSubject),
 	}
-	return utils.InferTool(
-		"search_knowledge",
-		"Search authorized knowledge documents and return cited source excerpts.",
-		search.run,
-	)
+	return utils.InferTool("search_knowledge", "Search authorized knowledge documents and return cited source excerpts.", search.run)
 }
 
 // NewKnowledgeSearchTool is an alias for NewKnowledgeSearch.
-func NewKnowledgeSearchTool(
-	retriever retrieval.Retriever,
-	actorSubject string,
-) (einotool.InvokableTool, error) {
+func NewKnowledgeSearchTool(retriever retrieval.Retriever, actorSubject string) (einotool.InvokableTool, error) {
 	return NewKnowledgeSearch(retriever, actorSubject)
 }
 
-func (s *KnowledgeSearch) run(
-	ctx context.Context,
-	input knowledgeSearchInput,
-) (string, error) {
+func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (string, error) {
 	if s == nil || s.Retriever == nil {
 		return "", errors.New("knowledge retriever is required")
 	}
@@ -76,12 +63,7 @@ func (s *KnowledgeSearch) run(
 		return "", errors.New("authenticated actor subject is required")
 	}
 
-	results, err := s.Retriever.Search(
-		ctx,
-		actorSubject,
-		query,
-		input.TopK,
-	)
+	results, err := s.Retriever.Search(ctx, actorSubject, query, input.TopK)
 	if err != nil {
 		return "", fmt.Errorf("search knowledge: %w", err)
 	}

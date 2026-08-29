@@ -192,14 +192,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	ctx := middleware.WithSession(r.Context(), req.SessionID)
 	ctx = middleware.WithTurn(ctx, turnID)
 	runID := uuid.NewString()
-	if err := s.Runs.Create(
-		r.Context(),
-		runID,
-		req.SessionID,
-		identity.Subject,
-		req.Message,
-		time.Now().UTC().Add(24*time.Hour),
-	); err != nil {
+	if err := s.Runs.Create(r.Context(), runID, req.SessionID, identity.Subject, req.Message, time.Now().UTC().Add(24*time.Hour)); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{
 			"error": "create agent run failed",
 		})
@@ -217,9 +210,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		}
 		if event.Action != nil &&
 			event.Action.Interrupted != nil {
-			approvalID, ok := approvalIDFromInterrupt(
-				event.Action.Interrupted.Data,
-			)
+			approvalID, ok := approvalIDFromInterrupt(event.Action.Interrupted.Data)
 			if !ok {
 				_ = sendEvent(w, flusher, Event{
 					Type:      "error",
@@ -229,9 +220,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			interruptID, ok := rootCauseInterruptID(
-				event.Action.Interrupted.InterruptContexts,
-			)
+			interruptID, ok := rootCauseInterruptID(event.Action.Interrupted.InterruptContexts)
 			if !ok {
 				_ = sendEvent(w, flusher, Event{
 					Type:      "error",
@@ -241,13 +230,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := s.Approvals.AttachCheckpoint(
-				r.Context(),
-				approvalID,
-				runID,
-				checkpointID,
-				interruptID,
-			); err != nil {
+			if err := s.Approvals.AttachCheckpoint(r.Context(), approvalID, runID, checkpointID, interruptID); err != nil {
 				_ = s.Runs.MarkFailed(
 					r.Context(),
 					runID,

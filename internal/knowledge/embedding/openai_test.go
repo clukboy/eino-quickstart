@@ -2,12 +2,13 @@ package embedding
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/goccy/go-json"
 )
 
 func TestOpenAIEmbedderBatchesAndOrdersResponses(t *testing.T) {

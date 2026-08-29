@@ -49,23 +49,15 @@ func NewStore(client *ent.Client) *Store {
 }
 
 // Start creates one RUNNING turn and persists its user message atomically.
-func (s *Store) Start(
-	ctx context.Context,
-	turnID string,
-	sessionID string,
-	ownerSubject string,
-	userContent string,
-) (*Record, error) {
+func (s *Store) Start(ctx context.Context, turnID string, sessionID string, ownerSubject string, userContent string) (*Record, error) {
 	var created *ent.ChatTurn
 
 	err := entx.WithTx(ctx, s.client, func(tx *ent.Tx) error {
 		sessionRecord, err := tx.Session.
-			Query().
-			Where(
-				entsession.SessionIDEQ(sessionID),
-				entsession.OwnerSubjectEQ(ownerSubject),
-			).
-			Only(ctx)
+			Query().Where(
+			entsession.SessionIDEQ(sessionID),
+			entsession.OwnerSubjectEQ(ownerSubject),
+		).Only(ctx)
 		if ent.IsNotFound(err) {
 			return ErrNotFoundOrForbidden
 		}

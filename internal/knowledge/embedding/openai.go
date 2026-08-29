@@ -3,7 +3,6 @@ package embedding
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
 type OpenAIConfig struct {
@@ -136,10 +137,7 @@ type embeddingResponse struct {
 	} `json:"data"`
 }
 
-func (e *OpenAIEmbedder) embedBatch(
-	ctx context.Context,
-	texts []string,
-) ([][]float32, error) {
+func (e *OpenAIEmbedder) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	body, err := json.Marshal(embeddingRequest{
 		Model:      e.model,
 		Input:      texts,

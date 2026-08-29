@@ -53,9 +53,9 @@ context:
   maxToolOutputBytes: 131072
 
 storage:
-  host: 10.10.2.180
+  host: 10.10.2.181
   port: 5432
-  dbName: postgres
+  dbName: eino
   username: postgres
   passwordEnv: "EINO_STORAGE_PASSWORD"
   maxOpenConn: 100
@@ -92,7 +92,7 @@ observability:
   otlpInsecure: true
   traceSampleRatio: 1.0
 
-  logFilePath: "/var/log/eino/server.json"
+  logFilePath: "logs/eino/server.json"
   logMaxSizeMB: 100
   logMaxBackups: 5
   logMaxAgeDays: 14
@@ -110,7 +110,7 @@ execution:
   allowLocalRunner: false
 
 knowledge:
-  root: "./knowledge"
+  root: "./tests/knowledge"
   maxDocumentBytes: 5242880
   chunkSizeCharacters: 1200
   chunkOverlapCharacters: 200
@@ -128,7 +128,7 @@ embedding:
   batchSize: 32
 
 milvus:
-  address: "milvus:19530"
+  address: "10.10.2.90:19530"
   collection: "eino_document_chunks_v1"
   metricType: "COSINE"
   topKCandidate: 30

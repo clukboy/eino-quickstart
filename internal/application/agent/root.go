@@ -25,27 +25,12 @@ Rules:
 - Do not delegate the same request repeatedly after a specialist has returned a clear result.
 `
 
-func newRootAgent(
-	ctx context.Context,
-	cfg *config.Config,
-	knowledge adk.Agent,
-	workspace adk.Agent,
-	automation adk.Agent,
-	handlers []adk.ChatModelAgentMiddleware,
-) (adk.Agent, error) {
+func newRootAgent(ctx context.Context, cfg *config.Config, knowledge adk.Agent, workspace adk.Agent, automation adk.Agent, handlers []adk.ChatModelAgentMiddleware) (adk.Agent, error) {
 	tools := []tool.BaseTool{
 		adk.NewAgentTool(ctx, knowledge),
 		adk.NewAgentTool(ctx, workspace),
 		adk.NewAgentTool(ctx, automation),
 	}
 
-	return newSpecialist(
-		ctx,
-		cfg,
-		"root_agent",
-		"Routes requests to knowledge, workspace inspection, or controlled automation specialists.",
-		rootInstruction,
-		tools,
-		handlers,
-	)
+	return newSpecialist(ctx, cfg, "root_agent", "Routes requests to knowledge, workspace inspection, or controlled automation specialists.", rootInstruction, tools, handlers)
 }

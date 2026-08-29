@@ -29,10 +29,13 @@ func (w *statusRecorder) Write(data []byte) (int, error) {
 	return w.ResponseWriter.Write(data)
 }
 
-func HTTPTrace(
-	logger *slog.Logger,
-	next http.Handler,
-) http.Handler {
+func (w *statusRecorder) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func HTTPTrace(logger *slog.Logger, next http.Handler) http.Handler {
 	tracer := otel.Tracer("eino-harness/http")
 
 	return http.HandlerFunc(func(
@@ -54,14 +57,8 @@ func HTTPTrace(
 	})
 }
 
-func Recover(
-	logger *slog.Logger,
-	next http.Handler,
-) http.Handler {
-	return http.HandlerFunc(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
+func Recover(logger *slog.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				LogWithTrace(
@@ -89,14 +86,8 @@ func Recover(
 	})
 }
 
-func AccessLog(
-	logger *slog.Logger,
-	next http.Handler,
-) http.Handler {
-	return http.HandlerFunc(func(
-		w http.ResponseWriter,
-		r *http.Request,
-	) {
+func AccessLog(logger *slog.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startedAt := time.Now()
 
 		recorder := &statusRecorder{

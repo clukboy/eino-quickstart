@@ -3,3 +3,5 @@ configs/config.local.yaml
 workspace/
 
 .idea/
+./maintenance
+./server

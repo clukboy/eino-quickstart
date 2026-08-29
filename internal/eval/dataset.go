@@ -2,9 +2,10 @@ package eval
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/goccy/go-json"
 )
 
 func LoadJSONL[T any](path string) ([]T, error) {
@@ -30,12 +31,7 @@ func LoadJSONL[T any](path string) ([]T, error) {
 
 		var item T
 		if err := json.Unmarshal(scanner.Bytes(), &item); err != nil {
-			return nil, fmt.Errorf(
-				"decode %s line %d: %w",
-				path,
-				line,
-				err,
-			)
+			return nil, fmt.Errorf("decode %s line %d: %w", path, line, err)
 		}
 
 		items = append(items, item)

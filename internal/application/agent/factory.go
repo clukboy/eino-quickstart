@@ -136,14 +136,7 @@ func NewHarness(
 		return nil, err
 	}
 
-	rootAgent, err := newRootAgent(
-		ctx,
-		cfg,
-		knowledgeAgent,
-		workspaceAgent,
-		automationAgent,
-		[]adk.ChatModelAgentMiddleware{contextLimit},
-	)
+	rootAgent, err := newRootAgent(ctx, cfg, knowledgeAgent, workspaceAgent, automationAgent, []adk.ChatModelAgentMiddleware{contextLimit})
 	if err != nil {
 		return nil, err
 	}

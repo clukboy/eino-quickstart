@@ -48,7 +48,7 @@ func (s *PostgresKeywordSearcher) Search(
 		) AS score
 	FROM document_chunks AS dc
 	JOIN documents AS d
-		ON d.id = dc.document_chunks_document
+		ON d.id = dc.document_chunks
 	WHERE d.status = 'ready'
 	  AND (
 		d.visibility = 'system'

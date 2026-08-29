@@ -53,31 +53,12 @@ var milvusCollectionName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,254}$`)
 
 type milvusAPI interface {
 	HasCollection(ctx context.Context, collection string) (bool, error)
-	DescribeCollection(
-		ctx context.Context,
-		collection string,
-	) (*entity.Collection, error)
-	CreateCollection(
-		ctx context.Context,
-		collection string,
-		schema *entity.Schema,
-		metric entity.MetricType,
-	) error
+	DescribeCollection(ctx context.Context, collection string) (*entity.Collection, error)
+	CreateCollection(ctx context.Context, collection string, schema *entity.Schema, metric entity.MetricType) error
 	LoadCollection(ctx context.Context, collection string) error
-	Upsert(
-		ctx context.Context,
-		collection string,
-		ids []int64,
-		vectors [][]float32,
-		dimensions int,
-	) error
+	Upsert(ctx context.Context, collection string, ids []int64, vectors [][]float32, dimensions int) error
 	Delete(ctx context.Context, collection string, ids []int64) error
-	Search(
-		ctx context.Context,
-		collection string,
-		embedding []float32,
-		limit int,
-	) ([]SearchResult, error)
+	Search(ctx context.Context, collection string, embedding []float32, limit int) ([]SearchResult, error)
 	Ready(ctx context.Context, collection string) error
 	Close(ctx context.Context) error
 }
@@ -88,10 +69,7 @@ type milvusClientAdapter struct {
 
 // NewMilvusStore creates a Milvus vector store. The caller must invoke
 // EnsureCollection before the store is used.
-func NewMilvusStore(
-	ctx context.Context,
-	config MilvusConfig,
-) (*MilvusStore, error) {
+func NewMilvusStore(ctx context.Context, config MilvusConfig) (*MilvusStore, error) {
 	collection, metric, err := validateMilvusConfig(config)
 	if err != nil {
 		return nil, err

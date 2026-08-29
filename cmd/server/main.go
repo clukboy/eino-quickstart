@@ -61,7 +61,6 @@ func main() {
 	}
 
 	var runner execution.Runner
-
 	switch cfg.Execution.Mode {
 	case "docker":
 		runner, err = execution.NewDockerRunner(
