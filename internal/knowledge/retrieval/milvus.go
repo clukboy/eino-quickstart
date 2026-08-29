@@ -1,4 +1,4 @@
-package retriever
+package retrieval
 
 import (
 	context "context"
@@ -28,103 +28,12 @@ type HybridRetriever struct {
 }
 
 func (r *HybridRetriever) Search(ctx context.Context, actorSubject string, query string, topK int) ([]Result, error) {
-	if r == nil {
-		return nil, fmt.Errorf("knowledge retriever is nil")
-	}
-	if r.Client == nil {
-		return nil, fmt.Errorf("knowledge ent client is required")
-	}
-	if r.Embedder == nil {
-		return nil, fmt.Errorf("knowledge embedder is required")
-	}
-	if r.VectorStore == nil {
-		return nil, fmt.Errorf("knowledge vector store is required")
-	}
-	if r.KeywordSearcher == nil {
-		return nil, fmt.Errorf("knowledge keyword searcher is required")
-	}
-
-	query = strings.TrimSpace(query)
-
-	if query == "" {
-		return nil, fmt.Errorf("knowledge query is required")
-	}
-	if r.MaxQueryCharacters > 0 &&
-		len([]rune(query)) > r.MaxQueryCharacters {
-		return nil, fmt.Errorf("knowledge query exceeds maximum length")
-	}
-
-	if topK == 0 {
-		topK = r.DefaultTopK
-	}
-	if topK <= 0 {
-		return nil, fmt.Errorf("knowledge topK must be greater than zero")
-	}
-	if r.MaxTopK > 0 && topK > r.MaxTopK {
-		return nil, fmt.Errorf("knowledge topK exceeds maximum")
-	}
-	if r.VectorCandidates <= 0 {
-		return nil, fmt.Errorf("vector candidate limit must be greater than zero")
-	}
-	if r.KeywordCandidates <= 0 {
-		return nil, fmt.Errorf("keyword candidate limit must be greater than zero")
-	}
-	var vectorCandidates []Candidate
-
-	vectors, err := r.Embedder.Embed(ctx, []string{query})
-
-	if err == nil {
-		if len(vectors) != 1 {
-			err = fmt.Errorf("query embedding response has invalid count")
-		}
-	}
-
-	if err == nil {
-		vectorResults, searchErr := r.VectorStore.Search(
-			ctx,
-			vectors[0],
-			r.VectorCandidates,
-		)
-
-		if searchErr == nil {
-			vectorCandidates = make([]Candidate, 0, len(vectorResults))
-			for _, item := range vectorResults {
-				vectorCandidates = append(vectorCandidates, Candidate{
-					ChunkID: item.ChunkID,
-					Score:   item.Score,
-				})
-			}
-		}
-	}
-
-	keywordCandidates, err := r.KeywordSearcher.Search(
-		ctx,
-		actorSubject,
-		query,
-		r.KeywordCandidates,
-	)
+	debugResult, err := r.DebugSearch(ctx, actorSubject, query, topK)
 	if err != nil {
-		return nil, fmt.Errorf("keyword search: %w", err)
+		return nil, err
 	}
 
-	fused := FuseRRF(
-		r.RRFSmoothing,
-		WeightedCandidates{
-			Items:  vectorCandidates,
-			Weight: r.VectorWeight,
-		},
-		WeightedCandidates{
-			Items:  keywordCandidates,
-			Weight: r.KeywordWeight,
-		},
-	)
-
-	return r.loadAuthorizedResults(
-		ctx,
-		actorSubject,
-		fused,
-		topK,
-	)
+	return debugResult.FinalResults, nil
 }
 
 func (r *HybridRetriever) loadAuthorizedResults(
@@ -249,4 +158,115 @@ func truncateUTF8(value string, maximumBytes int) string {
 	}
 
 	return value[:end]
+}
+
+func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, query string, topK int) (*DebugResult, error) {
+	if r == nil {
+		return nil, fmt.Errorf("knowledge retriever is nil")
+	}
+	if r.Client == nil {
+		return nil, fmt.Errorf("knowledge ent client is required")
+	}
+	if r.Embedder == nil {
+		return nil, fmt.Errorf("knowledge embedder is required")
+	}
+	if r.VectorStore == nil {
+		return nil, fmt.Errorf("knowledge vector store is required")
+	}
+	if r.KeywordSearcher == nil {
+		return nil, fmt.Errorf("knowledge keyword searcher is required")
+	}
+
+	query = strings.TrimSpace(query)
+
+	if query == "" {
+		return nil, fmt.Errorf("knowledge query is required")
+	}
+
+	if r.MaxQueryCharacters > 0 &&
+		len([]rune(query)) > r.MaxQueryCharacters {
+		return nil, fmt.Errorf("knowledge query exceeds maximum length")
+	}
+
+	if topK == 0 {
+		topK = r.DefaultTopK
+	}
+
+	if topK <= 0 {
+		return nil, fmt.Errorf("knowledge topK must be greater than zero")
+	}
+
+	if r.MaxTopK > 0 && topK > r.MaxTopK {
+		return nil, fmt.Errorf("knowledge topK exceeds maximum")
+	}
+
+	if r.VectorCandidates <= 0 {
+		return nil, fmt.Errorf("vector candidate limit must be greater than zero")
+	}
+
+	if r.KeywordCandidates <= 0 {
+		return nil, fmt.Errorf("keyword candidate limit must be greater than zero")
+	}
+
+	debugResult := &DebugResult{Query: query}
+
+	// ==========================================
+	// 1. Vector Search
+	// ==========================================
+
+	var vectorCandidates []Candidate
+
+	vectors, err := r.Embedder.Embed(ctx, []string{query})
+
+	if err == nil && len(vectors) != 1 {
+		err = fmt.Errorf("query embedding response has invalid count")
+	}
+
+	if err == nil {
+		vectorResults, searchErr := r.VectorStore.Search(ctx, vectors[0], r.VectorCandidates)
+		if searchErr != nil {
+			return nil, fmt.Errorf("vector search: %w", searchErr)
+		}
+
+		vectorCandidates = make([]Candidate, 0, len(vectorResults))
+
+		for _, item := range vectorResults {
+			vectorCandidates = append(vectorCandidates,
+				Candidate{
+					ChunkID: item.ChunkID,
+					Score:   item.Score,
+				},
+			)
+		}
+	}
+
+	debugResult.VectorResults = vectorCandidates
+
+	keywordCandidates, err := r.KeywordSearcher.Search(ctx, actorSubject, query, r.KeywordCandidates)
+	if err != nil {
+		return nil, fmt.Errorf("keyword search: %w", err)
+	}
+
+	debugResult.KeywordResults = keywordCandidates
+
+	fused := FuseRRF(r.RRFSmoothing,
+		WeightedCandidates{
+			Items:  vectorCandidates,
+			Weight: r.VectorWeight,
+		},
+		WeightedCandidates{
+			Items:  keywordCandidates,
+			Weight: r.KeywordWeight,
+		},
+	)
+
+	debugResult.FusedResults = fused
+
+	finalResults, err := r.loadAuthorizedResults(ctx, actorSubject, fused, topK)
+	if err != nil {
+		return nil, err
+	}
+	debugResult.FinalResults = finalResults
+
+	return debugResult, nil
 }

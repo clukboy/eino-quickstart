@@ -1,4 +1,4 @@
-package retriever
+package retrieval
 
 import "context"
 
@@ -29,4 +29,17 @@ type KeywordSearcher interface {
 
 type Retriever interface {
 	Search(ctx context.Context, actorSubject string, query string, topK int) ([]Result, error)
+}
+
+type DebugResult struct {
+	Query string
+
+	VectorResults  []Candidate
+	KeywordResults []Candidate
+	FusedResults   []Candidate
+	FinalResults   []Result
+}
+
+type DebugRetriever interface {
+	DebugSearch(ctx context.Context, actorSubject string, query string, topK int) (*DebugResult, error)
 }

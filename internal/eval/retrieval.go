@@ -14,18 +14,10 @@ type RetrievalEvaluator struct {
 	TopK      int
 }
 
-func (e RetrievalEvaluator) Evaluate(
-	ctx context.Context,
-	test RetrievalCase,
-) CaseResult {
+func (e RetrievalEvaluator) Evaluate(ctx context.Context, test RetrievalCase) CaseResult {
 	startedAt := time.Now()
 
-	results, err := e.Retriever.Search(
-		ctx,
-		test.ActorSubject,
-		test.Query,
-		e.TopK,
-	)
+	results, err := e.Retriever.Search(ctx, test.ActorSubject, test.Query, e.TopK)
 
 	result := CaseResult{
 		ID:       test.ID,
