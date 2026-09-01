@@ -53,6 +53,12 @@ func (_c *DocumentChunkCreate) SetNillableHeadingPath(v *string) *DocumentChunkC
 	return _c
 }
 
+// SetMetadata sets the "metadata" field.
+func (_c *DocumentChunkCreate) SetMetadata(v map[string]interface{}) *DocumentChunkCreate {
+	_c.mutation.SetMetadata(v)
+	return _c
+}
+
 // SetStartLine sets the "start_line" field.
 func (_c *DocumentChunkCreate) SetStartLine(v int) *DocumentChunkCreate {
 	_c.mutation.SetStartLine(v)
@@ -253,6 +259,10 @@ func (_c *DocumentChunkCreate) createSpec() (*DocumentChunk, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.HeadingPath(); ok {
 		_spec.SetField(documentchunk.FieldHeadingPath, field.TypeString, value)
 		_node.HeadingPath = &value
+	}
+	if value, ok := _c.mutation.Metadata(); ok {
+		_spec.SetField(documentchunk.FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
 	}
 	if value, ok := _c.mutation.StartLine(); ok {
 		_spec.SetField(documentchunk.FieldStartLine, field.TypeInt, value)

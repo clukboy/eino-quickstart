@@ -83,7 +83,7 @@ func init() {
 	documentchunkFields := schema.DocumentChunk{}.Fields()
 	_ = documentchunkFields
 	// documentchunkDescCreatedAt is the schema descriptor for created_at field.
-	documentchunkDescCreatedAt := documentchunkFields[10].Descriptor()
+	documentchunkDescCreatedAt := documentchunkFields[11].Descriptor()
 	// documentchunk.DefaultCreatedAt holds the default value on creation for the created_at field.
 	documentchunk.DefaultCreatedAt = documentchunkDescCreatedAt.Default.(func() time.Time)
 	knowledgeindexFields := schema.KnowledgeIndex{}.Fields()

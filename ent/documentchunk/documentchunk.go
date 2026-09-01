@@ -23,6 +23,8 @@ const (
 	FieldContent = "content"
 	// FieldHeadingPath holds the string denoting the heading_path field in the database.
 	FieldHeadingPath = "heading_path"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
 	// FieldStartLine holds the string denoting the start_line field in the database.
 	FieldStartLine = "start_line"
 	// FieldEndLine holds the string denoting the end_line field in the database.
@@ -57,6 +59,7 @@ var Columns = []string{
 	FieldCitationID,
 	FieldContent,
 	FieldHeadingPath,
+	FieldMetadata,
 	FieldStartLine,
 	FieldEndLine,
 	FieldCharacterCount,

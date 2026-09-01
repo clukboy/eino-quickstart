@@ -7,6 +7,7 @@ import (
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/ent/vectoroutbox"
+	"eino-quickstart/internal/knowledge/types/product"
 	"errors"
 	"fmt"
 	"strings"
@@ -79,14 +80,7 @@ func (s *Service) IngestRoot(ctx context.Context, loader *Loader, ownerSubject s
 
 	result := IngestRootResult{Loaded: len(documents)}
 	for _, item := range documents {
-		if err := s.Ingest(
-			ctx,
-			item.Source,
-			item.Title,
-			item.Content,
-			ownerSubject,
-			visibility,
-		); err != nil {
+		if err := s.Ingest(ctx, item.Source, item.Title, item.Content, ownerSubject, visibility); err != nil {
 			return result, fmt.Errorf(
 				"ingest loaded document %q: %w",
 				item.Source,
@@ -98,14 +92,7 @@ func (s *Service) IngestRoot(ctx context.Context, loader *Loader, ownerSubject s
 	return result, nil
 }
 
-func (s *Service) Ingest(
-	ctx context.Context,
-	source string,
-	title string,
-	content string,
-	ownerSubject string,
-	visibility string,
-) error {
+func (s *Service) Ingest(ctx context.Context, source string, title string, content string, ownerSubject string, visibility string) error {
 	if s == nil {
 		return errors.New("knowledge service is nil")
 	}
@@ -132,6 +119,10 @@ func (s *Service) Ingest(
 	if err != nil {
 		return err
 	}
+	productInfo, err := product.Parse(input.content)
+	if err != nil {
+		return fmt.Errorf("parse product metadata: %w", err)
+	}
 
 	chunks, err := s.Chunker.Split(input.content)
 	if err != nil {
@@ -150,7 +141,7 @@ func (s *Service) Ingest(
 
 	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(input.content)))
 	for attempt := 0; attempt < 2; attempt++ {
-		err = s.ingestOnce(ctx, input, chunks, checksum)
+		err = s.ingestOnce(ctx, input, productInfo.ToMap(), chunks, checksum)
 		if !errors.Is(err, errSourceCreateConflict) {
 			break
 		}
@@ -225,12 +216,7 @@ func validateIngestInput(
 	return input, nil
 }
 
-func (s *Service) ingestOnce(
-	ctx context.Context,
-	input ingestInput,
-	chunks []Chunk,
-	checksum string,
-) (err error) {
+func (s *Service) ingestOnce(ctx context.Context, input ingestInput, metadata map[string]any, chunks []Chunk, checksum string) (err error) {
 	tx, err := s.Client.Tx(ctx)
 	if err != nil {
 		return fmt.Errorf("start ingestion transaction: %w", err)
@@ -284,6 +270,7 @@ func (s *Service) ingestOnce(
 			SetNillableHeadingPath(optionalString(chunk.HeadingPath)).
 			SetStartLine(chunk.StartLine).
 			SetEndLine(chunk.EndLine).
+			SetMetadata(metadata).
 			SetCharacterCount(len([]rune(chunk.Content))).
 			SetEmbeddingModel(strings.TrimSpace(s.EmbeddingModel)).
 			SetVectorStatus(documentchunk.VectorStatusPending).

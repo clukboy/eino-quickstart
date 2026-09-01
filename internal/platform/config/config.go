@@ -167,13 +167,18 @@ type MaintenanceConfig struct {
 }
 
 type RetrievalConfig struct {
-	VectorWeight          float64 `yaml:"vectorWeight"`
-	KeywordWeight         float64 `yaml:"keywordWeight"`
-	RRFSmoothing          int     `yaml:"rrfSmoothing"`
-	VectorCandidateLimit  int     `yaml:"vectorCandidateLimit"`
-	KeywordCandidateLimit int     `yaml:"keywordCandidateLimit"`
-	EnableRerank          bool    `yaml:"enableRerank"`
-	MaxRerankCandidates   int     `yaml:"maxRerankCandidates"`
+	VectorWeight  float64 `yaml:"vectorWeight"`
+	KeywordWeight float64 `yaml:"keywordWeight"`
+	ExactWeight   float64 `yaml:"exactWeight"`
+
+	RRFSmoothing int `yaml:"rrfSmoothing"`
+
+	VectorCandidateLimit  int `yaml:"vectorCandidateLimit"`
+	KeywordCandidateLimit int `yaml:"keywordCandidateLimit"`
+	ExactCandidateLimit   int `yaml:"exactCandidateLimit"`
+
+	EnableRerank        bool `yaml:"enableRerank"`
+	MaxRerankCandidates int  `yaml:"maxRerankCandidates"`
 }
 
 type IndexerConfig struct {

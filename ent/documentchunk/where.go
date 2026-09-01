@@ -350,6 +350,16 @@ func HeadingPathContainsFold(v string) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldContainsFold(FieldHeadingPath, v))
 }
 
+// MetadataIsNil applies the IsNil predicate on the "metadata" field.
+func MetadataIsNil() predicate.DocumentChunk {
+	return predicate.DocumentChunk(sql.FieldIsNull(FieldMetadata))
+}
+
+// MetadataNotNil applies the NotNil predicate on the "metadata" field.
+func MetadataNotNil() predicate.DocumentChunk {
+	return predicate.DocumentChunk(sql.FieldNotNull(FieldMetadata))
+}
+
 // StartLineEQ applies the EQ predicate on the "start_line" field.
 func StartLineEQ(v int) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldEQ(FieldStartLine, v))

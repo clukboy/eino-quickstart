@@ -37,6 +37,7 @@ type DebugResult struct {
 	VectorResults  []Candidate
 	KeywordResults []Candidate
 	FusedResults   []Candidate
+	ExactResults   []Candidate
 	FinalResults   []Result
 }
 

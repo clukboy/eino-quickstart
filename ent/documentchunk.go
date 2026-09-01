@@ -5,6 +5,7 @@ package ent
 import (
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -26,6 +27,8 @@ type DocumentChunk struct {
 	Content string `json:"content,omitempty"`
 	// HeadingPath holds the value of the "heading_path" field.
 	HeadingPath *string `json:"heading_path,omitempty"`
+	// Metadata holds the value of the "metadata" field.
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	// StartLine holds the value of the "start_line" field.
 	StartLine int `json:"start_line,omitempty"`
 	// EndLine holds the value of the "end_line" field.
@@ -72,6 +75,8 @@ func (*DocumentChunk) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case documentchunk.FieldMetadata:
+			values[i] = new([]byte)
 		case documentchunk.FieldID, documentchunk.FieldChunkIndex, documentchunk.FieldStartLine, documentchunk.FieldEndLine, documentchunk.FieldCharacterCount:
 			values[i] = new(sql.NullInt64)
 		case documentchunk.FieldCitationID, documentchunk.FieldContent, documentchunk.FieldHeadingPath, documentchunk.FieldEmbeddingModel, documentchunk.FieldVectorStatus:
@@ -125,6 +130,14 @@ func (_m *DocumentChunk) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.HeadingPath = new(string)
 				*_m.HeadingPath = value.String
+			}
+		case documentchunk.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
 			}
 		case documentchunk.FieldStartLine:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -230,6 +243,9 @@ func (_m *DocumentChunk) String() string {
 		builder.WriteString("heading_path=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
 	builder.WriteString(", ")
 	builder.WriteString("start_line=")
 	builder.WriteString(fmt.Sprintf("%v", _m.StartLine))

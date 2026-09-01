@@ -5,7 +5,7 @@ import (
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/middleware"
 	"eino-quickstart/internal/knowledge/embedding"
-	retriever "eino-quickstart/internal/knowledge/retrieval"
+	"eino-quickstart/internal/knowledge/retrieval"
 	"eino-quickstart/internal/knowledge/vectorstore"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/config"
@@ -165,24 +165,34 @@ func main() {
 	if err := vecStore.EnsureCollection(ctx); err != nil {
 		log.Fatal(err)
 	}
+	keywordSearcher := retrieval.NewPostgresKeywordSearcher(entClient)
 
-	hybridRetriever := &retriever.HybridRetriever{
-		Client:             entClient,
-		Embedder:           embedder,
-		VectorStore:        vecStore,
-		KeywordSearcher:    retriever.NewPostgresKeywordSearcher(entClient),
+	productSearcher := retrieval.NewProductSearcher(entClient)
+
+	retriever := &retrieval.HybridRetriever{
+		Client:      entClient,
+		Embedder:    embedder,
+		VectorStore: vecStore,
+
+		KeywordSearcher: keywordSearcher,
+		ProductSearcher: productSearcher,
+
 		DefaultTopK:        cfg.Knowledge.DefaultTopK,
 		MaxTopK:            cfg.Knowledge.MaxTopK,
-		VectorCandidates:   cfg.Milvus.TopKCandidate,
+		VectorCandidates:   cfg.Retrieval.VectorCandidateLimit,
 		KeywordCandidates:  cfg.Retrieval.KeywordCandidateLimit,
+		ExactCandidates:    cfg.Retrieval.ExactCandidateLimit,
 		MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
 		MaxResultBytes:     cfg.Knowledge.MaxResultBytes,
-		VectorWeight:       cfg.Retrieval.VectorWeight,
-		KeywordWeight:      cfg.Retrieval.KeywordWeight,
-		RRFSmoothing:       cfg.Retrieval.RRFSmoothing,
+
+		VectorWeight:  cfg.Retrieval.VectorWeight,
+		KeywordWeight: cfg.Retrieval.KeywordWeight,
+		ExactWeight:   cfg.Retrieval.ExactWeight,
+
+		RRFSmoothing: cfg.Retrieval.RRFSmoothing,
 	}
 
-	knowledgeSearchTool, err := tool.NewKnowledgeSearch(hybridRetriever, "")
+	knowledgeSearchTool, err := tool.NewKnowledgeSearch(retriever, "")
 	if err != nil {
 		log.Fatal(err)
 	}

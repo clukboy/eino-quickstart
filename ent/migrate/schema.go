@@ -197,6 +197,7 @@ var (
 		{Name: "citation_id", Type: field.TypeString, Unique: true},
 		{Name: "content", Type: field.TypeString, Size: 2147483647},
 		{Name: "heading_path", Type: field.TypeString, Nullable: true},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 		{Name: "start_line", Type: field.TypeInt},
 		{Name: "end_line", Type: field.TypeInt},
 		{Name: "character_count", Type: field.TypeInt},
@@ -214,7 +215,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "document_chunks_documents_chunks",
-				Columns:    []*schema.Column{DocumentChunksColumns[12]},
+				Columns:    []*schema.Column{DocumentChunksColumns[13]},
 				RefColumns: []*schema.Column{DocumentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -223,12 +224,22 @@ var (
 			{
 				Name:    "documentchunk_chunk_index_document_chunks",
 				Unique:  true,
-				Columns: []*schema.Column{DocumentChunksColumns[1], DocumentChunksColumns[12]},
+				Columns: []*schema.Column{DocumentChunksColumns[1], DocumentChunksColumns[13]},
 			},
 			{
 				Name:    "documentchunk_vector_status",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentChunksColumns[9]},
+				Columns: []*schema.Column{DocumentChunksColumns[10]},
+			},
+			{
+				Name:    "documentchunk_metadata",
+				Unique:  false,
+				Columns: []*schema.Column{DocumentChunksColumns[5]},
+				Annotation: &entsql.IndexAnnotation{
+					Types: map[string]string{
+						"postgres": "GIN",
+					},
+				},
 			},
 		},
 	}

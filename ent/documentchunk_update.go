@@ -63,6 +63,18 @@ func (_u *DocumentChunkUpdate) ClearHeadingPath() *DocumentChunkUpdate {
 	return _u
 }
 
+// SetMetadata sets the "metadata" field.
+func (_u *DocumentChunkUpdate) SetMetadata(v map[string]interface{}) *DocumentChunkUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *DocumentChunkUpdate) ClearMetadata() *DocumentChunkUpdate {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
 // SetStartLine sets the "start_line" field.
 func (_u *DocumentChunkUpdate) SetStartLine(v int) *DocumentChunkUpdate {
 	_u.mutation.ResetStartLine()
@@ -257,6 +269,12 @@ func (_u *DocumentChunkUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if _u.mutation.HeadingPathCleared() {
 		_spec.ClearField(documentchunk.FieldHeadingPath, field.TypeString)
 	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(documentchunk.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(documentchunk.FieldMetadata, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.StartLine(); ok {
 		_spec.SetField(documentchunk.FieldStartLine, field.TypeInt, value)
 	}
@@ -367,6 +385,18 @@ func (_u *DocumentChunkUpdateOne) SetNillableHeadingPath(v *string) *DocumentChu
 // ClearHeadingPath clears the value of the "heading_path" field.
 func (_u *DocumentChunkUpdateOne) ClearHeadingPath() *DocumentChunkUpdateOne {
 	_u.mutation.ClearHeadingPath()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *DocumentChunkUpdateOne) SetMetadata(v map[string]interface{}) *DocumentChunkUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *DocumentChunkUpdateOne) ClearMetadata() *DocumentChunkUpdateOne {
+	_u.mutation.ClearMetadata()
 	return _u
 }
 
@@ -593,6 +623,12 @@ func (_u *DocumentChunkUpdateOne) sqlSave(ctx context.Context) (_node *DocumentC
 	}
 	if _u.mutation.HeadingPathCleared() {
 		_spec.ClearField(documentchunk.FieldHeadingPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(documentchunk.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(documentchunk.FieldMetadata, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.StartLine(); ok {
 		_spec.SetField(documentchunk.FieldStartLine, field.TypeInt, value)

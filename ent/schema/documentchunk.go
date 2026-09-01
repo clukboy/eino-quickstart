@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -21,6 +23,7 @@ func (DocumentChunk) Fields() []ent.Field {
 		field.String("citation_id").Unique().Immutable(),
 		field.Text("content"),
 		field.String("heading_path").Optional().Nillable(),
+		field.JSON("metadata", map[string]any{}).Optional(),
 		field.Int("start_line"),
 		field.Int("end_line"),
 		field.Int("character_count"),
@@ -47,5 +50,9 @@ func (DocumentChunk) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("chunk_index").Edges("document").Unique(),
 		index.Fields("vector_status"),
+		index.Fields("metadata").
+			Annotations(entsql.IndexTypes(map[string]string{
+				dialect.Postgres: "GIN",
+			})),
 	}
 }

@@ -142,11 +142,18 @@ maintenance:
   cleanupBatchSize: 100
 
 retrieval:
+  # 产品检索：
+  # Exact > Keyword > Vector
+  exactWeight: 3.0
+  keywordWeight: 1.5
   vectorWeight: 1.0
-  keywordWeight: 1.0
+
   rrfSmoothing: 60
-  vectorCandidateLimit: 30
+
+  exactCandidateLimit: 20
   keywordCandidateLimit: 30
+  vectorCandidateLimit: 30
+
   enableRerank: false
   maxRerankCandidates: 20
 

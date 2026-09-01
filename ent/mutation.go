@@ -5367,6 +5367,7 @@ type DocumentChunkMutation struct {
 	citation_id        *string
 	content            *string
 	heading_path       *string
+	metadata           *map[string]interface{}
 	start_line         *int
 	addstart_line      *int
 	end_line           *int
@@ -5658,6 +5659,55 @@ func (m *DocumentChunkMutation) HeadingPathCleared() bool {
 func (m *DocumentChunkMutation) ResetHeadingPath() {
 	m.heading_path = nil
 	delete(m.clearedFields, documentchunk.FieldHeadingPath)
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *DocumentChunkMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *DocumentChunkMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the DocumentChunk entity.
+// If the DocumentChunk object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentChunkMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *DocumentChunkMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[documentchunk.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *DocumentChunkMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[documentchunk.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *DocumentChunkMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, documentchunk.FieldMetadata)
 }
 
 // SetStartLine sets the "start_line" field.
@@ -6058,7 +6108,7 @@ func (m *DocumentChunkMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DocumentChunkMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.chunk_index != nil {
 		fields = append(fields, documentchunk.FieldChunkIndex)
 	}
@@ -6070,6 +6120,9 @@ func (m *DocumentChunkMutation) Fields() []string {
 	}
 	if m.heading_path != nil {
 		fields = append(fields, documentchunk.FieldHeadingPath)
+	}
+	if m.metadata != nil {
+		fields = append(fields, documentchunk.FieldMetadata)
 	}
 	if m.start_line != nil {
 		fields = append(fields, documentchunk.FieldStartLine)
@@ -6108,6 +6161,8 @@ func (m *DocumentChunkMutation) Field(name string) (ent.Value, bool) {
 		return m.Content()
 	case documentchunk.FieldHeadingPath:
 		return m.HeadingPath()
+	case documentchunk.FieldMetadata:
+		return m.Metadata()
 	case documentchunk.FieldStartLine:
 		return m.StartLine()
 	case documentchunk.FieldEndLine:
@@ -6139,6 +6194,8 @@ func (m *DocumentChunkMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldContent(ctx)
 	case documentchunk.FieldHeadingPath:
 		return m.OldHeadingPath(ctx)
+	case documentchunk.FieldMetadata:
+		return m.OldMetadata(ctx)
 	case documentchunk.FieldStartLine:
 		return m.OldStartLine(ctx)
 	case documentchunk.FieldEndLine:
@@ -6189,6 +6246,13 @@ func (m *DocumentChunkMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetHeadingPath(v)
+		return nil
+	case documentchunk.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
 		return nil
 	case documentchunk.FieldStartLine:
 		v, ok := value.(int)
@@ -6323,6 +6387,9 @@ func (m *DocumentChunkMutation) ClearedFields() []string {
 	if m.FieldCleared(documentchunk.FieldHeadingPath) {
 		fields = append(fields, documentchunk.FieldHeadingPath)
 	}
+	if m.FieldCleared(documentchunk.FieldMetadata) {
+		fields = append(fields, documentchunk.FieldMetadata)
+	}
 	if m.FieldCleared(documentchunk.FieldIndexedAt) {
 		fields = append(fields, documentchunk.FieldIndexedAt)
 	}
@@ -6342,6 +6409,9 @@ func (m *DocumentChunkMutation) ClearField(name string) error {
 	switch name {
 	case documentchunk.FieldHeadingPath:
 		m.ClearHeadingPath()
+		return nil
+	case documentchunk.FieldMetadata:
+		m.ClearMetadata()
 		return nil
 	case documentchunk.FieldIndexedAt:
 		m.ClearIndexedAt()
@@ -6365,6 +6435,9 @@ func (m *DocumentChunkMutation) ResetField(name string) error {
 		return nil
 	case documentchunk.FieldHeadingPath:
 		m.ResetHeadingPath()
+		return nil
+	case documentchunk.FieldMetadata:
+		m.ResetMetadata()
 		return nil
 	case documentchunk.FieldStartLine:
 		m.ResetStartLine()

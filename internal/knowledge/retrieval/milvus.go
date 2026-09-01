@@ -12,19 +12,25 @@ import (
 )
 
 type HybridRetriever struct {
-	Client             *ent.Client
-	Embedder           embedding.Embedder
-	VectorStore        vectorstore.Store
-	KeywordSearcher    KeywordSearcher
+	Client          *ent.Client
+	Embedder        embedding.Embedder
+	VectorStore     vectorstore.Store
+	KeywordSearcher KeywordSearcher
+	ProductSearcher *ProductSearcher
+
 	DefaultTopK        int
 	MaxTopK            int
 	VectorCandidates   int
 	KeywordCandidates  int
+	ExactCandidates    int
 	MaxQueryCharacters int
 	MaxResultBytes     int
-	VectorWeight       float64
-	KeywordWeight      float64
-	RRFSmoothing       int
+
+	VectorWeight  float64
+	KeywordWeight float64
+	ExactWeight   float64
+
+	RRFSmoothing int
 }
 
 func (r *HybridRetriever) Search(ctx context.Context, actorSubject string, query string, topK int) ([]Result, error) {
@@ -242,6 +248,17 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 
 	debugResult.VectorResults = vectorCandidates
 
+	queryInfo := ParseQuery(query)
+
+	var exactCandidates []Candidate
+	if queryInfo.HasModel && r.ProductSearcher != nil {
+		exactCandidates, err = r.ProductSearcher.SearchModel(ctx, actorSubject, queryInfo.Model, r.ExactCandidates)
+		if err != nil {
+			return nil, fmt.Errorf("exact product search: %w", err)
+		}
+	}
+	debugResult.ExactResults = exactCandidates
+
 	keywordCandidates, err := r.KeywordSearcher.Search(ctx, actorSubject, query, r.KeywordCandidates)
 	if err != nil {
 		return nil, fmt.Errorf("keyword search: %w", err)
@@ -250,6 +267,10 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 	debugResult.KeywordResults = keywordCandidates
 
 	fused := FuseRRF(r.RRFSmoothing,
+		WeightedCandidates{
+			Items:  exactCandidates,
+			Weight: r.ExactWeight,
+		},
 		WeightedCandidates{
 			Items:  vectorCandidates,
 			Weight: r.VectorWeight,
