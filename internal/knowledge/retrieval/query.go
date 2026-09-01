@@ -24,12 +24,12 @@ func ParseQuery(query string) QueryInfo {
 		return info
 	}
 
-	match := modelPattern.FindString(query)
-	if match == "" {
+	match := modelPattern.FindStringSubmatch(query)
+	if len(match) < 2 {
 		return info
 	}
 
-	info.Model = strings.ToUpper(strings.TrimSpace(match))
+	info.Model = strings.ToUpper(match[1])
 	info.HasModel = true
 
 	return info

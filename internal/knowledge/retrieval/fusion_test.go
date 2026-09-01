@@ -10,11 +10,16 @@ func TestFuseRRFDeterministicOrder(t *testing.T) {
 		WeightedCandidates{
 			Items: []Candidate{
 				{
-					ChunkID: 2,
+					ChunkID: 1,
 					Score:   1,
 				},
+			},
+			Weight: 1,
+		},
+		WeightedCandidates{
+			Items: []Candidate{
 				{
-					ChunkID: 1,
+					ChunkID: 2,
 					Score:   1,
 				},
 			},

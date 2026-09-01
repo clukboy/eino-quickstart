@@ -499,9 +499,10 @@ func Load(path string) (*Config, error) {
 	if cfg.Retrieval.VectorWeight < 0 ||
 		cfg.Retrieval.KeywordWeight < 0 ||
 		(cfg.Retrieval.VectorWeight == 0 &&
-			cfg.Retrieval.KeywordWeight == 0) {
+			cfg.Retrieval.KeywordWeight == 0 &&
+			cfg.Retrieval.ExactWeight == 0) {
 		return nil, fmt.Errorf(
-			"retrieval.vectorWeight and retrieval.keywordWeight must not both be zero",
+			"at least one retrieval weight must be greater than zero",
 		)
 	}
 
@@ -522,6 +523,13 @@ func Load(path string) (*Config, error) {
 		cfg.Knowledge.MaxTopK {
 		return nil, fmt.Errorf(
 			"retrieval.keywordCandidateLimit must be at least knowledge.maxTopK",
+		)
+	}
+
+	if cfg.Retrieval.ExactCandidateLimit <
+		cfg.Knowledge.MaxTopK {
+		return nil, fmt.Errorf(
+			"retrieval.exactCandidateLimit must be at least knowledge.maxTopK",
 		)
 	}
 

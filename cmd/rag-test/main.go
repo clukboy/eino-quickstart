@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"eino-quickstart/internal/knowledge/embedding"
@@ -133,14 +135,21 @@ func main() {
 	fmt.Println("输入 exit / quit 退出。")
 	fmt.Println()
 
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Buffer(
+		make([]byte, 1024),
+		max(64*1024, cfg.Knowledge.MaxQueryCharacters*4+1),
+	)
 	for {
 		fmt.Print("Query > ")
 
-		var query string
-
-		if _, err := fmt.Scanln(&query); err != nil {
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				log.Printf("read query: %v", err)
+			}
 			return
 		}
+		query := strings.TrimSpace(scanner.Text())
 
 		if query == "exit" || query == "quit" {
 			return

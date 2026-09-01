@@ -82,7 +82,7 @@ knowledge workspace automation
 ```text
 文档 -> Chunker -> PostgreSQL documents/document_chunks
      -> vector_outbox -> Embedder -> Milvus
-查询 -> 向量检索 + PostgreSQL 关键词检索 -> RRF 融合
+查询 -> 型号精确检索 + 向量检索 + PostgreSQL 关键词检索 -> RRF 融合
      -> ACL 过滤 -> 含引用的 search_knowledge 输出
 ```
 

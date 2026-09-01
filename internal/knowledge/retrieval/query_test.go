@@ -34,6 +34,12 @@ func TestParseQueryModel(t *testing.T) {
 			hasModel: true,
 		},
 		{
+			name:     "model with punctuation",
+			query:    "H42：安装角度是多少？",
+			want:     "H42",
+			hasModel: true,
+		},
+		{
 			name:     "no model",
 			query:    "快装二段力铰链",
 			want:     "",

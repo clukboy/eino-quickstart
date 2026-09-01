@@ -73,6 +73,8 @@ go test ./internal/knowledge -run TestChunker
 
 索引成功后启动服务，然后以 `agent` 角色的 API Key 调用对话接口，在 `message` 中询问文档包含的内容。根 Agent 会将知识相关问题路由给 `knowledge_agent`，后者调用 `search_knowledge` 并返回带引用的结果。
 
+也可以用 `go run ./cmd/rag-test` 检查完整问题的各通道召回、RRF 排序和最终引用。产品型号（如 `H11` 或 `H105G`）会额外进入精确型号通道。
+
 ```bash
 curl -N http://127.0.0.1:8080/api/v1/chat \
   -H "Authorization: Bearer $EINO_API_KEY_DEVELOPER" \
