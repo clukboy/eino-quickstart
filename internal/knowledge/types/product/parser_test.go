@@ -1,6 +1,7 @@
 package product
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -165,4 +166,89 @@ func containsString(value, target string) bool {
 	}
 
 	return false
+}
+
+func TestParseMarkdownBoldValue(t *testing.T) {
+	content := `
+**型号**：**H11**
+**精确型号**：**H11**
+**大类**：**铰链**
+**细分品类**：**缓冲铰链**
+**产品系列**：**经典系列**
+**产品名称**：**二段力滑入式铰链**
+**安装方式**：**滑入式**
+**门板材质**：**木门**
+**力学类型**：**二段力**
+**基材材质**：**冷轧钢**
+**家族前缀**：**H11**
+**同族所有变体型号列表**：**H11**
+`
+
+	got, err := Parse(content)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	tests := map[string]string{
+		"Model":        got.Model,
+		"ExactModel":   got.ExactModel,
+		"Category":     got.Category,
+		"Subcategory":  got.Subcategory,
+		"Series":       got.Series,
+		"Name":         got.Name,
+		"Installation": got.Installation,
+		"DoorMaterial": got.DoorMaterial,
+		"ForceType":    got.ForceType,
+		"BaseMaterial": got.BaseMaterial,
+		"FamilyPrefix": got.FamilyPrefix,
+	}
+
+	expected := map[string]string{
+		"Model":        "H11",
+		"ExactModel":   "H11",
+		"Category":     "铰链",
+		"Subcategory":  "缓冲铰链",
+		"Series":       "经典系列",
+		"Name":         "二段力滑入式铰链",
+		"Installation": "滑入式",
+		"DoorMaterial": "木门",
+		"ForceType":    "二段力",
+		"BaseMaterial": "冷轧钢",
+		"FamilyPrefix": "H11",
+	}
+
+	for field, actual := range tests {
+		want := expected[field]
+
+		if actual != want {
+			t.Errorf(
+				"%s = %q, want %q",
+				field,
+				actual,
+				want,
+			)
+		}
+
+		if strings.Contains(actual, "**") {
+			t.Errorf(
+				"%s still contains markdown bold marker: %q",
+				field,
+				actual,
+			)
+		}
+	}
+
+	if len(got.VariantModels) != 1 {
+		t.Fatalf(
+			"VariantModels = %#v, want one item",
+			got.VariantModels,
+		)
+	}
+
+	if got.VariantModels[0] != "H11" {
+		t.Fatalf(
+			"VariantModels[0] = %q, want H11",
+			got.VariantModels[0],
+		)
+	}
 }

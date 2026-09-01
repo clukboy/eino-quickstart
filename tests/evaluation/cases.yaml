@@ -1,0 +1,45 @@
+cases:
+  - id: h11-model
+    query: "H11"
+    expected_models:
+      - "H11"
+
+  - id: h11-product
+    query: "H11是什么产品"
+    expected_models:
+      - "H11"
+
+  - id: h11-name
+    query: "二段力滑入式铰链"
+    expected_models:
+      - "H11"
+
+  - id: h11-mount
+    query: "滑入式铰链"
+    expected_models:
+      - "H11"
+
+  - id: h11-force
+    query: "二段力铰链"
+    expected_models:
+      - "H11"
+
+  - id: h11-series
+    query: "经典系列"
+    expected_models:
+      - "H11"
+  - id: h105
+    query: "H105"
+    expected_models:
+      - "H105"
+      - "H105G"
+
+  - id: h105-fixed
+    query: "H105固装"
+    expected_models:
+      - "H105G"
+
+  - id: h105g
+    query: "H105G"
+    expected_models:
+      - "H105G"

@@ -6,8 +6,14 @@ import (
 	"strings"
 )
 
-var fieldLinePattern = regexp.MustCompile(
-	`^\s*(?:\d+\.\s*)?([^:：]+)\s*[:：]\s*(.*?)\s*$`,
+var (
+	fieldLinePattern = regexp.MustCompile(
+		`^\s*(?:\d+\.\s*)?([^:：]+)\s*[:：]\s*(.*?)\s*$`,
+	)
+
+	inlineMarkdownLinkPattern = regexp.MustCompile(
+		`\[([^\]]+)\]\([^)]+\)`,
+	)
 )
 
 // Parse 从产品 Markdown 中解析结构化产品字段。
@@ -25,6 +31,7 @@ var fieldLinePattern = regexp.MustCompile(
 // 第一版故意采用简单规则，避免引入 LLM 解析导致产品索引结果不稳定。
 func Parse(content string) (Product, error) {
 	content = strings.TrimSpace(content)
+
 	if content == "" {
 		return Product{}, fmt.Errorf("product content is empty")
 	}
@@ -46,7 +53,7 @@ func Parse(content string) (Product, error) {
 		}
 
 		fieldName := normalizeFieldName(matches[1])
-		value := strings.TrimSpace(matches[2])
+		value := normalizeFieldValue(matches[2])
 
 		if value == "" {
 			continue
@@ -91,12 +98,10 @@ func Parse(content string) (Product, error) {
 		}
 	}
 
-	// 如果没有精确型号，则使用型号。
 	if p.ExactModel == "" {
 		p.ExactModel = p.Model
 	}
 
-	// 如果没有家族前缀，则使用型号。
 	if p.FamilyPrefix == "" {
 		p.FamilyPrefix = p.Model
 	}
@@ -115,6 +120,22 @@ func normalizeFieldName(value string) string {
 	value = strings.Trim(value, "*")
 
 	return value
+}
+
+func normalizeFieldValue(value string) string {
+	value = strings.TrimSpace(value)
+
+	// Markdown emphasis
+	value = strings.ReplaceAll(value, "**", "")
+	value = strings.ReplaceAll(value, "__", "")
+
+	// Markdown inline link
+	value = inlineMarkdownLinkPattern.ReplaceAllString(
+		value,
+		`$1`,
+	)
+
+	return strings.TrimSpace(value)
 }
 
 func splitVariants(value string) []string {

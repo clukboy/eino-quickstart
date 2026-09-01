@@ -140,3 +140,52 @@ func writeKnowledgeTestFile(t *testing.T, path string, content string) {
 		t.Fatalf("write fixture %q: %v", path, err)
 	}
 }
+
+func TestLoaderPreservesOriginalMarkdown(t *testing.T) {
+	root := t.TempDir()
+
+	original := `# H11 二段力滑入式铰链
+
+**型号**：**H11**
+
+**产品名称**：**二段力滑入式铰链**
+`
+
+	path := filepath.Join(root, "H11.md")
+
+	if err := os.WriteFile(
+		path,
+		[]byte(original),
+		0644,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	loader, err := NewLoader(LoaderConfig{
+		Root:             root,
+		MaxDocumentBytes: 1024 * 1024,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	documents, err := loader.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(documents) != 1 {
+		t.Fatalf(
+			"got %d documents, want 1",
+			len(documents),
+		)
+	}
+
+	if documents[0].Content != original {
+		t.Fatalf(
+			"loader changed original content\nwant:\n%s\n\ngot:\n%s",
+			original,
+			documents[0].Content,
+		)
+	}
+}

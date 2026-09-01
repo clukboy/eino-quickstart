@@ -10,7 +10,7 @@ import (
 )
 
 type RetrievalEvaluator struct {
-	Retriever retriever.Retriever
+	Retriever retrieval.Retriever
 	TopK      int
 }
 
