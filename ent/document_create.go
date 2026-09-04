@@ -6,6 +6,8 @@ import (
 	"context"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
 	"errors"
 	"fmt"
 	"time"
@@ -30,6 +32,12 @@ func (_c *DocumentCreate) SetSource(v string) *DocumentCreate {
 // SetTitle sets the "title" field.
 func (_c *DocumentCreate) SetTitle(v string) *DocumentCreate {
 	_c.mutation.SetTitle(v)
+	return _c
+}
+
+// SetMetadata sets the "metadata" field.
+func (_c *DocumentCreate) SetMetadata(v map[string]interface{}) *DocumentCreate {
+	_c.mutation.SetMetadata(v)
 	return _c
 }
 
@@ -81,6 +89,26 @@ func (_c *DocumentCreate) SetNillableStatus(v *document.Status) *DocumentCreate 
 	return _c
 }
 
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (_c *DocumentCreate) SetKnowledgeBaseID(v int) *DocumentCreate {
+	_c.mutation.SetKnowledgeBaseID(v)
+	return _c
+}
+
+// SetFolderID sets the "folder_id" field.
+func (_c *DocumentCreate) SetFolderID(v int) *DocumentCreate {
+	_c.mutation.SetFolderID(v)
+	return _c
+}
+
+// SetNillableFolderID sets the "folder_id" field if the given value is not nil.
+func (_c *DocumentCreate) SetNillableFolderID(v *int) *DocumentCreate {
+	if v != nil {
+		_c.SetFolderID(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *DocumentCreate) SetCreatedAt(v time.Time) *DocumentCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -107,6 +135,16 @@ func (_c *DocumentCreate) SetNillableUpdatedAt(v *time.Time) *DocumentCreate {
 		_c.SetUpdatedAt(*v)
 	}
 	return _c
+}
+
+// SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
+func (_c *DocumentCreate) SetKnowledgeBase(v *KnowledgeBase) *DocumentCreate {
+	return _c.SetKnowledgeBaseID(v.ID)
+}
+
+// SetFolder sets the "folder" edge to the KnowledgeFolder entity.
+func (_c *DocumentCreate) SetFolder(v *KnowledgeFolder) *DocumentCreate {
+	return _c.SetFolderID(v.ID)
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
@@ -211,11 +249,17 @@ func (_c *DocumentCreate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.KnowledgeBaseID(); !ok {
+		return &ValidationError{Name: "knowledge_base_id", err: errors.New(`ent: missing required field "Document.knowledge_base_id"`)}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Document.created_at"`)}
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Document.updated_at"`)}
+	}
+	if len(_c.mutation.KnowledgeBaseIDs()) == 0 {
+		return &ValidationError{Name: "knowledge_base", err: errors.New(`ent: missing required edge "Document.knowledge_base"`)}
 	}
 	return nil
 }
@@ -251,6 +295,10 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
 		_node.Title = value
 	}
+	if value, ok := _c.mutation.Metadata(); ok {
+		_spec.SetField(document.FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
+	}
 	if value, ok := _c.mutation.Checksum(); ok {
 		_spec.SetField(document.FieldChecksum, field.TypeString, value)
 		_node.Checksum = value
@@ -274,6 +322,40 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(document.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := _c.mutation.KnowledgeBaseIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.KnowledgeBaseTable,
+			Columns: []string{document.KnowledgeBaseColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.KnowledgeBaseID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.FolderIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.FolderTable,
+			Columns: []string{document.FolderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.FolderID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ChunksIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

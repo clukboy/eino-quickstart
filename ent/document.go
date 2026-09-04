@@ -4,6 +4,9 @@ package ent
 
 import (
 	"eino-quickstart/ent/document"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -21,6 +24,8 @@ type Document struct {
 	Source string `json:"source,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
+	// Metadata holds the value of the "metadata" field.
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	// Checksum holds the value of the "checksum" field.
 	Checksum string `json:"checksum,omitempty"`
 	// OwnerSubject holds the value of the "owner_subject" field.
@@ -29,6 +34,10 @@ type Document struct {
 	Visibility document.Visibility `json:"visibility,omitempty"`
 	// Status holds the value of the "status" field.
 	Status document.Status `json:"status,omitempty"`
+	// KnowledgeBaseID holds the value of the "knowledge_base_id" field.
+	KnowledgeBaseID int `json:"knowledge_base_id,omitempty"`
+	// FolderID holds the value of the "folder_id" field.
+	FolderID *int `json:"folder_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -41,17 +50,43 @@ type Document struct {
 
 // DocumentEdges holds the relations/edges for other nodes in the graph.
 type DocumentEdges struct {
+	// KnowledgeBase holds the value of the knowledge_base edge.
+	KnowledgeBase *KnowledgeBase `json:"knowledge_base,omitempty"`
+	// Folder holds the value of the folder edge.
+	Folder *KnowledgeFolder `json:"folder,omitempty"`
 	// Chunks holds the value of the chunks edge.
 	Chunks []*DocumentChunk `json:"chunks,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
+}
+
+// KnowledgeBaseOrErr returns the KnowledgeBase value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e DocumentEdges) KnowledgeBaseOrErr() (*KnowledgeBase, error) {
+	if e.KnowledgeBase != nil {
+		return e.KnowledgeBase, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: knowledgebase.Label}
+	}
+	return nil, &NotLoadedError{edge: "knowledge_base"}
+}
+
+// FolderOrErr returns the Folder value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e DocumentEdges) FolderOrErr() (*KnowledgeFolder, error) {
+	if e.Folder != nil {
+		return e.Folder, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: knowledgefolder.Label}
+	}
+	return nil, &NotLoadedError{edge: "folder"}
 }
 
 // ChunksOrErr returns the Chunks value or an error if the edge
 // was not loaded in eager-loading.
 func (e DocumentEdges) ChunksOrErr() ([]*DocumentChunk, error) {
-	if e.loadedTypes[0] {
+	if e.loadedTypes[2] {
 		return e.Chunks, nil
 	}
 	return nil, &NotLoadedError{edge: "chunks"}
@@ -62,7 +97,9 @@ func (*Document) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case document.FieldID:
+		case document.FieldMetadata:
+			values[i] = new([]byte)
+		case document.FieldID, document.FieldKnowledgeBaseID, document.FieldFolderID:
 			values[i] = new(sql.NullInt64)
 		case document.FieldSource, document.FieldTitle, document.FieldChecksum, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -101,6 +138,14 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Title = value.String
 			}
+		case document.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
+			}
 		case document.FieldChecksum:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field checksum", values[i])
@@ -125,6 +170,19 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Status = document.Status(value.String)
 			}
+		case document.FieldKnowledgeBaseID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field knowledge_base_id", values[i])
+			} else if value.Valid {
+				_m.KnowledgeBaseID = int(value.Int64)
+			}
+		case document.FieldFolderID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field folder_id", values[i])
+			} else if value.Valid {
+				_m.FolderID = new(int)
+				*_m.FolderID = int(value.Int64)
+			}
 		case document.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -148,6 +206,16 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Document) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryKnowledgeBase queries the "knowledge_base" edge of the Document entity.
+func (_m *Document) QueryKnowledgeBase() *KnowledgeBaseQuery {
+	return NewDocumentClient(_m.config).QueryKnowledgeBase(_m)
+}
+
+// QueryFolder queries the "folder" edge of the Document entity.
+func (_m *Document) QueryFolder() *KnowledgeFolderQuery {
+	return NewDocumentClient(_m.config).QueryFolder(_m)
 }
 
 // QueryChunks queries the "chunks" edge of the Document entity.
@@ -184,6 +252,9 @@ func (_m *Document) String() string {
 	builder.WriteString("title=")
 	builder.WriteString(_m.Title)
 	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
+	builder.WriteString(", ")
 	builder.WriteString("checksum=")
 	builder.WriteString(_m.Checksum)
 	builder.WriteString(", ")
@@ -195,6 +266,14 @@ func (_m *Document) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(", ")
+	builder.WriteString("knowledge_base_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.KnowledgeBaseID))
+	builder.WriteString(", ")
+	if v := _m.FolderID; v != nil {
+		builder.WriteString("folder_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

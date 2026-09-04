@@ -92,6 +92,30 @@ func (f DocumentChunkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DocumentChunkMutation", m)
 }
 
+// The KnowledgeBaseFunc type is an adapter to allow the use of ordinary
+// function as KnowledgeBase mutator.
+type KnowledgeBaseFunc func(context.Context, *ent.KnowledgeBaseMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f KnowledgeBaseFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.KnowledgeBaseMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.KnowledgeBaseMutation", m)
+}
+
+// The KnowledgeFolderFunc type is an adapter to allow the use of ordinary
+// function as KnowledgeFolder mutator.
+type KnowledgeFolderFunc func(context.Context, *ent.KnowledgeFolderMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f KnowledgeFolderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.KnowledgeFolderMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.KnowledgeFolderMutation", m)
+}
+
 // The KnowledgeIndexFunc type is an adapter to allow the use of ordinary
 // function as KnowledgeIndex mutator.
 type KnowledgeIndexFunc func(context.Context, *ent.KnowledgeIndexMutation) (ent.Value, error)

@@ -27,6 +27,12 @@ type Document func(*sql.Selector)
 // DocumentChunk is the predicate function for documentchunk builders.
 type DocumentChunk func(*sql.Selector)
 
+// KnowledgeBase is the predicate function for knowledgebase builders.
+type KnowledgeBase func(*sql.Selector)
+
+// KnowledgeFolder is the predicate function for knowledgefolder builders.
+type KnowledgeFolder func(*sql.Selector)
+
 // KnowledgeIndex is the predicate function for knowledgeindex builders.
 type KnowledgeIndex func(*sql.Selector)
 

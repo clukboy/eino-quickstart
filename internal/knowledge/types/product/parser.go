@@ -113,6 +113,25 @@ func Parse(content string) (Product, error) {
 	return p, nil
 }
 
+func TryParse(content string) (*Product, error) {
+	content = strings.TrimSpace(content)
+
+	if content == "" {
+		return nil, nil
+	}
+
+	productInfo, err := Parse(content)
+	if err != nil {
+		if strings.Contains(err.Error(), "product model is required") {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &productInfo, nil
+}
+
 func normalizeFieldName(value string) string {
 	value = strings.TrimSpace(value)
 

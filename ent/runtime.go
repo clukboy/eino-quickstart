@@ -10,6 +10,8 @@ import (
 	"eino-quickstart/ent/checkpoint"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/schema"
 	"eino-quickstart/ent/session"
@@ -67,15 +69,15 @@ func init() {
 	documentFields := schema.Document{}.Fields()
 	_ = documentFields
 	// documentDescOwnerSubject is the schema descriptor for owner_subject field.
-	documentDescOwnerSubject := documentFields[3].Descriptor()
+	documentDescOwnerSubject := documentFields[4].Descriptor()
 	// document.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
 	document.DefaultOwnerSubject = documentDescOwnerSubject.Default.(string)
 	// documentDescCreatedAt is the schema descriptor for created_at field.
-	documentDescCreatedAt := documentFields[6].Descriptor()
+	documentDescCreatedAt := documentFields[9].Descriptor()
 	// document.DefaultCreatedAt holds the default value on creation for the created_at field.
 	document.DefaultCreatedAt = documentDescCreatedAt.Default.(func() time.Time)
 	// documentDescUpdatedAt is the schema descriptor for updated_at field.
-	documentDescUpdatedAt := documentFields[7].Descriptor()
+	documentDescUpdatedAt := documentFields[10].Descriptor()
 	// document.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	document.DefaultUpdatedAt = documentDescUpdatedAt.Default.(func() time.Time)
 	// document.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -86,6 +88,38 @@ func init() {
 	documentchunkDescCreatedAt := documentchunkFields[11].Descriptor()
 	// documentchunk.DefaultCreatedAt holds the default value on creation for the created_at field.
 	documentchunk.DefaultCreatedAt = documentchunkDescCreatedAt.Default.(func() time.Time)
+	knowledgebaseFields := schema.KnowledgeBase{}.Fields()
+	_ = knowledgebaseFields
+	// knowledgebaseDescOwnerSubject is the schema descriptor for owner_subject field.
+	knowledgebaseDescOwnerSubject := knowledgebaseFields[2].Descriptor()
+	// knowledgebase.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
+	knowledgebase.DefaultOwnerSubject = knowledgebaseDescOwnerSubject.Default.(string)
+	// knowledgebaseDescCreatedAt is the schema descriptor for created_at field.
+	knowledgebaseDescCreatedAt := knowledgebaseFields[5].Descriptor()
+	// knowledgebase.DefaultCreatedAt holds the default value on creation for the created_at field.
+	knowledgebase.DefaultCreatedAt = knowledgebaseDescCreatedAt.Default.(func() time.Time)
+	// knowledgebaseDescUpdatedAt is the schema descriptor for updated_at field.
+	knowledgebaseDescUpdatedAt := knowledgebaseFields[6].Descriptor()
+	// knowledgebase.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	knowledgebase.DefaultUpdatedAt = knowledgebaseDescUpdatedAt.Default.(func() time.Time)
+	// knowledgebase.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	knowledgebase.UpdateDefaultUpdatedAt = knowledgebaseDescUpdatedAt.UpdateDefault.(func() time.Time)
+	knowledgefolderFields := schema.KnowledgeFolder{}.Fields()
+	_ = knowledgefolderFields
+	// knowledgefolderDescSort is the schema descriptor for sort field.
+	knowledgefolderDescSort := knowledgefolderFields[2].Descriptor()
+	// knowledgefolder.DefaultSort holds the default value on creation for the sort field.
+	knowledgefolder.DefaultSort = knowledgefolderDescSort.Default.(int)
+	// knowledgefolderDescCreatedAt is the schema descriptor for created_at field.
+	knowledgefolderDescCreatedAt := knowledgefolderFields[5].Descriptor()
+	// knowledgefolder.DefaultCreatedAt holds the default value on creation for the created_at field.
+	knowledgefolder.DefaultCreatedAt = knowledgefolderDescCreatedAt.Default.(func() time.Time)
+	// knowledgefolderDescUpdatedAt is the schema descriptor for updated_at field.
+	knowledgefolderDescUpdatedAt := knowledgefolderFields[6].Descriptor()
+	// knowledgefolder.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	knowledgefolder.DefaultUpdatedAt = knowledgefolderDescUpdatedAt.Default.(func() time.Time)
+	// knowledgefolder.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	knowledgefolder.UpdateDefaultUpdatedAt = knowledgefolderDescUpdatedAt.UpdateDefault.(func() time.Time)
 	knowledgeindexFields := schema.KnowledgeIndex{}.Fields()
 	_ = knowledgeindexFields
 	// knowledgeindexDescCreatedAt is the schema descriptor for created_at field.

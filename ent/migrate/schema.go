@@ -163,30 +163,52 @@ var (
 	// DocumentsColumns holds the columns for the "documents" table.
 	DocumentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "source", Type: field.TypeString, Unique: true},
+		{Name: "source", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 		{Name: "checksum", Type: field.TypeString},
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
 		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ready", "indexing", "failed", "deleted"}, Default: "indexing"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "knowledge_base_id", Type: field.TypeInt},
+		{Name: "folder_id", Type: field.TypeInt, Nullable: true},
 	}
 	// DocumentsTable holds the schema information for the "documents" table.
 	DocumentsTable = &schema.Table{
 		Name:       "documents",
 		Columns:    DocumentsColumns,
 		PrimaryKey: []*schema.Column{DocumentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "documents_knowledge_bases_documents",
+				Columns:    []*schema.Column{DocumentsColumns[10]},
+				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "documents_knowledge_folders_documents",
+				Columns:    []*schema.Column{DocumentsColumns[11]},
+				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 		Indexes: []*schema.Index{
+			{
+				Name:    "document_knowledge_base_id_source",
+				Unique:  true,
+				Columns: []*schema.Column{DocumentsColumns[10], DocumentsColumns[1]},
+			},
 			{
 				Name:    "document_owner_subject_visibility",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentsColumns[4], DocumentsColumns[5]},
+				Columns: []*schema.Column{DocumentsColumns[5], DocumentsColumns[6]},
 			},
 			{
 				Name:    "document_checksum",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentsColumns[3]},
+				Columns: []*schema.Column{DocumentsColumns[4]},
 			},
 		},
 	}
@@ -240,6 +262,67 @@ var (
 						"postgres": "GIN",
 					},
 				},
+			},
+		},
+	}
+	// KnowledgeBasesColumns holds the columns for the "knowledge_bases" table.
+	KnowledgeBasesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Unique: true},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
+		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"ACTIVE", "DISABLED"}, Default: "ACTIVE"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// KnowledgeBasesTable holds the schema information for the "knowledge_bases" table.
+	KnowledgeBasesTable = &schema.Table{
+		Name:       "knowledge_bases",
+		Columns:    KnowledgeBasesColumns,
+		PrimaryKey: []*schema.Column{KnowledgeBasesColumns[0]},
+	}
+	// KnowledgeFoldersColumns holds the columns for the "knowledge_folders" table.
+	KnowledgeFoldersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "path", Type: field.TypeString},
+		{Name: "sort", Type: field.TypeInt, Default: 0},
+		{Name: "knowledge_base_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "knowledge_base_folders", Type: field.TypeInt},
+		{Name: "parent_id", Type: field.TypeInt, Nullable: true},
+	}
+	// KnowledgeFoldersTable holds the schema information for the "knowledge_folders" table.
+	KnowledgeFoldersTable = &schema.Table{
+		Name:       "knowledge_folders",
+		Columns:    KnowledgeFoldersColumns,
+		PrimaryKey: []*schema.Column{KnowledgeFoldersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "knowledge_folders_knowledge_bases_folders",
+				Columns:    []*schema.Column{KnowledgeFoldersColumns[7]},
+				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "knowledge_folders_knowledge_folders_children",
+				Columns:    []*schema.Column{KnowledgeFoldersColumns[8]},
+				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "knowledgefolder_knowledge_base_id_parent_id",
+				Unique:  false,
+				Columns: []*schema.Column{KnowledgeFoldersColumns[4], KnowledgeFoldersColumns[8]},
+			},
+			{
+				Name:    "knowledgefolder_knowledge_base_id_path",
+				Unique:  true,
+				Columns: []*schema.Column{KnowledgeFoldersColumns[4], KnowledgeFoldersColumns[2]},
 			},
 		},
 	}
@@ -330,6 +413,8 @@ var (
 		CheckpointsTable,
 		DocumentsTable,
 		DocumentChunksTable,
+		KnowledgeBasesTable,
+		KnowledgeFoldersTable,
 		KnowledgeIndexesTable,
 		SessionsTable,
 		SessionMessagesTable,
@@ -338,7 +423,11 @@ var (
 )
 
 func init() {
+	DocumentsTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
+	DocumentsTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
 	DocumentChunksTable.ForeignKeys[0].RefTable = DocumentsTable
+	KnowledgeFoldersTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
+	KnowledgeFoldersTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
 	SessionsTable.Annotation = &entsql.Annotation{
 		Table: "sessions",
 	}

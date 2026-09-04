@@ -11,6 +11,8 @@ import (
 	"eino-quickstart/ent/checkpoint"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/predicate"
 	"eino-quickstart/ent/session"
@@ -34,17 +36,19 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeAgentRun       = "AgentRun"
-	TypeApproval       = "Approval"
-	TypeAuditEvent     = "AuditEvent"
-	TypeChatTurn       = "ChatTurn"
-	TypeCheckpoint     = "Checkpoint"
-	TypeDocument       = "Document"
-	TypeDocumentChunk  = "DocumentChunk"
-	TypeKnowledgeIndex = "KnowledgeIndex"
-	TypeSession        = "Session"
-	TypeSessionMessage = "SessionMessage"
-	TypeVectorOutbox   = "VectorOutbox"
+	TypeAgentRun        = "AgentRun"
+	TypeApproval        = "Approval"
+	TypeAuditEvent      = "AuditEvent"
+	TypeChatTurn        = "ChatTurn"
+	TypeCheckpoint      = "Checkpoint"
+	TypeDocument        = "Document"
+	TypeDocumentChunk   = "DocumentChunk"
+	TypeKnowledgeBase   = "KnowledgeBase"
+	TypeKnowledgeFolder = "KnowledgeFolder"
+	TypeKnowledgeIndex  = "KnowledgeIndex"
+	TypeSession         = "Session"
+	TypeSessionMessage  = "SessionMessage"
+	TypeVectorOutbox    = "VectorOutbox"
 )
 
 // AgentRunMutation represents an operation that mutates the AgentRun nodes in the graph.
@@ -4562,24 +4566,29 @@ func (m *CheckpointMutation) ResetEdge(name string) error {
 // DocumentMutation represents an operation that mutates the Document nodes in the graph.
 type DocumentMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	source        *string
-	title         *string
-	checksum      *string
-	owner_subject *string
-	visibility    *document.Visibility
-	status        *document.Status
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	chunks        map[int]struct{}
-	removedchunks map[int]struct{}
-	clearedchunks bool
-	done          bool
-	oldValue      func(context.Context) (*Document, error)
-	predicates    []predicate.Document
+	op                    Op
+	typ                   string
+	id                    *int
+	source                *string
+	title                 *string
+	metadata              *map[string]interface{}
+	checksum              *string
+	owner_subject         *string
+	visibility            *document.Visibility
+	status                *document.Status
+	created_at            *time.Time
+	updated_at            *time.Time
+	clearedFields         map[string]struct{}
+	knowledge_base        *int
+	clearedknowledge_base bool
+	folder                *int
+	clearedfolder         bool
+	chunks                map[int]struct{}
+	removedchunks         map[int]struct{}
+	clearedchunks         bool
+	done                  bool
+	oldValue              func(context.Context) (*Document, error)
+	predicates            []predicate.Document
 }
 
 var _ ent.Mutation = (*DocumentMutation)(nil)
@@ -4752,6 +4761,55 @@ func (m *DocumentMutation) ResetTitle() {
 	m.title = nil
 }
 
+// SetMetadata sets the "metadata" field.
+func (m *DocumentMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *DocumentMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the Document entity.
+// If the Document object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *DocumentMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[document.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *DocumentMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[document.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *DocumentMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, document.FieldMetadata)
+}
+
 // SetChecksum sets the "checksum" field.
 func (m *DocumentMutation) SetChecksum(s string) {
 	m.checksum = &s
@@ -4896,6 +4954,91 @@ func (m *DocumentMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (m *DocumentMutation) SetKnowledgeBaseID(i int) {
+	m.knowledge_base = &i
+}
+
+// KnowledgeBaseID returns the value of the "knowledge_base_id" field in the mutation.
+func (m *DocumentMutation) KnowledgeBaseID() (r int, exists bool) {
+	v := m.knowledge_base
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKnowledgeBaseID returns the old "knowledge_base_id" field's value of the Document entity.
+// If the Document object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentMutation) OldKnowledgeBaseID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKnowledgeBaseID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKnowledgeBaseID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKnowledgeBaseID: %w", err)
+	}
+	return oldValue.KnowledgeBaseID, nil
+}
+
+// ResetKnowledgeBaseID resets all changes to the "knowledge_base_id" field.
+func (m *DocumentMutation) ResetKnowledgeBaseID() {
+	m.knowledge_base = nil
+}
+
+// SetFolderID sets the "folder_id" field.
+func (m *DocumentMutation) SetFolderID(i int) {
+	m.folder = &i
+}
+
+// FolderID returns the value of the "folder_id" field in the mutation.
+func (m *DocumentMutation) FolderID() (r int, exists bool) {
+	v := m.folder
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFolderID returns the old "folder_id" field's value of the Document entity.
+// If the Document object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentMutation) OldFolderID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFolderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFolderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFolderID: %w", err)
+	}
+	return oldValue.FolderID, nil
+}
+
+// ClearFolderID clears the value of the "folder_id" field.
+func (m *DocumentMutation) ClearFolderID() {
+	m.folder = nil
+	m.clearedFields[document.FieldFolderID] = struct{}{}
+}
+
+// FolderIDCleared returns if the "folder_id" field was cleared in this mutation.
+func (m *DocumentMutation) FolderIDCleared() bool {
+	_, ok := m.clearedFields[document.FieldFolderID]
+	return ok
+}
+
+// ResetFolderID resets all changes to the "folder_id" field.
+func (m *DocumentMutation) ResetFolderID() {
+	m.folder = nil
+	delete(m.clearedFields, document.FieldFolderID)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *DocumentMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -4966,6 +5109,60 @@ func (m *DocumentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err e
 // ResetUpdatedAt resets all changes to the "updated_at" field.
 func (m *DocumentMutation) ResetUpdatedAt() {
 	m.updated_at = nil
+}
+
+// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
+func (m *DocumentMutation) ClearKnowledgeBase() {
+	m.clearedknowledge_base = true
+	m.clearedFields[document.FieldKnowledgeBaseID] = struct{}{}
+}
+
+// KnowledgeBaseCleared reports if the "knowledge_base" edge to the KnowledgeBase entity was cleared.
+func (m *DocumentMutation) KnowledgeBaseCleared() bool {
+	return m.clearedknowledge_base
+}
+
+// KnowledgeBaseIDs returns the "knowledge_base" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// KnowledgeBaseID instead. It exists only for internal usage by the builders.
+func (m *DocumentMutation) KnowledgeBaseIDs() (ids []int) {
+	if id := m.knowledge_base; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetKnowledgeBase resets all changes to the "knowledge_base" edge.
+func (m *DocumentMutation) ResetKnowledgeBase() {
+	m.knowledge_base = nil
+	m.clearedknowledge_base = false
+}
+
+// ClearFolder clears the "folder" edge to the KnowledgeFolder entity.
+func (m *DocumentMutation) ClearFolder() {
+	m.clearedfolder = true
+	m.clearedFields[document.FieldFolderID] = struct{}{}
+}
+
+// FolderCleared reports if the "folder" edge to the KnowledgeFolder entity was cleared.
+func (m *DocumentMutation) FolderCleared() bool {
+	return m.FolderIDCleared() || m.clearedfolder
+}
+
+// FolderIDs returns the "folder" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// FolderID instead. It exists only for internal usage by the builders.
+func (m *DocumentMutation) FolderIDs() (ids []int) {
+	if id := m.folder; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetFolder resets all changes to the "folder" edge.
+func (m *DocumentMutation) ResetFolder() {
+	m.folder = nil
+	m.clearedfolder = false
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by ids.
@@ -5056,12 +5253,15 @@ func (m *DocumentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DocumentMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 11)
 	if m.source != nil {
 		fields = append(fields, document.FieldSource)
 	}
 	if m.title != nil {
 		fields = append(fields, document.FieldTitle)
+	}
+	if m.metadata != nil {
+		fields = append(fields, document.FieldMetadata)
 	}
 	if m.checksum != nil {
 		fields = append(fields, document.FieldChecksum)
@@ -5074,6 +5274,12 @@ func (m *DocumentMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, document.FieldStatus)
+	}
+	if m.knowledge_base != nil {
+		fields = append(fields, document.FieldKnowledgeBaseID)
+	}
+	if m.folder != nil {
+		fields = append(fields, document.FieldFolderID)
 	}
 	if m.created_at != nil {
 		fields = append(fields, document.FieldCreatedAt)
@@ -5093,6 +5299,8 @@ func (m *DocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.Source()
 	case document.FieldTitle:
 		return m.Title()
+	case document.FieldMetadata:
+		return m.Metadata()
 	case document.FieldChecksum:
 		return m.Checksum()
 	case document.FieldOwnerSubject:
@@ -5101,6 +5309,10 @@ func (m *DocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.Visibility()
 	case document.FieldStatus:
 		return m.Status()
+	case document.FieldKnowledgeBaseID:
+		return m.KnowledgeBaseID()
+	case document.FieldFolderID:
+		return m.FolderID()
 	case document.FieldCreatedAt:
 		return m.CreatedAt()
 	case document.FieldUpdatedAt:
@@ -5118,6 +5330,8 @@ func (m *DocumentMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldSource(ctx)
 	case document.FieldTitle:
 		return m.OldTitle(ctx)
+	case document.FieldMetadata:
+		return m.OldMetadata(ctx)
 	case document.FieldChecksum:
 		return m.OldChecksum(ctx)
 	case document.FieldOwnerSubject:
@@ -5126,6 +5340,10 @@ func (m *DocumentMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldVisibility(ctx)
 	case document.FieldStatus:
 		return m.OldStatus(ctx)
+	case document.FieldKnowledgeBaseID:
+		return m.OldKnowledgeBaseID(ctx)
+	case document.FieldFolderID:
+		return m.OldFolderID(ctx)
 	case document.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case document.FieldUpdatedAt:
@@ -5152,6 +5370,13 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTitle(v)
+		return nil
+	case document.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
 		return nil
 	case document.FieldChecksum:
 		v, ok := value.(string)
@@ -5181,6 +5406,20 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetStatus(v)
 		return nil
+	case document.FieldKnowledgeBaseID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKnowledgeBaseID(v)
+		return nil
+	case document.FieldFolderID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFolderID(v)
+		return nil
 	case document.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -5202,13 +5441,16 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *DocumentMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *DocumentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
 	return nil, false
 }
 
@@ -5224,7 +5466,14 @@ func (m *DocumentMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *DocumentMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(document.FieldMetadata) {
+		fields = append(fields, document.FieldMetadata)
+	}
+	if m.FieldCleared(document.FieldFolderID) {
+		fields = append(fields, document.FieldFolderID)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -5237,6 +5486,14 @@ func (m *DocumentMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *DocumentMutation) ClearField(name string) error {
+	switch name {
+	case document.FieldMetadata:
+		m.ClearMetadata()
+		return nil
+	case document.FieldFolderID:
+		m.ClearFolderID()
+		return nil
+	}
 	return fmt.Errorf("unknown Document nullable field %s", name)
 }
 
@@ -5250,6 +5507,9 @@ func (m *DocumentMutation) ResetField(name string) error {
 	case document.FieldTitle:
 		m.ResetTitle()
 		return nil
+	case document.FieldMetadata:
+		m.ResetMetadata()
+		return nil
 	case document.FieldChecksum:
 		m.ResetChecksum()
 		return nil
@@ -5261,6 +5521,12 @@ func (m *DocumentMutation) ResetField(name string) error {
 		return nil
 	case document.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case document.FieldKnowledgeBaseID:
+		m.ResetKnowledgeBaseID()
+		return nil
+	case document.FieldFolderID:
+		m.ResetFolderID()
 		return nil
 	case document.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -5274,7 +5540,13 @@ func (m *DocumentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *DocumentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
+	if m.knowledge_base != nil {
+		edges = append(edges, document.EdgeKnowledgeBase)
+	}
+	if m.folder != nil {
+		edges = append(edges, document.EdgeFolder)
+	}
 	if m.chunks != nil {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -5285,6 +5557,14 @@ func (m *DocumentMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *DocumentMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case document.EdgeKnowledgeBase:
+		if id := m.knowledge_base; id != nil {
+			return []ent.Value{*id}
+		}
+	case document.EdgeFolder:
+		if id := m.folder; id != nil {
+			return []ent.Value{*id}
+		}
 	case document.EdgeChunks:
 		ids := make([]ent.Value, 0, len(m.chunks))
 		for id := range m.chunks {
@@ -5297,7 +5577,7 @@ func (m *DocumentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *DocumentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.removedchunks != nil {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -5320,7 +5600,13 @@ func (m *DocumentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *DocumentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
+	if m.clearedknowledge_base {
+		edges = append(edges, document.EdgeKnowledgeBase)
+	}
+	if m.clearedfolder {
+		edges = append(edges, document.EdgeFolder)
+	}
 	if m.clearedchunks {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -5331,6 +5617,10 @@ func (m *DocumentMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *DocumentMutation) EdgeCleared(name string) bool {
 	switch name {
+	case document.EdgeKnowledgeBase:
+		return m.clearedknowledge_base
+	case document.EdgeFolder:
+		return m.clearedfolder
 	case document.EdgeChunks:
 		return m.clearedchunks
 	}
@@ -5341,6 +5631,12 @@ func (m *DocumentMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *DocumentMutation) ClearEdge(name string) error {
 	switch name {
+	case document.EdgeKnowledgeBase:
+		m.ClearKnowledgeBase()
+		return nil
+	case document.EdgeFolder:
+		m.ClearFolder()
+		return nil
 	}
 	return fmt.Errorf("unknown Document unique edge %s", name)
 }
@@ -5349,6 +5645,12 @@ func (m *DocumentMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *DocumentMutation) ResetEdge(name string) error {
 	switch name {
+	case document.EdgeKnowledgeBase:
+		m.ResetKnowledgeBase()
+		return nil
+	case document.EdgeFolder:
+		m.ResetFolder()
+		return nil
 	case document.EdgeChunks:
 		m.ResetChunks()
 		return nil
@@ -6536,6 +6838,1876 @@ func (m *DocumentChunkMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown DocumentChunk edge %s", name)
+}
+
+// KnowledgeBaseMutation represents an operation that mutates the KnowledgeBase nodes in the graph.
+type KnowledgeBaseMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *int
+	name             *string
+	description      *string
+	owner_subject    *string
+	visibility       *knowledgebase.Visibility
+	status           *knowledgebase.Status
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	folders          map[int]struct{}
+	removedfolders   map[int]struct{}
+	clearedfolders   bool
+	documents        map[int]struct{}
+	removeddocuments map[int]struct{}
+	cleareddocuments bool
+	done             bool
+	oldValue         func(context.Context) (*KnowledgeBase, error)
+	predicates       []predicate.KnowledgeBase
+}
+
+var _ ent.Mutation = (*KnowledgeBaseMutation)(nil)
+
+// knowledgebaseOption allows management of the mutation configuration using functional options.
+type knowledgebaseOption func(*KnowledgeBaseMutation)
+
+// newKnowledgeBaseMutation creates new mutation for the KnowledgeBase entity.
+func newKnowledgeBaseMutation(c config, op Op, opts ...knowledgebaseOption) *KnowledgeBaseMutation {
+	m := &KnowledgeBaseMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeKnowledgeBase,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withKnowledgeBaseID sets the ID field of the mutation.
+func withKnowledgeBaseID(id int) knowledgebaseOption {
+	return func(m *KnowledgeBaseMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *KnowledgeBase
+		)
+		m.oldValue = func(ctx context.Context) (*KnowledgeBase, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().KnowledgeBase.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withKnowledgeBase sets the old KnowledgeBase of the mutation.
+func withKnowledgeBase(node *KnowledgeBase) knowledgebaseOption {
+	return func(m *KnowledgeBaseMutation) {
+		m.oldValue = func(context.Context) (*KnowledgeBase, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m KnowledgeBaseMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m KnowledgeBaseMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *KnowledgeBaseMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *KnowledgeBaseMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().KnowledgeBase.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *KnowledgeBaseMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *KnowledgeBaseMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *KnowledgeBaseMutation) ResetName() {
+	m.name = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *KnowledgeBaseMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *KnowledgeBaseMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *KnowledgeBaseMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[knowledgebase.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *KnowledgeBaseMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[knowledgebase.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *KnowledgeBaseMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, knowledgebase.FieldDescription)
+}
+
+// SetOwnerSubject sets the "owner_subject" field.
+func (m *KnowledgeBaseMutation) SetOwnerSubject(s string) {
+	m.owner_subject = &s
+}
+
+// OwnerSubject returns the value of the "owner_subject" field in the mutation.
+func (m *KnowledgeBaseMutation) OwnerSubject() (r string, exists bool) {
+	v := m.owner_subject
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerSubject returns the old "owner_subject" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldOwnerSubject(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerSubject is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerSubject requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerSubject: %w", err)
+	}
+	return oldValue.OwnerSubject, nil
+}
+
+// ResetOwnerSubject resets all changes to the "owner_subject" field.
+func (m *KnowledgeBaseMutation) ResetOwnerSubject() {
+	m.owner_subject = nil
+}
+
+// SetVisibility sets the "visibility" field.
+func (m *KnowledgeBaseMutation) SetVisibility(k knowledgebase.Visibility) {
+	m.visibility = &k
+}
+
+// Visibility returns the value of the "visibility" field in the mutation.
+func (m *KnowledgeBaseMutation) Visibility() (r knowledgebase.Visibility, exists bool) {
+	v := m.visibility
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVisibility returns the old "visibility" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldVisibility(ctx context.Context) (v knowledgebase.Visibility, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVisibility is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVisibility requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVisibility: %w", err)
+	}
+	return oldValue.Visibility, nil
+}
+
+// ResetVisibility resets all changes to the "visibility" field.
+func (m *KnowledgeBaseMutation) ResetVisibility() {
+	m.visibility = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *KnowledgeBaseMutation) SetStatus(k knowledgebase.Status) {
+	m.status = &k
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *KnowledgeBaseMutation) Status() (r knowledgebase.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldStatus(ctx context.Context) (v knowledgebase.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *KnowledgeBaseMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *KnowledgeBaseMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *KnowledgeBaseMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *KnowledgeBaseMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *KnowledgeBaseMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *KnowledgeBaseMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the KnowledgeBase entity.
+// If the KnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeBaseMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *KnowledgeBaseMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by ids.
+func (m *KnowledgeBaseMutation) AddFolderIDs(ids ...int) {
+	if m.folders == nil {
+		m.folders = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.folders[ids[i]] = struct{}{}
+	}
+}
+
+// ClearFolders clears the "folders" edge to the KnowledgeFolder entity.
+func (m *KnowledgeBaseMutation) ClearFolders() {
+	m.clearedfolders = true
+}
+
+// FoldersCleared reports if the "folders" edge to the KnowledgeFolder entity was cleared.
+func (m *KnowledgeBaseMutation) FoldersCleared() bool {
+	return m.clearedfolders
+}
+
+// RemoveFolderIDs removes the "folders" edge to the KnowledgeFolder entity by IDs.
+func (m *KnowledgeBaseMutation) RemoveFolderIDs(ids ...int) {
+	if m.removedfolders == nil {
+		m.removedfolders = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.folders, ids[i])
+		m.removedfolders[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedFolders returns the removed IDs of the "folders" edge to the KnowledgeFolder entity.
+func (m *KnowledgeBaseMutation) RemovedFoldersIDs() (ids []int) {
+	for id := range m.removedfolders {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// FoldersIDs returns the "folders" edge IDs in the mutation.
+func (m *KnowledgeBaseMutation) FoldersIDs() (ids []int) {
+	for id := range m.folders {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetFolders resets all changes to the "folders" edge.
+func (m *KnowledgeBaseMutation) ResetFolders() {
+	m.folders = nil
+	m.clearedfolders = false
+	m.removedfolders = nil
+}
+
+// AddDocumentIDs adds the "documents" edge to the Document entity by ids.
+func (m *KnowledgeBaseMutation) AddDocumentIDs(ids ...int) {
+	if m.documents == nil {
+		m.documents = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.documents[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDocuments clears the "documents" edge to the Document entity.
+func (m *KnowledgeBaseMutation) ClearDocuments() {
+	m.cleareddocuments = true
+}
+
+// DocumentsCleared reports if the "documents" edge to the Document entity was cleared.
+func (m *KnowledgeBaseMutation) DocumentsCleared() bool {
+	return m.cleareddocuments
+}
+
+// RemoveDocumentIDs removes the "documents" edge to the Document entity by IDs.
+func (m *KnowledgeBaseMutation) RemoveDocumentIDs(ids ...int) {
+	if m.removeddocuments == nil {
+		m.removeddocuments = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.documents, ids[i])
+		m.removeddocuments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDocuments returns the removed IDs of the "documents" edge to the Document entity.
+func (m *KnowledgeBaseMutation) RemovedDocumentsIDs() (ids []int) {
+	for id := range m.removeddocuments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DocumentsIDs returns the "documents" edge IDs in the mutation.
+func (m *KnowledgeBaseMutation) DocumentsIDs() (ids []int) {
+	for id := range m.documents {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDocuments resets all changes to the "documents" edge.
+func (m *KnowledgeBaseMutation) ResetDocuments() {
+	m.documents = nil
+	m.cleareddocuments = false
+	m.removeddocuments = nil
+}
+
+// Where appends a list predicates to the KnowledgeBaseMutation builder.
+func (m *KnowledgeBaseMutation) Where(ps ...predicate.KnowledgeBase) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the KnowledgeBaseMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *KnowledgeBaseMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.KnowledgeBase, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *KnowledgeBaseMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *KnowledgeBaseMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (KnowledgeBase).
+func (m *KnowledgeBaseMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *KnowledgeBaseMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.name != nil {
+		fields = append(fields, knowledgebase.FieldName)
+	}
+	if m.description != nil {
+		fields = append(fields, knowledgebase.FieldDescription)
+	}
+	if m.owner_subject != nil {
+		fields = append(fields, knowledgebase.FieldOwnerSubject)
+	}
+	if m.visibility != nil {
+		fields = append(fields, knowledgebase.FieldVisibility)
+	}
+	if m.status != nil {
+		fields = append(fields, knowledgebase.FieldStatus)
+	}
+	if m.created_at != nil {
+		fields = append(fields, knowledgebase.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, knowledgebase.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *KnowledgeBaseMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case knowledgebase.FieldName:
+		return m.Name()
+	case knowledgebase.FieldDescription:
+		return m.Description()
+	case knowledgebase.FieldOwnerSubject:
+		return m.OwnerSubject()
+	case knowledgebase.FieldVisibility:
+		return m.Visibility()
+	case knowledgebase.FieldStatus:
+		return m.Status()
+	case knowledgebase.FieldCreatedAt:
+		return m.CreatedAt()
+	case knowledgebase.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *KnowledgeBaseMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case knowledgebase.FieldName:
+		return m.OldName(ctx)
+	case knowledgebase.FieldDescription:
+		return m.OldDescription(ctx)
+	case knowledgebase.FieldOwnerSubject:
+		return m.OldOwnerSubject(ctx)
+	case knowledgebase.FieldVisibility:
+		return m.OldVisibility(ctx)
+	case knowledgebase.FieldStatus:
+		return m.OldStatus(ctx)
+	case knowledgebase.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case knowledgebase.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown KnowledgeBase field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *KnowledgeBaseMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case knowledgebase.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case knowledgebase.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case knowledgebase.FieldOwnerSubject:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerSubject(v)
+		return nil
+	case knowledgebase.FieldVisibility:
+		v, ok := value.(knowledgebase.Visibility)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVisibility(v)
+		return nil
+	case knowledgebase.FieldStatus:
+		v, ok := value.(knowledgebase.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case knowledgebase.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case knowledgebase.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeBase field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *KnowledgeBaseMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *KnowledgeBaseMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *KnowledgeBaseMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown KnowledgeBase numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *KnowledgeBaseMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(knowledgebase.FieldDescription) {
+		fields = append(fields, knowledgebase.FieldDescription)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *KnowledgeBaseMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *KnowledgeBaseMutation) ClearField(name string) error {
+	switch name {
+	case knowledgebase.FieldDescription:
+		m.ClearDescription()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeBase nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *KnowledgeBaseMutation) ResetField(name string) error {
+	switch name {
+	case knowledgebase.FieldName:
+		m.ResetName()
+		return nil
+	case knowledgebase.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case knowledgebase.FieldOwnerSubject:
+		m.ResetOwnerSubject()
+		return nil
+	case knowledgebase.FieldVisibility:
+		m.ResetVisibility()
+		return nil
+	case knowledgebase.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case knowledgebase.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case knowledgebase.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeBase field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *KnowledgeBaseMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.folders != nil {
+		edges = append(edges, knowledgebase.EdgeFolders)
+	}
+	if m.documents != nil {
+		edges = append(edges, knowledgebase.EdgeDocuments)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *KnowledgeBaseMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case knowledgebase.EdgeFolders:
+		ids := make([]ent.Value, 0, len(m.folders))
+		for id := range m.folders {
+			ids = append(ids, id)
+		}
+		return ids
+	case knowledgebase.EdgeDocuments:
+		ids := make([]ent.Value, 0, len(m.documents))
+		for id := range m.documents {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *KnowledgeBaseMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedfolders != nil {
+		edges = append(edges, knowledgebase.EdgeFolders)
+	}
+	if m.removeddocuments != nil {
+		edges = append(edges, knowledgebase.EdgeDocuments)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *KnowledgeBaseMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case knowledgebase.EdgeFolders:
+		ids := make([]ent.Value, 0, len(m.removedfolders))
+		for id := range m.removedfolders {
+			ids = append(ids, id)
+		}
+		return ids
+	case knowledgebase.EdgeDocuments:
+		ids := make([]ent.Value, 0, len(m.removeddocuments))
+		for id := range m.removeddocuments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *KnowledgeBaseMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedfolders {
+		edges = append(edges, knowledgebase.EdgeFolders)
+	}
+	if m.cleareddocuments {
+		edges = append(edges, knowledgebase.EdgeDocuments)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *KnowledgeBaseMutation) EdgeCleared(name string) bool {
+	switch name {
+	case knowledgebase.EdgeFolders:
+		return m.clearedfolders
+	case knowledgebase.EdgeDocuments:
+		return m.cleareddocuments
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *KnowledgeBaseMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown KnowledgeBase unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *KnowledgeBaseMutation) ResetEdge(name string) error {
+	switch name {
+	case knowledgebase.EdgeFolders:
+		m.ResetFolders()
+		return nil
+	case knowledgebase.EdgeDocuments:
+		m.ResetDocuments()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeBase edge %s", name)
+}
+
+// KnowledgeFolderMutation represents an operation that mutates the KnowledgeFolder nodes in the graph.
+type KnowledgeFolderMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *int
+	name                  *string
+	_path                 *string
+	sort                  *int
+	addsort               *int
+	knowledge_base_id     *int
+	addknowledge_base_id  *int
+	created_at            *time.Time
+	updated_at            *time.Time
+	clearedFields         map[string]struct{}
+	knowledge_base        *int
+	clearedknowledge_base bool
+	parent                *int
+	clearedparent         bool
+	children              map[int]struct{}
+	removedchildren       map[int]struct{}
+	clearedchildren       bool
+	documents             map[int]struct{}
+	removeddocuments      map[int]struct{}
+	cleareddocuments      bool
+	done                  bool
+	oldValue              func(context.Context) (*KnowledgeFolder, error)
+	predicates            []predicate.KnowledgeFolder
+}
+
+var _ ent.Mutation = (*KnowledgeFolderMutation)(nil)
+
+// knowledgefolderOption allows management of the mutation configuration using functional options.
+type knowledgefolderOption func(*KnowledgeFolderMutation)
+
+// newKnowledgeFolderMutation creates new mutation for the KnowledgeFolder entity.
+func newKnowledgeFolderMutation(c config, op Op, opts ...knowledgefolderOption) *KnowledgeFolderMutation {
+	m := &KnowledgeFolderMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeKnowledgeFolder,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withKnowledgeFolderID sets the ID field of the mutation.
+func withKnowledgeFolderID(id int) knowledgefolderOption {
+	return func(m *KnowledgeFolderMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *KnowledgeFolder
+		)
+		m.oldValue = func(ctx context.Context) (*KnowledgeFolder, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().KnowledgeFolder.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withKnowledgeFolder sets the old KnowledgeFolder of the mutation.
+func withKnowledgeFolder(node *KnowledgeFolder) knowledgefolderOption {
+	return func(m *KnowledgeFolderMutation) {
+		m.oldValue = func(context.Context) (*KnowledgeFolder, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m KnowledgeFolderMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m KnowledgeFolderMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *KnowledgeFolderMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *KnowledgeFolderMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().KnowledgeFolder.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetName sets the "name" field.
+func (m *KnowledgeFolderMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *KnowledgeFolderMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *KnowledgeFolderMutation) ResetName() {
+	m.name = nil
+}
+
+// SetPath sets the "path" field.
+func (m *KnowledgeFolderMutation) SetPath(s string) {
+	m._path = &s
+}
+
+// Path returns the value of the "path" field in the mutation.
+func (m *KnowledgeFolderMutation) Path() (r string, exists bool) {
+	v := m._path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPath returns the old "path" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPath: %w", err)
+	}
+	return oldValue.Path, nil
+}
+
+// ResetPath resets all changes to the "path" field.
+func (m *KnowledgeFolderMutation) ResetPath() {
+	m._path = nil
+}
+
+// SetSort sets the "sort" field.
+func (m *KnowledgeFolderMutation) SetSort(i int) {
+	m.sort = &i
+	m.addsort = nil
+}
+
+// Sort returns the value of the "sort" field in the mutation.
+func (m *KnowledgeFolderMutation) Sort() (r int, exists bool) {
+	v := m.sort
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSort returns the old "sort" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldSort(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSort is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSort requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSort: %w", err)
+	}
+	return oldValue.Sort, nil
+}
+
+// AddSort adds i to the "sort" field.
+func (m *KnowledgeFolderMutation) AddSort(i int) {
+	if m.addsort != nil {
+		*m.addsort += i
+	} else {
+		m.addsort = &i
+	}
+}
+
+// AddedSort returns the value that was added to the "sort" field in this mutation.
+func (m *KnowledgeFolderMutation) AddedSort() (r int, exists bool) {
+	v := m.addsort
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSort resets all changes to the "sort" field.
+func (m *KnowledgeFolderMutation) ResetSort() {
+	m.sort = nil
+	m.addsort = nil
+}
+
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (m *KnowledgeFolderMutation) SetKnowledgeBaseID(i int) {
+	m.knowledge_base_id = &i
+	m.addknowledge_base_id = nil
+}
+
+// KnowledgeBaseID returns the value of the "knowledge_base_id" field in the mutation.
+func (m *KnowledgeFolderMutation) KnowledgeBaseID() (r int, exists bool) {
+	v := m.knowledge_base_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKnowledgeBaseID returns the old "knowledge_base_id" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldKnowledgeBaseID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKnowledgeBaseID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKnowledgeBaseID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKnowledgeBaseID: %w", err)
+	}
+	return oldValue.KnowledgeBaseID, nil
+}
+
+// AddKnowledgeBaseID adds i to the "knowledge_base_id" field.
+func (m *KnowledgeFolderMutation) AddKnowledgeBaseID(i int) {
+	if m.addknowledge_base_id != nil {
+		*m.addknowledge_base_id += i
+	} else {
+		m.addknowledge_base_id = &i
+	}
+}
+
+// AddedKnowledgeBaseID returns the value that was added to the "knowledge_base_id" field in this mutation.
+func (m *KnowledgeFolderMutation) AddedKnowledgeBaseID() (r int, exists bool) {
+	v := m.addknowledge_base_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetKnowledgeBaseID resets all changes to the "knowledge_base_id" field.
+func (m *KnowledgeFolderMutation) ResetKnowledgeBaseID() {
+	m.knowledge_base_id = nil
+	m.addknowledge_base_id = nil
+}
+
+// SetParentID sets the "parent_id" field.
+func (m *KnowledgeFolderMutation) SetParentID(i int) {
+	m.parent = &i
+}
+
+// ParentID returns the value of the "parent_id" field in the mutation.
+func (m *KnowledgeFolderMutation) ParentID() (r int, exists bool) {
+	v := m.parent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentID returns the old "parent_id" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldParentID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentID: %w", err)
+	}
+	return oldValue.ParentID, nil
+}
+
+// ClearParentID clears the value of the "parent_id" field.
+func (m *KnowledgeFolderMutation) ClearParentID() {
+	m.parent = nil
+	m.clearedFields[knowledgefolder.FieldParentID] = struct{}{}
+}
+
+// ParentIDCleared returns if the "parent_id" field was cleared in this mutation.
+func (m *KnowledgeFolderMutation) ParentIDCleared() bool {
+	_, ok := m.clearedFields[knowledgefolder.FieldParentID]
+	return ok
+}
+
+// ResetParentID resets all changes to the "parent_id" field.
+func (m *KnowledgeFolderMutation) ResetParentID() {
+	m.parent = nil
+	delete(m.clearedFields, knowledgefolder.FieldParentID)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *KnowledgeFolderMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *KnowledgeFolderMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *KnowledgeFolderMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *KnowledgeFolderMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *KnowledgeFolderMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the KnowledgeFolder entity.
+// If the KnowledgeFolder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *KnowledgeFolderMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *KnowledgeFolderMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetKnowledgeBaseID sets the "knowledge_base" edge to the KnowledgeBase entity by id.
+func (m *KnowledgeFolderMutation) SetKnowledgeBaseID(id int) {
+	m.knowledge_base = &id
+}
+
+// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
+func (m *KnowledgeFolderMutation) ClearKnowledgeBase() {
+	m.clearedknowledge_base = true
+}
+
+// KnowledgeBaseCleared reports if the "knowledge_base" edge to the KnowledgeBase entity was cleared.
+func (m *KnowledgeFolderMutation) KnowledgeBaseCleared() bool {
+	return m.clearedknowledge_base
+}
+
+// KnowledgeBaseID returns the "knowledge_base" edge ID in the mutation.
+func (m *KnowledgeFolderMutation) KnowledgeBaseID() (id int, exists bool) {
+	if m.knowledge_base != nil {
+		return *m.knowledge_base, true
+	}
+	return
+}
+
+// KnowledgeBaseIDs returns the "knowledge_base" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// KnowledgeBaseID instead. It exists only for internal usage by the builders.
+func (m *KnowledgeFolderMutation) KnowledgeBaseIDs() (ids []int) {
+	if id := m.knowledge_base; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetKnowledgeBase resets all changes to the "knowledge_base" edge.
+func (m *KnowledgeFolderMutation) ResetKnowledgeBase() {
+	m.knowledge_base = nil
+	m.clearedknowledge_base = false
+}
+
+// ClearParent clears the "parent" edge to the KnowledgeFolder entity.
+func (m *KnowledgeFolderMutation) ClearParent() {
+	m.clearedparent = true
+	m.clearedFields[knowledgefolder.FieldParentID] = struct{}{}
+}
+
+// ParentCleared reports if the "parent" edge to the KnowledgeFolder entity was cleared.
+func (m *KnowledgeFolderMutation) ParentCleared() bool {
+	return m.ParentIDCleared() || m.clearedparent
+}
+
+// ParentIDs returns the "parent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ParentID instead. It exists only for internal usage by the builders.
+func (m *KnowledgeFolderMutation) ParentIDs() (ids []int) {
+	if id := m.parent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetParent resets all changes to the "parent" edge.
+func (m *KnowledgeFolderMutation) ResetParent() {
+	m.parent = nil
+	m.clearedparent = false
+}
+
+// AddChildIDs adds the "children" edge to the KnowledgeFolder entity by ids.
+func (m *KnowledgeFolderMutation) AddChildIDs(ids ...int) {
+	if m.children == nil {
+		m.children = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.children[ids[i]] = struct{}{}
+	}
+}
+
+// ClearChildren clears the "children" edge to the KnowledgeFolder entity.
+func (m *KnowledgeFolderMutation) ClearChildren() {
+	m.clearedchildren = true
+}
+
+// ChildrenCleared reports if the "children" edge to the KnowledgeFolder entity was cleared.
+func (m *KnowledgeFolderMutation) ChildrenCleared() bool {
+	return m.clearedchildren
+}
+
+// RemoveChildIDs removes the "children" edge to the KnowledgeFolder entity by IDs.
+func (m *KnowledgeFolderMutation) RemoveChildIDs(ids ...int) {
+	if m.removedchildren == nil {
+		m.removedchildren = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.children, ids[i])
+		m.removedchildren[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedChildren returns the removed IDs of the "children" edge to the KnowledgeFolder entity.
+func (m *KnowledgeFolderMutation) RemovedChildrenIDs() (ids []int) {
+	for id := range m.removedchildren {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ChildrenIDs returns the "children" edge IDs in the mutation.
+func (m *KnowledgeFolderMutation) ChildrenIDs() (ids []int) {
+	for id := range m.children {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetChildren resets all changes to the "children" edge.
+func (m *KnowledgeFolderMutation) ResetChildren() {
+	m.children = nil
+	m.clearedchildren = false
+	m.removedchildren = nil
+}
+
+// AddDocumentIDs adds the "documents" edge to the Document entity by ids.
+func (m *KnowledgeFolderMutation) AddDocumentIDs(ids ...int) {
+	if m.documents == nil {
+		m.documents = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.documents[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDocuments clears the "documents" edge to the Document entity.
+func (m *KnowledgeFolderMutation) ClearDocuments() {
+	m.cleareddocuments = true
+}
+
+// DocumentsCleared reports if the "documents" edge to the Document entity was cleared.
+func (m *KnowledgeFolderMutation) DocumentsCleared() bool {
+	return m.cleareddocuments
+}
+
+// RemoveDocumentIDs removes the "documents" edge to the Document entity by IDs.
+func (m *KnowledgeFolderMutation) RemoveDocumentIDs(ids ...int) {
+	if m.removeddocuments == nil {
+		m.removeddocuments = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.documents, ids[i])
+		m.removeddocuments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDocuments returns the removed IDs of the "documents" edge to the Document entity.
+func (m *KnowledgeFolderMutation) RemovedDocumentsIDs() (ids []int) {
+	for id := range m.removeddocuments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DocumentsIDs returns the "documents" edge IDs in the mutation.
+func (m *KnowledgeFolderMutation) DocumentsIDs() (ids []int) {
+	for id := range m.documents {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDocuments resets all changes to the "documents" edge.
+func (m *KnowledgeFolderMutation) ResetDocuments() {
+	m.documents = nil
+	m.cleareddocuments = false
+	m.removeddocuments = nil
+}
+
+// Where appends a list predicates to the KnowledgeFolderMutation builder.
+func (m *KnowledgeFolderMutation) Where(ps ...predicate.KnowledgeFolder) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the KnowledgeFolderMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *KnowledgeFolderMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.KnowledgeFolder, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *KnowledgeFolderMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *KnowledgeFolderMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (KnowledgeFolder).
+func (m *KnowledgeFolderMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *KnowledgeFolderMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.name != nil {
+		fields = append(fields, knowledgefolder.FieldName)
+	}
+	if m._path != nil {
+		fields = append(fields, knowledgefolder.FieldPath)
+	}
+	if m.sort != nil {
+		fields = append(fields, knowledgefolder.FieldSort)
+	}
+	if m.knowledge_base_id != nil {
+		fields = append(fields, knowledgefolder.FieldKnowledgeBaseID)
+	}
+	if m.parent != nil {
+		fields = append(fields, knowledgefolder.FieldParentID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, knowledgefolder.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, knowledgefolder.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *KnowledgeFolderMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case knowledgefolder.FieldName:
+		return m.Name()
+	case knowledgefolder.FieldPath:
+		return m.Path()
+	case knowledgefolder.FieldSort:
+		return m.Sort()
+	case knowledgefolder.FieldKnowledgeBaseID:
+		return m.KnowledgeBaseID()
+	case knowledgefolder.FieldParentID:
+		return m.ParentID()
+	case knowledgefolder.FieldCreatedAt:
+		return m.CreatedAt()
+	case knowledgefolder.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *KnowledgeFolderMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case knowledgefolder.FieldName:
+		return m.OldName(ctx)
+	case knowledgefolder.FieldPath:
+		return m.OldPath(ctx)
+	case knowledgefolder.FieldSort:
+		return m.OldSort(ctx)
+	case knowledgefolder.FieldKnowledgeBaseID:
+		return m.OldKnowledgeBaseID(ctx)
+	case knowledgefolder.FieldParentID:
+		return m.OldParentID(ctx)
+	case knowledgefolder.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case knowledgefolder.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown KnowledgeFolder field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *KnowledgeFolderMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case knowledgefolder.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case knowledgefolder.FieldPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPath(v)
+		return nil
+	case knowledgefolder.FieldSort:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSort(v)
+		return nil
+	case knowledgefolder.FieldKnowledgeBaseID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKnowledgeBaseID(v)
+		return nil
+	case knowledgefolder.FieldParentID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentID(v)
+		return nil
+	case knowledgefolder.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case knowledgefolder.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeFolder field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *KnowledgeFolderMutation) AddedFields() []string {
+	var fields []string
+	if m.addsort != nil {
+		fields = append(fields, knowledgefolder.FieldSort)
+	}
+	if m.addknowledge_base_id != nil {
+		fields = append(fields, knowledgefolder.FieldKnowledgeBaseID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *KnowledgeFolderMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case knowledgefolder.FieldSort:
+		return m.AddedSort()
+	case knowledgefolder.FieldKnowledgeBaseID:
+		return m.AddedKnowledgeBaseID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *KnowledgeFolderMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case knowledgefolder.FieldSort:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSort(v)
+		return nil
+	case knowledgefolder.FieldKnowledgeBaseID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddKnowledgeBaseID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeFolder numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *KnowledgeFolderMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(knowledgefolder.FieldParentID) {
+		fields = append(fields, knowledgefolder.FieldParentID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *KnowledgeFolderMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *KnowledgeFolderMutation) ClearField(name string) error {
+	switch name {
+	case knowledgefolder.FieldParentID:
+		m.ClearParentID()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeFolder nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *KnowledgeFolderMutation) ResetField(name string) error {
+	switch name {
+	case knowledgefolder.FieldName:
+		m.ResetName()
+		return nil
+	case knowledgefolder.FieldPath:
+		m.ResetPath()
+		return nil
+	case knowledgefolder.FieldSort:
+		m.ResetSort()
+		return nil
+	case knowledgefolder.FieldKnowledgeBaseID:
+		m.ResetKnowledgeBaseID()
+		return nil
+	case knowledgefolder.FieldParentID:
+		m.ResetParentID()
+		return nil
+	case knowledgefolder.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case knowledgefolder.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeFolder field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *KnowledgeFolderMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.knowledge_base != nil {
+		edges = append(edges, knowledgefolder.EdgeKnowledgeBase)
+	}
+	if m.parent != nil {
+		edges = append(edges, knowledgefolder.EdgeParent)
+	}
+	if m.children != nil {
+		edges = append(edges, knowledgefolder.EdgeChildren)
+	}
+	if m.documents != nil {
+		edges = append(edges, knowledgefolder.EdgeDocuments)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *KnowledgeFolderMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case knowledgefolder.EdgeKnowledgeBase:
+		if id := m.knowledge_base; id != nil {
+			return []ent.Value{*id}
+		}
+	case knowledgefolder.EdgeParent:
+		if id := m.parent; id != nil {
+			return []ent.Value{*id}
+		}
+	case knowledgefolder.EdgeChildren:
+		ids := make([]ent.Value, 0, len(m.children))
+		for id := range m.children {
+			ids = append(ids, id)
+		}
+		return ids
+	case knowledgefolder.EdgeDocuments:
+		ids := make([]ent.Value, 0, len(m.documents))
+		for id := range m.documents {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *KnowledgeFolderMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedchildren != nil {
+		edges = append(edges, knowledgefolder.EdgeChildren)
+	}
+	if m.removeddocuments != nil {
+		edges = append(edges, knowledgefolder.EdgeDocuments)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *KnowledgeFolderMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case knowledgefolder.EdgeChildren:
+		ids := make([]ent.Value, 0, len(m.removedchildren))
+		for id := range m.removedchildren {
+			ids = append(ids, id)
+		}
+		return ids
+	case knowledgefolder.EdgeDocuments:
+		ids := make([]ent.Value, 0, len(m.removeddocuments))
+		for id := range m.removeddocuments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *KnowledgeFolderMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedknowledge_base {
+		edges = append(edges, knowledgefolder.EdgeKnowledgeBase)
+	}
+	if m.clearedparent {
+		edges = append(edges, knowledgefolder.EdgeParent)
+	}
+	if m.clearedchildren {
+		edges = append(edges, knowledgefolder.EdgeChildren)
+	}
+	if m.cleareddocuments {
+		edges = append(edges, knowledgefolder.EdgeDocuments)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *KnowledgeFolderMutation) EdgeCleared(name string) bool {
+	switch name {
+	case knowledgefolder.EdgeKnowledgeBase:
+		return m.clearedknowledge_base
+	case knowledgefolder.EdgeParent:
+		return m.clearedparent
+	case knowledgefolder.EdgeChildren:
+		return m.clearedchildren
+	case knowledgefolder.EdgeDocuments:
+		return m.cleareddocuments
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *KnowledgeFolderMutation) ClearEdge(name string) error {
+	switch name {
+	case knowledgefolder.EdgeKnowledgeBase:
+		m.ClearKnowledgeBase()
+		return nil
+	case knowledgefolder.EdgeParent:
+		m.ClearParent()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeFolder unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *KnowledgeFolderMutation) ResetEdge(name string) error {
+	switch name {
+	case knowledgefolder.EdgeKnowledgeBase:
+		m.ResetKnowledgeBase()
+		return nil
+	case knowledgefolder.EdgeParent:
+		m.ResetParent()
+		return nil
+	case knowledgefolder.EdgeChildren:
+		m.ResetChildren()
+		return nil
+	case knowledgefolder.EdgeDocuments:
+		m.ResetDocuments()
+		return nil
+	}
+	return fmt.Errorf("unknown KnowledgeFolder edge %s", name)
 }
 
 // KnowledgeIndexMutation represents an operation that mutates the KnowledgeIndex nodes in the graph.

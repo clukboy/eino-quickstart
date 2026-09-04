@@ -6,6 +6,8 @@ import (
 	"context"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/predicate"
 	"errors"
 	"fmt"
@@ -29,6 +31,20 @@ func (_u *DocumentUpdate) Where(ps ...predicate.Document) *DocumentUpdate {
 	return _u
 }
 
+// SetSource sets the "source" field.
+func (_u *DocumentUpdate) SetSource(v string) *DocumentUpdate {
+	_u.mutation.SetSource(v)
+	return _u
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableSource(v *string) *DocumentUpdate {
+	if v != nil {
+		_u.SetSource(*v)
+	}
+	return _u
+}
+
 // SetTitle sets the "title" field.
 func (_u *DocumentUpdate) SetTitle(v string) *DocumentUpdate {
 	_u.mutation.SetTitle(v)
@@ -40,6 +56,18 @@ func (_u *DocumentUpdate) SetNillableTitle(v *string) *DocumentUpdate {
 	if v != nil {
 		_u.SetTitle(*v)
 	}
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *DocumentUpdate) SetMetadata(v map[string]interface{}) *DocumentUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *DocumentUpdate) ClearMetadata() *DocumentUpdate {
+	_u.mutation.ClearMetadata()
 	return _u
 }
 
@@ -99,10 +127,54 @@ func (_u *DocumentUpdate) SetNillableStatus(v *document.Status) *DocumentUpdate 
 	return _u
 }
 
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (_u *DocumentUpdate) SetKnowledgeBaseID(v int) *DocumentUpdate {
+	_u.mutation.SetKnowledgeBaseID(v)
+	return _u
+}
+
+// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableKnowledgeBaseID(v *int) *DocumentUpdate {
+	if v != nil {
+		_u.SetKnowledgeBaseID(*v)
+	}
+	return _u
+}
+
+// SetFolderID sets the "folder_id" field.
+func (_u *DocumentUpdate) SetFolderID(v int) *DocumentUpdate {
+	_u.mutation.SetFolderID(v)
+	return _u
+}
+
+// SetNillableFolderID sets the "folder_id" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableFolderID(v *int) *DocumentUpdate {
+	if v != nil {
+		_u.SetFolderID(*v)
+	}
+	return _u
+}
+
+// ClearFolderID clears the value of the "folder_id" field.
+func (_u *DocumentUpdate) ClearFolderID() *DocumentUpdate {
+	_u.mutation.ClearFolderID()
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *DocumentUpdate) SetUpdatedAt(v time.Time) *DocumentUpdate {
 	_u.mutation.SetUpdatedAt(v)
 	return _u
+}
+
+// SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
+func (_u *DocumentUpdate) SetKnowledgeBase(v *KnowledgeBase) *DocumentUpdate {
+	return _u.SetKnowledgeBaseID(v.ID)
+}
+
+// SetFolder sets the "folder" edge to the KnowledgeFolder entity.
+func (_u *DocumentUpdate) SetFolder(v *KnowledgeFolder) *DocumentUpdate {
+	return _u.SetFolderID(v.ID)
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
@@ -123,6 +195,18 @@ func (_u *DocumentUpdate) AddChunks(v ...*DocumentChunk) *DocumentUpdate {
 // Mutation returns the DocumentMutation object of the builder.
 func (_u *DocumentUpdate) Mutation() *DocumentMutation {
 	return _u.mutation
+}
+
+// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
+func (_u *DocumentUpdate) ClearKnowledgeBase() *DocumentUpdate {
+	_u.mutation.ClearKnowledgeBase()
+	return _u
+}
+
+// ClearFolder clears the "folder" edge to the KnowledgeFolder entity.
+func (_u *DocumentUpdate) ClearFolder() *DocumentUpdate {
+	_u.mutation.ClearFolder()
+	return _u
 }
 
 // ClearChunks clears all "chunks" edges to the DocumentChunk entity.
@@ -194,6 +278,9 @@ func (_u *DocumentUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
 	}
+	if _u.mutation.KnowledgeBaseCleared() && len(_u.mutation.KnowledgeBaseIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Document.knowledge_base"`)
+	}
 	return nil
 }
 
@@ -209,8 +296,17 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
+	if value, ok := _u.mutation.Source(); ok {
+		_spec.SetField(document.FieldSource, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(document.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(document.FieldMetadata, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Checksum(); ok {
 		_spec.SetField(document.FieldChecksum, field.TypeString, value)
@@ -226,6 +322,64 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(document.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.KnowledgeBaseCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.KnowledgeBaseTable,
+			Columns: []string{document.KnowledgeBaseColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.KnowledgeBaseIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.KnowledgeBaseTable,
+			Columns: []string{document.KnowledgeBaseColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FolderCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.FolderTable,
+			Columns: []string{document.FolderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FolderIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.FolderTable,
+			Columns: []string{document.FolderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.ChunksCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -292,6 +446,20 @@ type DocumentUpdateOne struct {
 	mutation *DocumentMutation
 }
 
+// SetSource sets the "source" field.
+func (_u *DocumentUpdateOne) SetSource(v string) *DocumentUpdateOne {
+	_u.mutation.SetSource(v)
+	return _u
+}
+
+// SetNillableSource sets the "source" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableSource(v *string) *DocumentUpdateOne {
+	if v != nil {
+		_u.SetSource(*v)
+	}
+	return _u
+}
+
 // SetTitle sets the "title" field.
 func (_u *DocumentUpdateOne) SetTitle(v string) *DocumentUpdateOne {
 	_u.mutation.SetTitle(v)
@@ -303,6 +471,18 @@ func (_u *DocumentUpdateOne) SetNillableTitle(v *string) *DocumentUpdateOne {
 	if v != nil {
 		_u.SetTitle(*v)
 	}
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *DocumentUpdateOne) SetMetadata(v map[string]interface{}) *DocumentUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *DocumentUpdateOne) ClearMetadata() *DocumentUpdateOne {
+	_u.mutation.ClearMetadata()
 	return _u
 }
 
@@ -362,10 +542,54 @@ func (_u *DocumentUpdateOne) SetNillableStatus(v *document.Status) *DocumentUpda
 	return _u
 }
 
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (_u *DocumentUpdateOne) SetKnowledgeBaseID(v int) *DocumentUpdateOne {
+	_u.mutation.SetKnowledgeBaseID(v)
+	return _u
+}
+
+// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableKnowledgeBaseID(v *int) *DocumentUpdateOne {
+	if v != nil {
+		_u.SetKnowledgeBaseID(*v)
+	}
+	return _u
+}
+
+// SetFolderID sets the "folder_id" field.
+func (_u *DocumentUpdateOne) SetFolderID(v int) *DocumentUpdateOne {
+	_u.mutation.SetFolderID(v)
+	return _u
+}
+
+// SetNillableFolderID sets the "folder_id" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableFolderID(v *int) *DocumentUpdateOne {
+	if v != nil {
+		_u.SetFolderID(*v)
+	}
+	return _u
+}
+
+// ClearFolderID clears the value of the "folder_id" field.
+func (_u *DocumentUpdateOne) ClearFolderID() *DocumentUpdateOne {
+	_u.mutation.ClearFolderID()
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *DocumentUpdateOne) SetUpdatedAt(v time.Time) *DocumentUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
 	return _u
+}
+
+// SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
+func (_u *DocumentUpdateOne) SetKnowledgeBase(v *KnowledgeBase) *DocumentUpdateOne {
+	return _u.SetKnowledgeBaseID(v.ID)
+}
+
+// SetFolder sets the "folder" edge to the KnowledgeFolder entity.
+func (_u *DocumentUpdateOne) SetFolder(v *KnowledgeFolder) *DocumentUpdateOne {
+	return _u.SetFolderID(v.ID)
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
@@ -386,6 +610,18 @@ func (_u *DocumentUpdateOne) AddChunks(v ...*DocumentChunk) *DocumentUpdateOne {
 // Mutation returns the DocumentMutation object of the builder.
 func (_u *DocumentUpdateOne) Mutation() *DocumentMutation {
 	return _u.mutation
+}
+
+// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
+func (_u *DocumentUpdateOne) ClearKnowledgeBase() *DocumentUpdateOne {
+	_u.mutation.ClearKnowledgeBase()
+	return _u
+}
+
+// ClearFolder clears the "folder" edge to the KnowledgeFolder entity.
+func (_u *DocumentUpdateOne) ClearFolder() *DocumentUpdateOne {
+	_u.mutation.ClearFolder()
+	return _u
 }
 
 // ClearChunks clears all "chunks" edges to the DocumentChunk entity.
@@ -470,6 +706,9 @@ func (_u *DocumentUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
 	}
+	if _u.mutation.KnowledgeBaseCleared() && len(_u.mutation.KnowledgeBaseIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Document.knowledge_base"`)
+	}
 	return nil
 }
 
@@ -502,8 +741,17 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			}
 		}
 	}
+	if value, ok := _u.mutation.Source(); ok {
+		_spec.SetField(document.FieldSource, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(document.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(document.FieldMetadata, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Checksum(); ok {
 		_spec.SetField(document.FieldChecksum, field.TypeString, value)
@@ -519,6 +767,64 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(document.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.KnowledgeBaseCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.KnowledgeBaseTable,
+			Columns: []string{document.KnowledgeBaseColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.KnowledgeBaseIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.KnowledgeBaseTable,
+			Columns: []string{document.KnowledgeBaseColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.FolderCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.FolderTable,
+			Columns: []string{document.FolderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.FolderIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.FolderTable,
+			Columns: []string{document.FolderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.ChunksCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -75,6 +75,16 @@ func OwnerSubject(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldOwnerSubject, v))
 }
 
+// KnowledgeBaseID applies equality check predicate on the "knowledge_base_id" field. It's identical to KnowledgeBaseIDEQ.
+func KnowledgeBaseID(v int) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldKnowledgeBaseID, v))
+}
+
+// FolderID applies equality check predicate on the "folder_id" field. It's identical to FolderIDEQ.
+func FolderID(v int) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldFolderID, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldCreatedAt, v))
@@ -213,6 +223,16 @@ func TitleEqualFold(v string) predicate.Document {
 // TitleContainsFold applies the ContainsFold predicate on the "title" field.
 func TitleContainsFold(v string) predicate.Document {
 	return predicate.Document(sql.FieldContainsFold(FieldTitle, v))
+}
+
+// MetadataIsNil applies the IsNil predicate on the "metadata" field.
+func MetadataIsNil() predicate.Document {
+	return predicate.Document(sql.FieldIsNull(FieldMetadata))
+}
+
+// MetadataNotNil applies the NotNil predicate on the "metadata" field.
+func MetadataNotNil() predicate.Document {
+	return predicate.Document(sql.FieldNotNull(FieldMetadata))
 }
 
 // ChecksumEQ applies the EQ predicate on the "checksum" field.
@@ -385,6 +405,56 @@ func StatusNotIn(vs ...Status) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// KnowledgeBaseIDEQ applies the EQ predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDEQ(v int) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldKnowledgeBaseID, v))
+}
+
+// KnowledgeBaseIDNEQ applies the NEQ predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDNEQ(v int) predicate.Document {
+	return predicate.Document(sql.FieldNEQ(FieldKnowledgeBaseID, v))
+}
+
+// KnowledgeBaseIDIn applies the In predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDIn(vs ...int) predicate.Document {
+	return predicate.Document(sql.FieldIn(FieldKnowledgeBaseID, vs...))
+}
+
+// KnowledgeBaseIDNotIn applies the NotIn predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDNotIn(vs ...int) predicate.Document {
+	return predicate.Document(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
+}
+
+// FolderIDEQ applies the EQ predicate on the "folder_id" field.
+func FolderIDEQ(v int) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldFolderID, v))
+}
+
+// FolderIDNEQ applies the NEQ predicate on the "folder_id" field.
+func FolderIDNEQ(v int) predicate.Document {
+	return predicate.Document(sql.FieldNEQ(FieldFolderID, v))
+}
+
+// FolderIDIn applies the In predicate on the "folder_id" field.
+func FolderIDIn(vs ...int) predicate.Document {
+	return predicate.Document(sql.FieldIn(FieldFolderID, vs...))
+}
+
+// FolderIDNotIn applies the NotIn predicate on the "folder_id" field.
+func FolderIDNotIn(vs ...int) predicate.Document {
+	return predicate.Document(sql.FieldNotIn(FieldFolderID, vs...))
+}
+
+// FolderIDIsNil applies the IsNil predicate on the "folder_id" field.
+func FolderIDIsNil() predicate.Document {
+	return predicate.Document(sql.FieldIsNull(FieldFolderID))
+}
+
+// FolderIDNotNil applies the NotNil predicate on the "folder_id" field.
+func FolderIDNotNil() predicate.Document {
+	return predicate.Document(sql.FieldNotNull(FieldFolderID))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldCreatedAt, v))
@@ -463,6 +533,52 @@ func UpdatedAtLT(v time.Time) predicate.Document {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.Document {
 	return predicate.Document(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// HasKnowledgeBase applies the HasEdge predicate on the "knowledge_base" edge.
+func HasKnowledgeBase() predicate.Document {
+	return predicate.Document(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, KnowledgeBaseTable, KnowledgeBaseColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasKnowledgeBaseWith applies the HasEdge predicate on the "knowledge_base" edge with a given conditions (other predicates).
+func HasKnowledgeBaseWith(preds ...predicate.KnowledgeBase) predicate.Document {
+	return predicate.Document(func(s *sql.Selector) {
+		step := newKnowledgeBaseStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasFolder applies the HasEdge predicate on the "folder" edge.
+func HasFolder() predicate.Document {
+	return predicate.Document(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, FolderTable, FolderColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasFolderWith applies the HasEdge predicate on the "folder" edge with a given conditions (other predicates).
+func HasFolderWith(preds ...predicate.KnowledgeFolder) predicate.Document {
+	return predicate.Document(func(s *sql.Selector) {
+		step := newFolderStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // HasChunks applies the HasEdge predicate on the "chunks" edge.

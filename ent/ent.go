@@ -11,6 +11,8 @@ import (
 	"eino-quickstart/ent/checkpoint"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
@@ -83,17 +85,19 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			agentrun.Table:       agentrun.ValidColumn,
-			approval.Table:       approval.ValidColumn,
-			auditevent.Table:     auditevent.ValidColumn,
-			chatturn.Table:       chatturn.ValidColumn,
-			checkpoint.Table:     checkpoint.ValidColumn,
-			document.Table:       document.ValidColumn,
-			documentchunk.Table:  documentchunk.ValidColumn,
-			knowledgeindex.Table: knowledgeindex.ValidColumn,
-			session.Table:        session.ValidColumn,
-			sessionmessage.Table: sessionmessage.ValidColumn,
-			vectoroutbox.Table:   vectoroutbox.ValidColumn,
+			agentrun.Table:        agentrun.ValidColumn,
+			approval.Table:        approval.ValidColumn,
+			auditevent.Table:      auditevent.ValidColumn,
+			chatturn.Table:        chatturn.ValidColumn,
+			checkpoint.Table:      checkpoint.ValidColumn,
+			document.Table:        document.ValidColumn,
+			documentchunk.Table:   documentchunk.ValidColumn,
+			knowledgebase.Table:   knowledgebase.ValidColumn,
+			knowledgefolder.Table: knowledgefolder.ValidColumn,
+			knowledgeindex.Table:  knowledgeindex.ValidColumn,
+			session.Table:         session.ValidColumn,
+			sessionmessage.Table:  sessionmessage.ValidColumn,
+			vectoroutbox.Table:    vectoroutbox.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

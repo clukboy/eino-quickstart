@@ -33,8 +33,8 @@ type HybridRetriever struct {
 	RRFSmoothing int
 }
 
-func (r *HybridRetriever) Search(ctx context.Context, actorSubject string, query string, topK int) ([]Result, error) {
-	debugResult, err := r.DebugSearch(ctx, actorSubject, query, topK)
+func (r *HybridRetriever) Search(ctx context.Context, request SearchRequest) ([]Result, error) {
+	debugResult, err := r.DebugSearch(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func truncateUTF8(value string, maximumBytes int) string {
 	return value[:end]
 }
 
-func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, query string, topK int) (*DebugResult, error) {
+func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest) (*DebugResult, error) {
 	if r == nil {
 		return nil, fmt.Errorf("knowledge retriever is nil")
 	}
@@ -183,26 +183,26 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 		return nil, fmt.Errorf("knowledge keyword searcher is required")
 	}
 
-	query = strings.TrimSpace(query)
+	request.Query = strings.TrimSpace(request.Query)
 
-	if query == "" {
+	if request.Query == "" {
 		return nil, fmt.Errorf("knowledge query is required")
 	}
 
 	if r.MaxQueryCharacters > 0 &&
-		len([]rune(query)) > r.MaxQueryCharacters {
+		len([]rune(request.Query)) > r.MaxQueryCharacters {
 		return nil, fmt.Errorf("knowledge query exceeds maximum length")
 	}
 
-	if topK == 0 {
-		topK = r.DefaultTopK
+	if request.TopK == 0 {
+		request.TopK = r.DefaultTopK
 	}
 
-	if topK <= 0 {
+	if request.TopK <= 0 {
 		return nil, fmt.Errorf("knowledge topK must be greater than zero")
 	}
 
-	if r.MaxTopK > 0 && topK > r.MaxTopK {
+	if r.MaxTopK > 0 && request.TopK > r.MaxTopK {
 		return nil, fmt.Errorf("knowledge topK exceeds maximum")
 	}
 
@@ -214,7 +214,7 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 		return nil, fmt.Errorf("keyword candidate limit must be greater than zero")
 	}
 
-	debugResult := &DebugResult{Query: query}
+	debugResult := &DebugResult{Query: request.Query}
 
 	// ==========================================
 	// 1. Vector Search
@@ -222,7 +222,7 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 
 	var vectorCandidates []Candidate
 
-	vectors, err := r.Embedder.Embed(ctx, []string{query})
+	vectors, err := r.Embedder.Embed(ctx, []string{request.Query})
 
 	if err == nil && len(vectors) != 1 {
 		err = fmt.Errorf("query embedding response has invalid count")
@@ -248,18 +248,18 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 
 	debugResult.VectorResults = vectorCandidates
 
-	queryInfo := ParseQuery(query)
+	queryInfo := ParseQuery(request.Query)
 
 	var exactCandidates []Candidate
 	if queryInfo.HasModel && r.ProductSearcher != nil {
-		exactCandidates, err = r.ProductSearcher.SearchModel(ctx, actorSubject, queryInfo.Model, r.ExactCandidates)
+		exactCandidates, err = r.ProductSearcher.SearchModel(ctx, request.ActorSubject, queryInfo.Model, r.ExactCandidates)
 		if err != nil {
 			return nil, fmt.Errorf("exact product search: %w", err)
 		}
 	}
 	debugResult.ExactResults = exactCandidates
 
-	keywordCandidates, err := r.KeywordSearcher.Search(ctx, actorSubject, query, r.KeywordCandidates)
+	keywordCandidates, err := r.KeywordSearcher.Search(ctx, request.ActorSubject, request.Query, r.KeywordCandidates)
 	if err != nil {
 		return nil, fmt.Errorf("keyword search: %w", err)
 	}
@@ -283,7 +283,7 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, actorSubject string, 
 
 	debugResult.FusedResults = fused
 
-	finalResults, err := r.loadAuthorizedResults(ctx, actorSubject, fused, topK)
+	finalResults, err := r.loadAuthorizedResults(ctx, request.ActorSubject, fused, request.TopK)
 	if err != nil {
 		return nil, err
 	}

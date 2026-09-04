@@ -19,6 +19,16 @@ type Candidate struct {
 	Score   float64
 }
 
+type SearchRequest struct {
+	ActorSubject string
+
+	Query string
+
+	KnowledgeBaseIDs []int
+
+	TopK int
+}
+
 type VectorSearcher interface {
 	Search(ctx context.Context, query string, limit int) ([]Candidate, error)
 }
@@ -28,7 +38,7 @@ type KeywordSearcher interface {
 }
 
 type Retriever interface {
-	Search(ctx context.Context, actorSubject string, query string, topK int) ([]Result, error)
+	Search(ctx context.Context, request SearchRequest) ([]Result, error)
 }
 
 type DebugResult struct {
@@ -42,5 +52,5 @@ type DebugResult struct {
 }
 
 type DebugRetriever interface {
-	DebugSearch(ctx context.Context, actorSubject string, query string, topK int) (*DebugResult, error)
+	DebugSearch(ctx context.Context, request SearchRequest) (*DebugResult, error)
 }

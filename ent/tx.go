@@ -28,6 +28,10 @@ type Tx struct {
 	Document *DocumentClient
 	// DocumentChunk is the client for interacting with the DocumentChunk builders.
 	DocumentChunk *DocumentChunkClient
+	// KnowledgeBase is the client for interacting with the KnowledgeBase builders.
+	KnowledgeBase *KnowledgeBaseClient
+	// KnowledgeFolder is the client for interacting with the KnowledgeFolder builders.
+	KnowledgeFolder *KnowledgeFolderClient
 	// KnowledgeIndex is the client for interacting with the KnowledgeIndex builders.
 	KnowledgeIndex *KnowledgeIndexClient
 	// Session is the client for interacting with the Session builders.
@@ -174,6 +178,8 @@ func (tx *Tx) init() {
 	tx.Checkpoint = NewCheckpointClient(tx.config)
 	tx.Document = NewDocumentClient(tx.config)
 	tx.DocumentChunk = NewDocumentChunkClient(tx.config)
+	tx.KnowledgeBase = NewKnowledgeBaseClient(tx.config)
+	tx.KnowledgeFolder = NewKnowledgeFolderClient(tx.config)
 	tx.KnowledgeIndex = NewKnowledgeIndexClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.SessionMessage = NewSessionMessageClient(tx.config)

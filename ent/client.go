@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"reflect"
+	"time"
 
 	"eino-quickstart/ent/migrate"
 
@@ -18,6 +20,8 @@ import (
 	"eino-quickstart/ent/checkpoint"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
@@ -29,9 +33,13 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 
 	stdsql "database/sql"
+
+	"github.com/redis/go-redis/v9"
+	"github.com/suyuan32/simple-admin-tools/core/jsonx"
 )
 
 // Client is the client that holds all ent builders.
+
 type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
@@ -50,6 +58,10 @@ type Client struct {
 	Document *DocumentClient
 	// DocumentChunk is the client for interacting with the DocumentChunk builders.
 	DocumentChunk *DocumentChunkClient
+	// KnowledgeBase is the client for interacting with the KnowledgeBase builders.
+	KnowledgeBase *KnowledgeBaseClient
+	// KnowledgeFolder is the client for interacting with the KnowledgeFolder builders.
+	KnowledgeFolder *KnowledgeFolderClient
 	// KnowledgeIndex is the client for interacting with the KnowledgeIndex builders.
 	KnowledgeIndex *KnowledgeIndexClient
 	// Session is the client for interacting with the Session builders.
@@ -76,6 +88,8 @@ func (c *Client) init() {
 	c.Checkpoint = NewCheckpointClient(c.config)
 	c.Document = NewDocumentClient(c.config)
 	c.DocumentChunk = NewDocumentChunkClient(c.config)
+	c.KnowledgeBase = NewKnowledgeBaseClient(c.config)
+	c.KnowledgeFolder = NewKnowledgeFolderClient(c.config)
 	c.KnowledgeIndex = NewKnowledgeIndexClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.SessionMessage = NewSessionMessageClient(c.config)
@@ -85,6 +99,7 @@ func (c *Client) init() {
 type (
 	// config is the configuration for the client and its builder.
 	config struct {
+		rds redis.UniversalClient
 		// driver used for executing database requests.
 		driver dialect.Driver
 		// debug enable a debug logging.
@@ -138,6 +153,13 @@ func Driver(driver dialect.Driver) Option {
 	}
 }
 
+// Redis configures the client redis.
+func Redis(rds redis.UniversalClient) Option {
+	return func(c *config) {
+		c.rds = rds
+	}
+}
+
 // Open opens a database/sql.DB specified by the driver name and
 // the data source name, and returns a new client attached to it.
 // Optional parameters can be added for configuring the client.
@@ -170,19 +192,21 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:            ctx,
-		config:         cfg,
-		AgentRun:       NewAgentRunClient(cfg),
-		Approval:       NewApprovalClient(cfg),
-		AuditEvent:     NewAuditEventClient(cfg),
-		ChatTurn:       NewChatTurnClient(cfg),
-		Checkpoint:     NewCheckpointClient(cfg),
-		Document:       NewDocumentClient(cfg),
-		DocumentChunk:  NewDocumentChunkClient(cfg),
-		KnowledgeIndex: NewKnowledgeIndexClient(cfg),
-		Session:        NewSessionClient(cfg),
-		SessionMessage: NewSessionMessageClient(cfg),
-		VectorOutbox:   NewVectorOutboxClient(cfg),
+		ctx:             ctx,
+		config:          cfg,
+		AgentRun:        NewAgentRunClient(cfg),
+		Approval:        NewApprovalClient(cfg),
+		AuditEvent:      NewAuditEventClient(cfg),
+		ChatTurn:        NewChatTurnClient(cfg),
+		Checkpoint:      NewCheckpointClient(cfg),
+		Document:        NewDocumentClient(cfg),
+		DocumentChunk:   NewDocumentChunkClient(cfg),
+		KnowledgeBase:   NewKnowledgeBaseClient(cfg),
+		KnowledgeFolder: NewKnowledgeFolderClient(cfg),
+		KnowledgeIndex:  NewKnowledgeIndexClient(cfg),
+		Session:         NewSessionClient(cfg),
+		SessionMessage:  NewSessionMessageClient(cfg),
+		VectorOutbox:    NewVectorOutboxClient(cfg),
 	}, nil
 }
 
@@ -200,19 +224,21 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:            ctx,
-		config:         cfg,
-		AgentRun:       NewAgentRunClient(cfg),
-		Approval:       NewApprovalClient(cfg),
-		AuditEvent:     NewAuditEventClient(cfg),
-		ChatTurn:       NewChatTurnClient(cfg),
-		Checkpoint:     NewCheckpointClient(cfg),
-		Document:       NewDocumentClient(cfg),
-		DocumentChunk:  NewDocumentChunkClient(cfg),
-		KnowledgeIndex: NewKnowledgeIndexClient(cfg),
-		Session:        NewSessionClient(cfg),
-		SessionMessage: NewSessionMessageClient(cfg),
-		VectorOutbox:   NewVectorOutboxClient(cfg),
+		ctx:             ctx,
+		config:          cfg,
+		AgentRun:        NewAgentRunClient(cfg),
+		Approval:        NewApprovalClient(cfg),
+		AuditEvent:      NewAuditEventClient(cfg),
+		ChatTurn:        NewChatTurnClient(cfg),
+		Checkpoint:      NewCheckpointClient(cfg),
+		Document:        NewDocumentClient(cfg),
+		DocumentChunk:   NewDocumentChunkClient(cfg),
+		KnowledgeBase:   NewKnowledgeBaseClient(cfg),
+		KnowledgeFolder: NewKnowledgeFolderClient(cfg),
+		KnowledgeIndex:  NewKnowledgeIndexClient(cfg),
+		Session:         NewSessionClient(cfg),
+		SessionMessage:  NewSessionMessageClient(cfg),
+		VectorOutbox:    NewVectorOutboxClient(cfg),
 	}, nil
 }
 
@@ -243,7 +269,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.AgentRun, c.Approval, c.AuditEvent, c.ChatTurn, c.Checkpoint, c.Document,
-		c.DocumentChunk, c.KnowledgeIndex, c.Session, c.SessionMessage, c.VectorOutbox,
+		c.DocumentChunk, c.KnowledgeBase, c.KnowledgeFolder, c.KnowledgeIndex,
+		c.Session, c.SessionMessage, c.VectorOutbox,
 	} {
 		n.Use(hooks...)
 	}
@@ -254,7 +281,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.AgentRun, c.Approval, c.AuditEvent, c.ChatTurn, c.Checkpoint, c.Document,
-		c.DocumentChunk, c.KnowledgeIndex, c.Session, c.SessionMessage, c.VectorOutbox,
+		c.DocumentChunk, c.KnowledgeBase, c.KnowledgeFolder, c.KnowledgeIndex,
+		c.Session, c.SessionMessage, c.VectorOutbox,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -277,6 +305,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Document.mutate(ctx, m)
 	case *DocumentChunkMutation:
 		return c.DocumentChunk.mutate(ctx, m)
+	case *KnowledgeBaseMutation:
+		return c.KnowledgeBase.mutate(ctx, m)
+	case *KnowledgeFolderMutation:
+		return c.KnowledgeFolder.mutate(ctx, m)
 	case *KnowledgeIndexMutation:
 		return c.KnowledgeIndex.mutate(ctx, m)
 	case *SessionMutation:
@@ -386,7 +418,24 @@ func (c *AgentRunClient) Query() *AgentRunQuery {
 
 // Get returns a AgentRun entity by its id.
 func (c *AgentRunClient) Get(ctx context.Context, id int) (*AgentRun, error) {
-	return c.Query().Where(agentrun.ID(id)).Only(ctx)
+	var result *AgentRun
+	cacheKey := cache.Key("AgentRun", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(agentrun.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -519,7 +568,24 @@ func (c *ApprovalClient) Query() *ApprovalQuery {
 
 // Get returns a Approval entity by its id.
 func (c *ApprovalClient) Get(ctx context.Context, id int) (*Approval, error) {
-	return c.Query().Where(approval.ID(id)).Only(ctx)
+	var result *Approval
+	cacheKey := cache.Key("Approval", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(approval.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -652,7 +718,24 @@ func (c *AuditEventClient) Query() *AuditEventQuery {
 
 // Get returns a AuditEvent entity by its id.
 func (c *AuditEventClient) Get(ctx context.Context, id int) (*AuditEvent, error) {
-	return c.Query().Where(auditevent.ID(id)).Only(ctx)
+	var result *AuditEvent
+	cacheKey := cache.Key("AuditEvent", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(auditevent.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -785,7 +868,24 @@ func (c *ChatTurnClient) Query() *ChatTurnQuery {
 
 // Get returns a ChatTurn entity by its id.
 func (c *ChatTurnClient) Get(ctx context.Context, id int) (*ChatTurn, error) {
-	return c.Query().Where(chatturn.ID(id)).Only(ctx)
+	var result *ChatTurn
+	cacheKey := cache.Key("ChatTurn", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(chatturn.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -918,7 +1018,24 @@ func (c *CheckpointClient) Query() *CheckpointQuery {
 
 // Get returns a Checkpoint entity by its id.
 func (c *CheckpointClient) Get(ctx context.Context, id int) (*Checkpoint, error) {
-	return c.Query().Where(checkpoint.ID(id)).Only(ctx)
+	var result *Checkpoint
+	cacheKey := cache.Key("Checkpoint", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(checkpoint.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1051,7 +1168,24 @@ func (c *DocumentClient) Query() *DocumentQuery {
 
 // Get returns a Document entity by its id.
 func (c *DocumentClient) Get(ctx context.Context, id int) (*Document, error) {
-	return c.Query().Where(document.ID(id)).Only(ctx)
+	var result *Document
+	cacheKey := cache.Key("Document", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(document.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1061,6 +1195,38 @@ func (c *DocumentClient) GetX(ctx context.Context, id int) *Document {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryKnowledgeBase queries the knowledge_base edge of a Document.
+func (c *DocumentClient) QueryKnowledgeBase(_m *Document) *KnowledgeBaseQuery {
+	query := (&KnowledgeBaseClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(document.Table, document.FieldID, id),
+			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, document.KnowledgeBaseTable, document.KnowledgeBaseColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryFolder queries the folder edge of a Document.
+func (c *DocumentClient) QueryFolder(_m *Document) *KnowledgeFolderQuery {
+	query := (&KnowledgeFolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(document.Table, document.FieldID, id),
+			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, document.FolderTable, document.FolderColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // QueryChunks queries the chunks edge of a Document.
@@ -1200,7 +1366,24 @@ func (c *DocumentChunkClient) Query() *DocumentChunkQuery {
 
 // Get returns a DocumentChunk entity by its id.
 func (c *DocumentChunkClient) Get(ctx context.Context, id int) (*DocumentChunk, error) {
-	return c.Query().Where(documentchunk.ID(id)).Only(ctx)
+	var result *DocumentChunk
+	cacheKey := cache.Key("DocumentChunk", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(documentchunk.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1250,6 +1433,402 @@ func (c *DocumentChunkClient) mutate(ctx context.Context, m *DocumentChunkMutati
 		return (&DocumentChunkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown DocumentChunk mutation op: %q", m.Op())
+	}
+}
+
+// KnowledgeBaseClient is a client for the KnowledgeBase schema.
+type KnowledgeBaseClient struct {
+	config
+}
+
+// NewKnowledgeBaseClient returns a client for the KnowledgeBase from the given config.
+func NewKnowledgeBaseClient(c config) *KnowledgeBaseClient {
+	return &KnowledgeBaseClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `knowledgebase.Hooks(f(g(h())))`.
+func (c *KnowledgeBaseClient) Use(hooks ...Hook) {
+	c.hooks.KnowledgeBase = append(c.hooks.KnowledgeBase, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `knowledgebase.Intercept(f(g(h())))`.
+func (c *KnowledgeBaseClient) Intercept(interceptors ...Interceptor) {
+	c.inters.KnowledgeBase = append(c.inters.KnowledgeBase, interceptors...)
+}
+
+// Create returns a builder for creating a KnowledgeBase entity.
+func (c *KnowledgeBaseClient) Create() *KnowledgeBaseCreate {
+	mutation := newKnowledgeBaseMutation(c.config, OpCreate)
+	return &KnowledgeBaseCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of KnowledgeBase entities.
+func (c *KnowledgeBaseClient) CreateBulk(builders ...*KnowledgeBaseCreate) *KnowledgeBaseCreateBulk {
+	return &KnowledgeBaseCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *KnowledgeBaseClient) MapCreateBulk(slice any, setFunc func(*KnowledgeBaseCreate, int)) *KnowledgeBaseCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &KnowledgeBaseCreateBulk{err: fmt.Errorf("calling to KnowledgeBaseClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*KnowledgeBaseCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &KnowledgeBaseCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for KnowledgeBase.
+func (c *KnowledgeBaseClient) Update() *KnowledgeBaseUpdate {
+	mutation := newKnowledgeBaseMutation(c.config, OpUpdate)
+	return &KnowledgeBaseUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *KnowledgeBaseClient) UpdateOne(_m *KnowledgeBase) *KnowledgeBaseUpdateOne {
+	mutation := newKnowledgeBaseMutation(c.config, OpUpdateOne, withKnowledgeBase(_m))
+	return &KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *KnowledgeBaseClient) UpdateOneID(id int) *KnowledgeBaseUpdateOne {
+	mutation := newKnowledgeBaseMutation(c.config, OpUpdateOne, withKnowledgeBaseID(id))
+	return &KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for KnowledgeBase.
+func (c *KnowledgeBaseClient) Delete() *KnowledgeBaseDelete {
+	mutation := newKnowledgeBaseMutation(c.config, OpDelete)
+	return &KnowledgeBaseDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *KnowledgeBaseClient) DeleteOne(_m *KnowledgeBase) *KnowledgeBaseDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *KnowledgeBaseClient) DeleteOneID(id int) *KnowledgeBaseDeleteOne {
+	builder := c.Delete().Where(knowledgebase.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &KnowledgeBaseDeleteOne{builder}
+}
+
+// Query returns a query builder for KnowledgeBase.
+func (c *KnowledgeBaseClient) Query() *KnowledgeBaseQuery {
+	return &KnowledgeBaseQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeKnowledgeBase},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a KnowledgeBase entity by its id.
+func (c *KnowledgeBaseClient) Get(ctx context.Context, id int) (*KnowledgeBase, error) {
+	var result *KnowledgeBase
+	cacheKey := cache.Key("KnowledgeBase", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(knowledgebase.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *KnowledgeBaseClient) GetX(ctx context.Context, id int) *KnowledgeBase {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryFolders queries the folders edge of a KnowledgeBase.
+func (c *KnowledgeBaseClient) QueryFolders(_m *KnowledgeBase) *KnowledgeFolderQuery {
+	query := (&KnowledgeFolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, id),
+			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.FoldersTable, knowledgebase.FoldersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDocuments queries the documents edge of a KnowledgeBase.
+func (c *KnowledgeBaseClient) QueryDocuments(_m *KnowledgeBase) *DocumentQuery {
+	query := (&DocumentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, id),
+			sqlgraph.To(document.Table, document.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.DocumentsTable, knowledgebase.DocumentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *KnowledgeBaseClient) Hooks() []Hook {
+	return c.hooks.KnowledgeBase
+}
+
+// Interceptors returns the client interceptors.
+func (c *KnowledgeBaseClient) Interceptors() []Interceptor {
+	return c.inters.KnowledgeBase
+}
+
+func (c *KnowledgeBaseClient) mutate(ctx context.Context, m *KnowledgeBaseMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&KnowledgeBaseCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&KnowledgeBaseUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&KnowledgeBaseDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown KnowledgeBase mutation op: %q", m.Op())
+	}
+}
+
+// KnowledgeFolderClient is a client for the KnowledgeFolder schema.
+type KnowledgeFolderClient struct {
+	config
+}
+
+// NewKnowledgeFolderClient returns a client for the KnowledgeFolder from the given config.
+func NewKnowledgeFolderClient(c config) *KnowledgeFolderClient {
+	return &KnowledgeFolderClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `knowledgefolder.Hooks(f(g(h())))`.
+func (c *KnowledgeFolderClient) Use(hooks ...Hook) {
+	c.hooks.KnowledgeFolder = append(c.hooks.KnowledgeFolder, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `knowledgefolder.Intercept(f(g(h())))`.
+func (c *KnowledgeFolderClient) Intercept(interceptors ...Interceptor) {
+	c.inters.KnowledgeFolder = append(c.inters.KnowledgeFolder, interceptors...)
+}
+
+// Create returns a builder for creating a KnowledgeFolder entity.
+func (c *KnowledgeFolderClient) Create() *KnowledgeFolderCreate {
+	mutation := newKnowledgeFolderMutation(c.config, OpCreate)
+	return &KnowledgeFolderCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of KnowledgeFolder entities.
+func (c *KnowledgeFolderClient) CreateBulk(builders ...*KnowledgeFolderCreate) *KnowledgeFolderCreateBulk {
+	return &KnowledgeFolderCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *KnowledgeFolderClient) MapCreateBulk(slice any, setFunc func(*KnowledgeFolderCreate, int)) *KnowledgeFolderCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &KnowledgeFolderCreateBulk{err: fmt.Errorf("calling to KnowledgeFolderClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*KnowledgeFolderCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &KnowledgeFolderCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for KnowledgeFolder.
+func (c *KnowledgeFolderClient) Update() *KnowledgeFolderUpdate {
+	mutation := newKnowledgeFolderMutation(c.config, OpUpdate)
+	return &KnowledgeFolderUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *KnowledgeFolderClient) UpdateOne(_m *KnowledgeFolder) *KnowledgeFolderUpdateOne {
+	mutation := newKnowledgeFolderMutation(c.config, OpUpdateOne, withKnowledgeFolder(_m))
+	return &KnowledgeFolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *KnowledgeFolderClient) UpdateOneID(id int) *KnowledgeFolderUpdateOne {
+	mutation := newKnowledgeFolderMutation(c.config, OpUpdateOne, withKnowledgeFolderID(id))
+	return &KnowledgeFolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for KnowledgeFolder.
+func (c *KnowledgeFolderClient) Delete() *KnowledgeFolderDelete {
+	mutation := newKnowledgeFolderMutation(c.config, OpDelete)
+	return &KnowledgeFolderDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *KnowledgeFolderClient) DeleteOne(_m *KnowledgeFolder) *KnowledgeFolderDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *KnowledgeFolderClient) DeleteOneID(id int) *KnowledgeFolderDeleteOne {
+	builder := c.Delete().Where(knowledgefolder.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &KnowledgeFolderDeleteOne{builder}
+}
+
+// Query returns a query builder for KnowledgeFolder.
+func (c *KnowledgeFolderClient) Query() *KnowledgeFolderQuery {
+	return &KnowledgeFolderQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeKnowledgeFolder},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a KnowledgeFolder entity by its id.
+func (c *KnowledgeFolderClient) Get(ctx context.Context, id int) (*KnowledgeFolder, error) {
+	var result *KnowledgeFolder
+	cacheKey := cache.Key("KnowledgeFolder", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(knowledgefolder.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *KnowledgeFolderClient) GetX(ctx context.Context, id int) *KnowledgeFolder {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryKnowledgeBase queries the knowledge_base edge of a KnowledgeFolder.
+func (c *KnowledgeFolderClient) QueryKnowledgeBase(_m *KnowledgeFolder) *KnowledgeBaseQuery {
+	query := (&KnowledgeBaseClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgefolder.Table, knowledgefolder.FieldID, id),
+			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, knowledgefolder.KnowledgeBaseTable, knowledgefolder.KnowledgeBaseColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryParent queries the parent edge of a KnowledgeFolder.
+func (c *KnowledgeFolderClient) QueryParent(_m *KnowledgeFolder) *KnowledgeFolderQuery {
+	query := (&KnowledgeFolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgefolder.Table, knowledgefolder.FieldID, id),
+			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, knowledgefolder.ParentTable, knowledgefolder.ParentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryChildren queries the children edge of a KnowledgeFolder.
+func (c *KnowledgeFolderClient) QueryChildren(_m *KnowledgeFolder) *KnowledgeFolderQuery {
+	query := (&KnowledgeFolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgefolder.Table, knowledgefolder.FieldID, id),
+			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, knowledgefolder.ChildrenTable, knowledgefolder.ChildrenColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDocuments queries the documents edge of a KnowledgeFolder.
+func (c *KnowledgeFolderClient) QueryDocuments(_m *KnowledgeFolder) *DocumentQuery {
+	query := (&DocumentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgefolder.Table, knowledgefolder.FieldID, id),
+			sqlgraph.To(document.Table, document.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, knowledgefolder.DocumentsTable, knowledgefolder.DocumentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *KnowledgeFolderClient) Hooks() []Hook {
+	return c.hooks.KnowledgeFolder
+}
+
+// Interceptors returns the client interceptors.
+func (c *KnowledgeFolderClient) Interceptors() []Interceptor {
+	return c.inters.KnowledgeFolder
+}
+
+func (c *KnowledgeFolderClient) mutate(ctx context.Context, m *KnowledgeFolderMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&KnowledgeFolderCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&KnowledgeFolderUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&KnowledgeFolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&KnowledgeFolderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown KnowledgeFolder mutation op: %q", m.Op())
 	}
 }
 
@@ -1349,7 +1928,24 @@ func (c *KnowledgeIndexClient) Query() *KnowledgeIndexQuery {
 
 // Get returns a KnowledgeIndex entity by its id.
 func (c *KnowledgeIndexClient) Get(ctx context.Context, id int) (*KnowledgeIndex, error) {
-	return c.Query().Where(knowledgeindex.ID(id)).Only(ctx)
+	var result *KnowledgeIndex
+	cacheKey := cache.Key("KnowledgeIndex", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(knowledgeindex.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1482,7 +2078,24 @@ func (c *SessionClient) Query() *SessionQuery {
 
 // Get returns a Session entity by its id.
 func (c *SessionClient) Get(ctx context.Context, id int) (*Session, error) {
-	return c.Query().Where(session.ID(id)).Only(ctx)
+	var result *Session
+	cacheKey := cache.Key("Session", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(session.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1631,7 +2244,24 @@ func (c *SessionMessageClient) Query() *SessionMessageQuery {
 
 // Get returns a SessionMessage entity by its id.
 func (c *SessionMessageClient) Get(ctx context.Context, id int) (*SessionMessage, error) {
-	return c.Query().Where(sessionmessage.ID(id)).Only(ctx)
+	var result *SessionMessage
+	cacheKey := cache.Key("SessionMessage", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(sessionmessage.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1780,7 +2410,24 @@ func (c *VectorOutboxClient) Query() *VectorOutboxQuery {
 
 // Get returns a VectorOutbox entity by its id.
 func (c *VectorOutboxClient) Get(ctx context.Context, id int) (*VectorOutbox, error) {
-	return c.Query().Where(vectoroutbox.ID(id)).Only(ctx)
+	var result *VectorOutbox
+	cacheKey := cache.Key("VectorOutbox", id)
+	data, err := c.rds.Get(ctx, cacheKey).Bytes()
+	if data != nil {
+		jsonx.Unmarshal(data, &result)
+		return result, nil
+	}
+	result, err = c.Query().Where(vectoroutbox.ID(id)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if result != nil {
+		randomOffset := time.Duration(rand.Intn(60)) * time.Second
+		data, _ = jsonx.Marshal(result)
+		err = c.rds.SetEx(ctx, cacheKey, data, cache.BaseTTL+randomOffset).Err()
+	}
+	// 写入缓存
+	return result, nil
 }
 
 // GetX is like Get, but panics if an error occurs.
@@ -1821,11 +2468,13 @@ func (c *VectorOutboxClient) mutate(ctx context.Context, m *VectorOutboxMutation
 type (
 	hooks struct {
 		AgentRun, Approval, AuditEvent, ChatTurn, Checkpoint, Document, DocumentChunk,
-		KnowledgeIndex, Session, SessionMessage, VectorOutbox []ent.Hook
+		KnowledgeBase, KnowledgeFolder, KnowledgeIndex, Session, SessionMessage,
+		VectorOutbox []ent.Hook
 	}
 	inters struct {
 		AgentRun, Approval, AuditEvent, ChatTurn, Checkpoint, Document, DocumentChunk,
-		KnowledgeIndex, Session, SessionMessage, VectorOutbox []ent.Interceptor
+		KnowledgeBase, KnowledgeFolder, KnowledgeIndex, Session, SessionMessage,
+		VectorOutbox []ent.Interceptor
 	}
 )
 
