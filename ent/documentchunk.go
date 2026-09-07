@@ -18,7 +18,7 @@ import (
 type DocumentChunk struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// ChunkIndex holds the value of the "chunk_index" field.
 	ChunkIndex int `json:"chunk_index,omitempty"`
 	// CitationID holds the value of the "citation_id" field.
@@ -46,7 +46,7 @@ type DocumentChunk struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the DocumentChunkQuery when eager-loading is set.
 	Edges           DocumentChunkEdges `json:"edges"`
-	document_chunks *int
+	document_chunks *uint64
 	selectValues    sql.SelectValues
 }
 
@@ -105,7 +105,7 @@ func (_m *DocumentChunk) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case documentchunk.FieldChunkIndex:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field chunk_index", values[i])
@@ -186,8 +186,8 @@ func (_m *DocumentChunk) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field document_chunks", value)
 			} else if value.Valid {
-				_m.document_chunks = new(int)
-				*_m.document_chunks = int(value.Int64)
+				_m.document_chunks = new(uint64)
+				*_m.document_chunks = uint64(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])

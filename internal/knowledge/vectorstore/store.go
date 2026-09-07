@@ -9,7 +9,7 @@ type Vector struct {
 }
 
 type SearchResult struct {
-	ChunkID int64
+	ChunkID uint64
 	Score   float64
 }
 

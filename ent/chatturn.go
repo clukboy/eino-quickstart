@@ -16,7 +16,7 @@ import (
 type ChatTurn struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// TurnID holds the value of the "turn_id" field.
 	TurnID string `json:"turn_id,omitempty"`
 	// SessionID holds the value of the "session_id" field.
@@ -71,7 +71,7 @@ func (_m *ChatTurn) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case chatturn.FieldTurnID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field turn_id", values[i])

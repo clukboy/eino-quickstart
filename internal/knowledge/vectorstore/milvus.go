@@ -539,7 +539,7 @@ func (c *milvusClientAdapter) Search(
 		}
 
 		results = append(results, SearchResult{
-			ChunkID: id,
+			ChunkID: uint64(id),
 			Score:   float64(resultSet.Scores[i]),
 		})
 	}

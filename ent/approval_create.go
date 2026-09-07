@@ -297,7 +297,7 @@ func (_c *ApprovalCreate) sqlSave(ctx context.Context) (*Approval, error) {
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -306,7 +306,7 @@ func (_c *ApprovalCreate) sqlSave(ctx context.Context) (*Approval, error) {
 func (_c *ApprovalCreate) createSpec() (*Approval, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Approval{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(approval.Table, sqlgraph.NewFieldSpec(approval.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(approval.Table, sqlgraph.NewFieldSpec(approval.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.ApprovalID(); ok {
 		_spec.SetField(approval.FieldApprovalID, field.TypeString, value)
@@ -422,7 +422,7 @@ func (_c *ApprovalCreateBulk) Save(ctx context.Context) ([]*Approval, error) {
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

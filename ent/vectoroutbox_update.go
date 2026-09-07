@@ -29,14 +29,14 @@ func (_u *VectorOutboxUpdate) Where(ps ...predicate.VectorOutbox) *VectorOutboxU
 }
 
 // SetChunkID sets the "chunk_id" field.
-func (_u *VectorOutboxUpdate) SetChunkID(v int64) *VectorOutboxUpdate {
+func (_u *VectorOutboxUpdate) SetChunkID(v uint64) *VectorOutboxUpdate {
 	_u.mutation.ResetChunkID()
 	_u.mutation.SetChunkID(v)
 	return _u
 }
 
 // SetNillableChunkID sets the "chunk_id" field if the given value is not nil.
-func (_u *VectorOutboxUpdate) SetNillableChunkID(v *int64) *VectorOutboxUpdate {
+func (_u *VectorOutboxUpdate) SetNillableChunkID(v *uint64) *VectorOutboxUpdate {
 	if v != nil {
 		_u.SetChunkID(*v)
 	}
@@ -218,7 +218,7 @@ func (_u *VectorOutboxUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(vectoroutbox.Table, vectoroutbox.Columns, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(vectoroutbox.Table, vectoroutbox.Columns, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -227,10 +227,10 @@ func (_u *VectorOutboxUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 	}
 	if value, ok := _u.mutation.ChunkID(); ok {
-		_spec.SetField(vectoroutbox.FieldChunkID, field.TypeInt64, value)
+		_spec.SetField(vectoroutbox.FieldChunkID, field.TypeUint64, value)
 	}
 	if value, ok := _u.mutation.AddedChunkID(); ok {
-		_spec.AddField(vectoroutbox.FieldChunkID, field.TypeInt64, value)
+		_spec.AddField(vectoroutbox.FieldChunkID, field.TypeUint64, value)
 	}
 	if value, ok := _u.mutation.Operation(); ok {
 		_spec.SetField(vectoroutbox.FieldOperation, field.TypeEnum, value)
@@ -283,14 +283,14 @@ type VectorOutboxUpdateOne struct {
 }
 
 // SetChunkID sets the "chunk_id" field.
-func (_u *VectorOutboxUpdateOne) SetChunkID(v int64) *VectorOutboxUpdateOne {
+func (_u *VectorOutboxUpdateOne) SetChunkID(v uint64) *VectorOutboxUpdateOne {
 	_u.mutation.ResetChunkID()
 	_u.mutation.SetChunkID(v)
 	return _u
 }
 
 // SetNillableChunkID sets the "chunk_id" field if the given value is not nil.
-func (_u *VectorOutboxUpdateOne) SetNillableChunkID(v *int64) *VectorOutboxUpdateOne {
+func (_u *VectorOutboxUpdateOne) SetNillableChunkID(v *uint64) *VectorOutboxUpdateOne {
 	if v != nil {
 		_u.SetChunkID(*v)
 	}
@@ -485,7 +485,7 @@ func (_u *VectorOutboxUpdateOne) sqlSave(ctx context.Context) (_node *VectorOutb
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(vectoroutbox.Table, vectoroutbox.Columns, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(vectoroutbox.Table, vectoroutbox.Columns, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "VectorOutbox.id" for update`)}
@@ -511,10 +511,10 @@ func (_u *VectorOutboxUpdateOne) sqlSave(ctx context.Context) (_node *VectorOutb
 		}
 	}
 	if value, ok := _u.mutation.ChunkID(); ok {
-		_spec.SetField(vectoroutbox.FieldChunkID, field.TypeInt64, value)
+		_spec.SetField(vectoroutbox.FieldChunkID, field.TypeUint64, value)
 	}
 	if value, ok := _u.mutation.AddedChunkID(); ok {
-		_spec.AddField(vectoroutbox.FieldChunkID, field.TypeInt64, value)
+		_spec.AddField(vectoroutbox.FieldChunkID, field.TypeUint64, value)
 	}
 	if value, ok := _u.mutation.Operation(); ok {
 		_spec.SetField(vectoroutbox.FieldOperation, field.TypeEnum, value)

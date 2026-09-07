@@ -20,9 +20,9 @@ func (KnowledgeFolder) Fields() []ent.Field {
 		field.String("name"),
 		field.String("path"),
 		field.Int("sort").Default(0),
-		field.Int("knowledge_base_id").Immutable(),
+		field.Uint64("knowledge_base_id").Immutable(),
 
-		field.Int("parent_id").Optional().Nillable(),
+		field.Uint64("parent_id").Optional().Nillable(),
 
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),

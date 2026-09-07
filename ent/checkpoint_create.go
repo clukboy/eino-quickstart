@@ -148,7 +148,7 @@ func (_c *CheckpointCreate) sqlSave(ctx context.Context) (*Checkpoint, error) {
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -157,7 +157,7 @@ func (_c *CheckpointCreate) sqlSave(ctx context.Context) (*Checkpoint, error) {
 func (_c *CheckpointCreate) createSpec() (*Checkpoint, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Checkpoint{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(checkpoint.Table, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(checkpoint.Table, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.CheckpointID(); ok {
 		_spec.SetField(checkpoint.FieldCheckpointID, field.TypeString, value)
@@ -229,7 +229,7 @@ func (_c *CheckpointCreateBulk) Save(ctx context.Context) ([]*Checkpoint, error)
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

@@ -82,8 +82,8 @@ func (_q *CheckpointQuery) FirstX(ctx context.Context) *Checkpoint {
 
 // FirstID returns the first Checkpoint ID from the query.
 // Returns a *NotFoundError when no Checkpoint ID was found.
-func (_q *CheckpointQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *CheckpointQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func (_q *CheckpointQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *CheckpointQuery) FirstIDX(ctx context.Context) int {
+func (_q *CheckpointQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +133,8 @@ func (_q *CheckpointQuery) OnlyX(ctx context.Context) *Checkpoint {
 // OnlyID is like Only, but returns the only Checkpoint ID in the query.
 // Returns a *NotSingularError when more than one Checkpoint ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *CheckpointQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *CheckpointQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +150,7 @@ func (_q *CheckpointQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *CheckpointQuery) OnlyIDX(ctx context.Context) int {
+func (_q *CheckpointQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +178,7 @@ func (_q *CheckpointQuery) AllX(ctx context.Context) []*Checkpoint {
 }
 
 // IDs executes the query and returns a list of Checkpoint IDs.
-func (_q *CheckpointQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *CheckpointQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +190,7 @@ func (_q *CheckpointQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *CheckpointQuery) IDsX(ctx context.Context) []int {
+func (_q *CheckpointQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -365,7 +365,7 @@ func (_q *CheckpointQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *CheckpointQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(checkpoint.Table, checkpoint.Columns, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(checkpoint.Table, checkpoint.Columns, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

@@ -128,13 +128,13 @@ func (_u *DocumentUpdate) SetNillableStatus(v *document.Status) *DocumentUpdate 
 }
 
 // SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_u *DocumentUpdate) SetKnowledgeBaseID(v int) *DocumentUpdate {
+func (_u *DocumentUpdate) SetKnowledgeBaseID(v uint64) *DocumentUpdate {
 	_u.mutation.SetKnowledgeBaseID(v)
 	return _u
 }
 
 // SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_u *DocumentUpdate) SetNillableKnowledgeBaseID(v *int) *DocumentUpdate {
+func (_u *DocumentUpdate) SetNillableKnowledgeBaseID(v *uint64) *DocumentUpdate {
 	if v != nil {
 		_u.SetKnowledgeBaseID(*v)
 	}
@@ -142,13 +142,13 @@ func (_u *DocumentUpdate) SetNillableKnowledgeBaseID(v *int) *DocumentUpdate {
 }
 
 // SetFolderID sets the "folder_id" field.
-func (_u *DocumentUpdate) SetFolderID(v int) *DocumentUpdate {
+func (_u *DocumentUpdate) SetFolderID(v uint64) *DocumentUpdate {
 	_u.mutation.SetFolderID(v)
 	return _u
 }
 
 // SetNillableFolderID sets the "folder_id" field if the given value is not nil.
-func (_u *DocumentUpdate) SetNillableFolderID(v *int) *DocumentUpdate {
+func (_u *DocumentUpdate) SetNillableFolderID(v *uint64) *DocumentUpdate {
 	if v != nil {
 		_u.SetFolderID(*v)
 	}
@@ -178,14 +178,14 @@ func (_u *DocumentUpdate) SetFolder(v *KnowledgeFolder) *DocumentUpdate {
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
-func (_u *DocumentUpdate) AddChunkIDs(ids ...int) *DocumentUpdate {
+func (_u *DocumentUpdate) AddChunkIDs(ids ...uint64) *DocumentUpdate {
 	_u.mutation.AddChunkIDs(ids...)
 	return _u
 }
 
 // AddChunks adds the "chunks" edges to the DocumentChunk entity.
 func (_u *DocumentUpdate) AddChunks(v ...*DocumentChunk) *DocumentUpdate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -216,14 +216,14 @@ func (_u *DocumentUpdate) ClearChunks() *DocumentUpdate {
 }
 
 // RemoveChunkIDs removes the "chunks" edge to DocumentChunk entities by IDs.
-func (_u *DocumentUpdate) RemoveChunkIDs(ids ...int) *DocumentUpdate {
+func (_u *DocumentUpdate) RemoveChunkIDs(ids ...uint64) *DocumentUpdate {
 	_u.mutation.RemoveChunkIDs(ids...)
 	return _u
 }
 
 // RemoveChunks removes "chunks" edges to DocumentChunk entities.
 func (_u *DocumentUpdate) RemoveChunks(v ...*DocumentChunk) *DocumentUpdate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -288,7 +288,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(document.Table, document.Columns, sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(document.Table, document.Columns, sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -331,7 +331,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.KnowledgeBaseColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -344,7 +344,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.KnowledgeBaseColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -360,7 +360,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -373,7 +373,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -389,7 +389,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -402,7 +402,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -418,7 +418,7 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -543,13 +543,13 @@ func (_u *DocumentUpdateOne) SetNillableStatus(v *document.Status) *DocumentUpda
 }
 
 // SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_u *DocumentUpdateOne) SetKnowledgeBaseID(v int) *DocumentUpdateOne {
+func (_u *DocumentUpdateOne) SetKnowledgeBaseID(v uint64) *DocumentUpdateOne {
 	_u.mutation.SetKnowledgeBaseID(v)
 	return _u
 }
 
 // SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_u *DocumentUpdateOne) SetNillableKnowledgeBaseID(v *int) *DocumentUpdateOne {
+func (_u *DocumentUpdateOne) SetNillableKnowledgeBaseID(v *uint64) *DocumentUpdateOne {
 	if v != nil {
 		_u.SetKnowledgeBaseID(*v)
 	}
@@ -557,13 +557,13 @@ func (_u *DocumentUpdateOne) SetNillableKnowledgeBaseID(v *int) *DocumentUpdateO
 }
 
 // SetFolderID sets the "folder_id" field.
-func (_u *DocumentUpdateOne) SetFolderID(v int) *DocumentUpdateOne {
+func (_u *DocumentUpdateOne) SetFolderID(v uint64) *DocumentUpdateOne {
 	_u.mutation.SetFolderID(v)
 	return _u
 }
 
 // SetNillableFolderID sets the "folder_id" field if the given value is not nil.
-func (_u *DocumentUpdateOne) SetNillableFolderID(v *int) *DocumentUpdateOne {
+func (_u *DocumentUpdateOne) SetNillableFolderID(v *uint64) *DocumentUpdateOne {
 	if v != nil {
 		_u.SetFolderID(*v)
 	}
@@ -593,14 +593,14 @@ func (_u *DocumentUpdateOne) SetFolder(v *KnowledgeFolder) *DocumentUpdateOne {
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
-func (_u *DocumentUpdateOne) AddChunkIDs(ids ...int) *DocumentUpdateOne {
+func (_u *DocumentUpdateOne) AddChunkIDs(ids ...uint64) *DocumentUpdateOne {
 	_u.mutation.AddChunkIDs(ids...)
 	return _u
 }
 
 // AddChunks adds the "chunks" edges to the DocumentChunk entity.
 func (_u *DocumentUpdateOne) AddChunks(v ...*DocumentChunk) *DocumentUpdateOne {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -631,14 +631,14 @@ func (_u *DocumentUpdateOne) ClearChunks() *DocumentUpdateOne {
 }
 
 // RemoveChunkIDs removes the "chunks" edge to DocumentChunk entities by IDs.
-func (_u *DocumentUpdateOne) RemoveChunkIDs(ids ...int) *DocumentUpdateOne {
+func (_u *DocumentUpdateOne) RemoveChunkIDs(ids ...uint64) *DocumentUpdateOne {
 	_u.mutation.RemoveChunkIDs(ids...)
 	return _u
 }
 
 // RemoveChunks removes "chunks" edges to DocumentChunk entities.
 func (_u *DocumentUpdateOne) RemoveChunks(v ...*DocumentChunk) *DocumentUpdateOne {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -716,7 +716,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(document.Table, document.Columns, sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(document.Table, document.Columns, sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Document.id" for update`)}
@@ -776,7 +776,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.KnowledgeBaseColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -789,7 +789,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.KnowledgeBaseColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -805,7 +805,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -818,7 +818,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -834,7 +834,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -847,7 +847,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -863,7 +863,7 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

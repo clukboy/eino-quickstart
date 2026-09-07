@@ -155,8 +155,8 @@ func (_q *DocumentQuery) FirstX(ctx context.Context) *Document {
 
 // FirstID returns the first Document ID from the query.
 // Returns a *NotFoundError when no Document ID was found.
-func (_q *DocumentQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *DocumentQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -168,7 +168,7 @@ func (_q *DocumentQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *DocumentQuery) FirstIDX(ctx context.Context) int {
+func (_q *DocumentQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -206,8 +206,8 @@ func (_q *DocumentQuery) OnlyX(ctx context.Context) *Document {
 // OnlyID is like Only, but returns the only Document ID in the query.
 // Returns a *NotSingularError when more than one Document ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *DocumentQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *DocumentQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -223,7 +223,7 @@ func (_q *DocumentQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *DocumentQuery) OnlyIDX(ctx context.Context) int {
+func (_q *DocumentQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -251,7 +251,7 @@ func (_q *DocumentQuery) AllX(ctx context.Context) []*Document {
 }
 
 // IDs executes the query and returns a list of Document IDs.
-func (_q *DocumentQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *DocumentQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -263,7 +263,7 @@ func (_q *DocumentQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *DocumentQuery) IDsX(ctx context.Context) []int {
+func (_q *DocumentQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -490,8 +490,8 @@ func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Doc
 }
 
 func (_q *DocumentQuery) loadKnowledgeBase(ctx context.Context, query *KnowledgeBaseQuery, nodes []*Document, init func(*Document), assign func(*Document, *KnowledgeBase)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*Document)
+	ids := make([]uint64, 0, len(nodes))
+	nodeids := make(map[uint64][]*Document)
 	for i := range nodes {
 		fk := nodes[i].KnowledgeBaseID
 		if _, ok := nodeids[fk]; !ok {
@@ -519,8 +519,8 @@ func (_q *DocumentQuery) loadKnowledgeBase(ctx context.Context, query *Knowledge
 	return nil
 }
 func (_q *DocumentQuery) loadFolder(ctx context.Context, query *KnowledgeFolderQuery, nodes []*Document, init func(*Document), assign func(*Document, *KnowledgeFolder)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*Document)
+	ids := make([]uint64, 0, len(nodes))
+	nodeids := make(map[uint64][]*Document)
 	for i := range nodes {
 		if nodes[i].FolderID == nil {
 			continue
@@ -552,7 +552,7 @@ func (_q *DocumentQuery) loadFolder(ctx context.Context, query *KnowledgeFolderQ
 }
 func (_q *DocumentQuery) loadChunks(ctx context.Context, query *DocumentChunkQuery, nodes []*Document, init func(*Document), assign func(*Document, *DocumentChunk)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*Document)
+	nodeids := make(map[uint64]*Document)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -592,7 +592,7 @@ func (_q *DocumentQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *DocumentQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(document.Table, document.Columns, sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(document.Table, document.Columns, sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

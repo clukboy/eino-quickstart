@@ -90,19 +90,19 @@ func (_c *DocumentCreate) SetNillableStatus(v *document.Status) *DocumentCreate 
 }
 
 // SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_c *DocumentCreate) SetKnowledgeBaseID(v int) *DocumentCreate {
+func (_c *DocumentCreate) SetKnowledgeBaseID(v uint64) *DocumentCreate {
 	_c.mutation.SetKnowledgeBaseID(v)
 	return _c
 }
 
 // SetFolderID sets the "folder_id" field.
-func (_c *DocumentCreate) SetFolderID(v int) *DocumentCreate {
+func (_c *DocumentCreate) SetFolderID(v uint64) *DocumentCreate {
 	_c.mutation.SetFolderID(v)
 	return _c
 }
 
 // SetNillableFolderID sets the "folder_id" field if the given value is not nil.
-func (_c *DocumentCreate) SetNillableFolderID(v *int) *DocumentCreate {
+func (_c *DocumentCreate) SetNillableFolderID(v *uint64) *DocumentCreate {
 	if v != nil {
 		_c.SetFolderID(*v)
 	}
@@ -148,14 +148,14 @@ func (_c *DocumentCreate) SetFolder(v *KnowledgeFolder) *DocumentCreate {
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
-func (_c *DocumentCreate) AddChunkIDs(ids ...int) *DocumentCreate {
+func (_c *DocumentCreate) AddChunkIDs(ids ...uint64) *DocumentCreate {
 	_c.mutation.AddChunkIDs(ids...)
 	return _c
 }
 
 // AddChunks adds the "chunks" edges to the DocumentChunk entity.
 func (_c *DocumentCreate) AddChunks(v ...*DocumentChunk) *DocumentCreate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -276,7 +276,7 @@ func (_c *DocumentCreate) sqlSave(ctx context.Context) (*Document, error) {
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -285,7 +285,7 @@ func (_c *DocumentCreate) sqlSave(ctx context.Context) (*Document, error) {
 func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Document{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(document.Table, sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(document.Table, sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.Source(); ok {
 		_spec.SetField(document.FieldSource, field.TypeString, value)
@@ -331,7 +331,7 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 			Columns: []string{document.KnowledgeBaseColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -348,7 +348,7 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 			Columns: []string{document.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -365,7 +365,7 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 			Columns: []string{document.ChunksColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -423,7 +423,7 @@ func (_c *DocumentCreateBulk) Save(ctx context.Context) ([]*Document, error) {
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

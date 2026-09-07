@@ -113,14 +113,14 @@ func (_u *KnowledgeBaseUpdate) SetUpdatedAt(v time.Time) *KnowledgeBaseUpdate {
 }
 
 // AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by IDs.
-func (_u *KnowledgeBaseUpdate) AddFolderIDs(ids ...int) *KnowledgeBaseUpdate {
+func (_u *KnowledgeBaseUpdate) AddFolderIDs(ids ...uint64) *KnowledgeBaseUpdate {
 	_u.mutation.AddFolderIDs(ids...)
 	return _u
 }
 
 // AddFolders adds the "folders" edges to the KnowledgeFolder entity.
 func (_u *KnowledgeBaseUpdate) AddFolders(v ...*KnowledgeFolder) *KnowledgeBaseUpdate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -128,14 +128,14 @@ func (_u *KnowledgeBaseUpdate) AddFolders(v ...*KnowledgeFolder) *KnowledgeBaseU
 }
 
 // AddDocumentIDs adds the "documents" edge to the Document entity by IDs.
-func (_u *KnowledgeBaseUpdate) AddDocumentIDs(ids ...int) *KnowledgeBaseUpdate {
+func (_u *KnowledgeBaseUpdate) AddDocumentIDs(ids ...uint64) *KnowledgeBaseUpdate {
 	_u.mutation.AddDocumentIDs(ids...)
 	return _u
 }
 
 // AddDocuments adds the "documents" edges to the Document entity.
 func (_u *KnowledgeBaseUpdate) AddDocuments(v ...*Document) *KnowledgeBaseUpdate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -154,14 +154,14 @@ func (_u *KnowledgeBaseUpdate) ClearFolders() *KnowledgeBaseUpdate {
 }
 
 // RemoveFolderIDs removes the "folders" edge to KnowledgeFolder entities by IDs.
-func (_u *KnowledgeBaseUpdate) RemoveFolderIDs(ids ...int) *KnowledgeBaseUpdate {
+func (_u *KnowledgeBaseUpdate) RemoveFolderIDs(ids ...uint64) *KnowledgeBaseUpdate {
 	_u.mutation.RemoveFolderIDs(ids...)
 	return _u
 }
 
 // RemoveFolders removes "folders" edges to KnowledgeFolder entities.
 func (_u *KnowledgeBaseUpdate) RemoveFolders(v ...*KnowledgeFolder) *KnowledgeBaseUpdate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -175,14 +175,14 @@ func (_u *KnowledgeBaseUpdate) ClearDocuments() *KnowledgeBaseUpdate {
 }
 
 // RemoveDocumentIDs removes the "documents" edge to Document entities by IDs.
-func (_u *KnowledgeBaseUpdate) RemoveDocumentIDs(ids ...int) *KnowledgeBaseUpdate {
+func (_u *KnowledgeBaseUpdate) RemoveDocumentIDs(ids ...uint64) *KnowledgeBaseUpdate {
 	_u.mutation.RemoveDocumentIDs(ids...)
 	return _u
 }
 
 // RemoveDocuments removes "documents" edges to Document entities.
 func (_u *KnowledgeBaseUpdate) RemoveDocuments(v ...*Document) *KnowledgeBaseUpdate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -244,7 +244,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(knowledgebase.Table, knowledgebase.Columns, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(knowledgebase.Table, knowledgebase.Columns, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -281,7 +281,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -294,7 +294,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -310,7 +310,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -326,7 +326,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -339,7 +339,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -355,7 +355,7 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -466,14 +466,14 @@ func (_u *KnowledgeBaseUpdateOne) SetUpdatedAt(v time.Time) *KnowledgeBaseUpdate
 }
 
 // AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by IDs.
-func (_u *KnowledgeBaseUpdateOne) AddFolderIDs(ids ...int) *KnowledgeBaseUpdateOne {
+func (_u *KnowledgeBaseUpdateOne) AddFolderIDs(ids ...uint64) *KnowledgeBaseUpdateOne {
 	_u.mutation.AddFolderIDs(ids...)
 	return _u
 }
 
 // AddFolders adds the "folders" edges to the KnowledgeFolder entity.
 func (_u *KnowledgeBaseUpdateOne) AddFolders(v ...*KnowledgeFolder) *KnowledgeBaseUpdateOne {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -481,14 +481,14 @@ func (_u *KnowledgeBaseUpdateOne) AddFolders(v ...*KnowledgeFolder) *KnowledgeBa
 }
 
 // AddDocumentIDs adds the "documents" edge to the Document entity by IDs.
-func (_u *KnowledgeBaseUpdateOne) AddDocumentIDs(ids ...int) *KnowledgeBaseUpdateOne {
+func (_u *KnowledgeBaseUpdateOne) AddDocumentIDs(ids ...uint64) *KnowledgeBaseUpdateOne {
 	_u.mutation.AddDocumentIDs(ids...)
 	return _u
 }
 
 // AddDocuments adds the "documents" edges to the Document entity.
 func (_u *KnowledgeBaseUpdateOne) AddDocuments(v ...*Document) *KnowledgeBaseUpdateOne {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -507,14 +507,14 @@ func (_u *KnowledgeBaseUpdateOne) ClearFolders() *KnowledgeBaseUpdateOne {
 }
 
 // RemoveFolderIDs removes the "folders" edge to KnowledgeFolder entities by IDs.
-func (_u *KnowledgeBaseUpdateOne) RemoveFolderIDs(ids ...int) *KnowledgeBaseUpdateOne {
+func (_u *KnowledgeBaseUpdateOne) RemoveFolderIDs(ids ...uint64) *KnowledgeBaseUpdateOne {
 	_u.mutation.RemoveFolderIDs(ids...)
 	return _u
 }
 
 // RemoveFolders removes "folders" edges to KnowledgeFolder entities.
 func (_u *KnowledgeBaseUpdateOne) RemoveFolders(v ...*KnowledgeFolder) *KnowledgeBaseUpdateOne {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -528,14 +528,14 @@ func (_u *KnowledgeBaseUpdateOne) ClearDocuments() *KnowledgeBaseUpdateOne {
 }
 
 // RemoveDocumentIDs removes the "documents" edge to Document entities by IDs.
-func (_u *KnowledgeBaseUpdateOne) RemoveDocumentIDs(ids ...int) *KnowledgeBaseUpdateOne {
+func (_u *KnowledgeBaseUpdateOne) RemoveDocumentIDs(ids ...uint64) *KnowledgeBaseUpdateOne {
 	_u.mutation.RemoveDocumentIDs(ids...)
 	return _u
 }
 
 // RemoveDocuments removes "documents" edges to Document entities.
 func (_u *KnowledgeBaseUpdateOne) RemoveDocuments(v ...*Document) *KnowledgeBaseUpdateOne {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -610,7 +610,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(knowledgebase.Table, knowledgebase.Columns, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(knowledgebase.Table, knowledgebase.Columns, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "KnowledgeBase.id" for update`)}
@@ -664,7 +664,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -677,7 +677,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -693,7 +693,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -709,7 +709,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -722,7 +722,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -738,7 +738,7 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

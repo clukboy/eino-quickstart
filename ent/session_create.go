@@ -48,14 +48,14 @@ func (_c *SessionCreate) SetNillableCreatedAt(v *time.Time) *SessionCreate {
 }
 
 // AddMessageIDs adds the "messages" edge to the SessionMessage entity by IDs.
-func (_c *SessionCreate) AddMessageIDs(ids ...int) *SessionCreate {
+func (_c *SessionCreate) AddMessageIDs(ids ...uint64) *SessionCreate {
 	_c.mutation.AddMessageIDs(ids...)
 	return _c
 }
 
 // AddMessages adds the "messages" edges to the SessionMessage entity.
 func (_c *SessionCreate) AddMessages(v ...*SessionMessage) *SessionCreate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -134,7 +134,7 @@ func (_c *SessionCreate) sqlSave(ctx context.Context) (*Session, error) {
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -143,7 +143,7 @@ func (_c *SessionCreate) sqlSave(ctx context.Context) (*Session, error) {
 func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Session{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(session.Table, sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(session.Table, sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.SessionID(); ok {
 		_spec.SetField(session.FieldSessionID, field.TypeString, value)
@@ -165,7 +165,7 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Columns: []string{session.MessagesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -223,7 +223,7 @@ func (_c *SessionCreateBulk) Save(ctx context.Context) ([]*Session, error) {
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

@@ -17,7 +17,7 @@ import (
 type KnowledgeFolder struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Path holds the value of the "path" field.
@@ -25,9 +25,9 @@ type KnowledgeFolder struct {
 	// Sort holds the value of the "sort" field.
 	Sort int `json:"sort,omitempty"`
 	// KnowledgeBaseID holds the value of the "knowledge_base_id" field.
-	KnowledgeBaseID int `json:"knowledge_base_id,omitempty"`
+	KnowledgeBaseID uint64 `json:"knowledge_base_id,omitempty"`
 	// ParentID holds the value of the "parent_id" field.
-	ParentID *int `json:"parent_id,omitempty"`
+	ParentID *uint64 `json:"parent_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -35,7 +35,7 @@ type KnowledgeFolder struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the KnowledgeFolderQuery when eager-loading is set.
 	Edges                  KnowledgeFolderEdges `json:"edges"`
-	knowledge_base_folders *int
+	knowledge_base_folders *uint64
 	selectValues           sql.SelectValues
 }
 
@@ -127,7 +127,7 @@ func (_m *KnowledgeFolder) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case knowledgefolder.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
@@ -150,14 +150,14 @@ func (_m *KnowledgeFolder) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field knowledge_base_id", values[i])
 			} else if value.Valid {
-				_m.KnowledgeBaseID = int(value.Int64)
+				_m.KnowledgeBaseID = uint64(value.Int64)
 			}
 		case knowledgefolder.FieldParentID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field parent_id", values[i])
 			} else if value.Valid {
-				_m.ParentID = new(int)
-				*_m.ParentID = int(value.Int64)
+				_m.ParentID = new(uint64)
+				*_m.ParentID = uint64(value.Int64)
 			}
 		case knowledgefolder.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -175,8 +175,8 @@ func (_m *KnowledgeFolder) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field knowledge_base_folders", value)
 			} else if value.Valid {
-				_m.knowledge_base_folders = new(int)
-				*_m.knowledge_base_folders = int(value.Int64)
+				_m.knowledge_base_folders = new(uint64)
+				*_m.knowledge_base_folders = uint64(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])

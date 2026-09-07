@@ -54,6 +54,20 @@ func main() {
 
 	log.Println("knowledge worker database connected")
 
+	knowledgeBaseName := os.Getenv("EINO_KNOWLEDGE_BASE_NAME")
+
+	if knowledgeBaseName == "" {
+		knowledgeBaseName = "default"
+	}
+
+	knowledgeBase, err := knowledge.EnsureKnowledgeBase(ctx, entClient, knowledgeBaseName, "system", "system")
+
+	if err != nil {
+		log.Fatalf("ensure knowledge base: %v", err)
+	}
+
+	log.Printf("knowledge base ready: id=%d name=%s", knowledgeBase.ID, knowledgeBase.Name)
+
 	// -------------------------------------------------------------------------
 	// 4. Create Embedder
 	// -------------------------------------------------------------------------
@@ -123,6 +137,7 @@ func main() {
 		knowledge.LoaderConfig{
 			Root:             cfg.Knowledge.Root,
 			MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
+			KnowledgeBaseID:  knowledgeBase.ID,
 		},
 	)
 	if err != nil {

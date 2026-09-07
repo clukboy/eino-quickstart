@@ -48,7 +48,7 @@ func (_c *SessionMessageCreate) SetNillableCreatedAt(v *time.Time) *SessionMessa
 }
 
 // SetSessionID sets the "session" edge to the Session entity by ID.
-func (_c *SessionMessageCreate) SetSessionID(id int) *SessionMessageCreate {
+func (_c *SessionMessageCreate) SetSessionID(id uint64) *SessionMessageCreate {
 	_c.mutation.SetSessionID(id)
 	return _c
 }
@@ -138,7 +138,7 @@ func (_c *SessionMessageCreate) sqlSave(ctx context.Context) (*SessionMessage, e
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -147,7 +147,7 @@ func (_c *SessionMessageCreate) sqlSave(ctx context.Context) (*SessionMessage, e
 func (_c *SessionMessageCreate) createSpec() (*SessionMessage, *sqlgraph.CreateSpec) {
 	var (
 		_node = &SessionMessage{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(sessionmessage.Table, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(sessionmessage.Table, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.Role(); ok {
 		_spec.SetField(sessionmessage.FieldRole, field.TypeString, value)
@@ -169,7 +169,7 @@ func (_c *SessionMessageCreate) createSpec() (*SessionMessage, *sqlgraph.CreateS
 			Columns: []string{sessionmessage.SessionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -228,7 +228,7 @@ func (_c *SessionMessageCreateBulk) Save(ctx context.Context) ([]*SessionMessage
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

@@ -27,8 +27,8 @@ func (Document) Fields() []ent.Field {
 			Default("system"),
 		field.Enum("status").Values("ready", "indexing", "failed", "deleted").Default("indexing"),
 
-		field.Int("knowledge_base_id"),
-		field.Int("folder_id").Optional().Nillable(),
+		field.Uint64("knowledge_base_id"),
+		field.Uint64("folder_id").Optional().Nillable(),
 
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),

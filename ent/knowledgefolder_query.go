@@ -178,8 +178,8 @@ func (_q *KnowledgeFolderQuery) FirstX(ctx context.Context) *KnowledgeFolder {
 
 // FirstID returns the first KnowledgeFolder ID from the query.
 // Returns a *NotFoundError when no KnowledgeFolder ID was found.
-func (_q *KnowledgeFolderQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *KnowledgeFolderQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -191,7 +191,7 @@ func (_q *KnowledgeFolderQuery) FirstID(ctx context.Context) (id int, err error)
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *KnowledgeFolderQuery) FirstIDX(ctx context.Context) int {
+func (_q *KnowledgeFolderQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -229,8 +229,8 @@ func (_q *KnowledgeFolderQuery) OnlyX(ctx context.Context) *KnowledgeFolder {
 // OnlyID is like Only, but returns the only KnowledgeFolder ID in the query.
 // Returns a *NotSingularError when more than one KnowledgeFolder ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *KnowledgeFolderQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *KnowledgeFolderQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -246,7 +246,7 @@ func (_q *KnowledgeFolderQuery) OnlyID(ctx context.Context) (id int, err error) 
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *KnowledgeFolderQuery) OnlyIDX(ctx context.Context) int {
+func (_q *KnowledgeFolderQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -274,7 +274,7 @@ func (_q *KnowledgeFolderQuery) AllX(ctx context.Context) []*KnowledgeFolder {
 }
 
 // IDs executes the query and returns a list of KnowledgeFolder IDs.
-func (_q *KnowledgeFolderQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *KnowledgeFolderQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -286,7 +286,7 @@ func (_q *KnowledgeFolderQuery) IDs(ctx context.Context) (ids []int, err error) 
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *KnowledgeFolderQuery) IDsX(ctx context.Context) []int {
+func (_q *KnowledgeFolderQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -540,8 +540,8 @@ func (_q *KnowledgeFolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) 
 }
 
 func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *KnowledgeBaseQuery, nodes []*KnowledgeFolder, init func(*KnowledgeFolder), assign func(*KnowledgeFolder, *KnowledgeBase)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*KnowledgeFolder)
+	ids := make([]uint64, 0, len(nodes))
+	nodeids := make(map[uint64][]*KnowledgeFolder)
 	for i := range nodes {
 		if nodes[i].knowledge_base_folders == nil {
 			continue
@@ -572,8 +572,8 @@ func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *Kn
 	return nil
 }
 func (_q *KnowledgeFolderQuery) loadParent(ctx context.Context, query *KnowledgeFolderQuery, nodes []*KnowledgeFolder, init func(*KnowledgeFolder), assign func(*KnowledgeFolder, *KnowledgeFolder)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*KnowledgeFolder)
+	ids := make([]uint64, 0, len(nodes))
+	nodeids := make(map[uint64][]*KnowledgeFolder)
 	for i := range nodes {
 		if nodes[i].ParentID == nil {
 			continue
@@ -605,7 +605,7 @@ func (_q *KnowledgeFolderQuery) loadParent(ctx context.Context, query *Knowledge
 }
 func (_q *KnowledgeFolderQuery) loadChildren(ctx context.Context, query *KnowledgeFolderQuery, nodes []*KnowledgeFolder, init func(*KnowledgeFolder), assign func(*KnowledgeFolder, *KnowledgeFolder)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*KnowledgeFolder)
+	nodeids := make(map[uint64]*KnowledgeFolder)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -639,7 +639,7 @@ func (_q *KnowledgeFolderQuery) loadChildren(ctx context.Context, query *Knowled
 }
 func (_q *KnowledgeFolderQuery) loadDocuments(ctx context.Context, query *DocumentQuery, nodes []*KnowledgeFolder, init func(*KnowledgeFolder), assign func(*KnowledgeFolder, *Document)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*KnowledgeFolder)
+	nodeids := make(map[uint64]*KnowledgeFolder)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -681,7 +681,7 @@ func (_q *KnowledgeFolderQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *KnowledgeFolderQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(knowledgefolder.Table, knowledgefolder.Columns, sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(knowledgefolder.Table, knowledgefolder.Columns, sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

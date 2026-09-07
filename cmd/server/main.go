@@ -192,7 +192,7 @@ func main() {
 		RRFSmoothing: cfg.Retrieval.RRFSmoothing,
 	}
 
-	knowledgeSearchTool, err := tool.NewKnowledgeSearch(retriever, "")
+	knowledgeSearchTool, err := tool.NewKnowledgeSearchWithKnowledgeBases(retriever, "", []uint64{})
 	if err != nil {
 		log.Fatal(err)
 	}

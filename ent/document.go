@@ -19,7 +19,7 @@ import (
 type Document struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// Source holds the value of the "source" field.
 	Source string `json:"source,omitempty"`
 	// Title holds the value of the "title" field.
@@ -35,9 +35,9 @@ type Document struct {
 	// Status holds the value of the "status" field.
 	Status document.Status `json:"status,omitempty"`
 	// KnowledgeBaseID holds the value of the "knowledge_base_id" field.
-	KnowledgeBaseID int `json:"knowledge_base_id,omitempty"`
+	KnowledgeBaseID uint64 `json:"knowledge_base_id,omitempty"`
 	// FolderID holds the value of the "folder_id" field.
-	FolderID *int `json:"folder_id,omitempty"`
+	FolderID *uint64 `json:"folder_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -125,7 +125,7 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case document.FieldSource:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field source", values[i])
@@ -174,14 +174,14 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field knowledge_base_id", values[i])
 			} else if value.Valid {
-				_m.KnowledgeBaseID = int(value.Int64)
+				_m.KnowledgeBaseID = uint64(value.Int64)
 			}
 		case document.FieldFolderID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field folder_id", values[i])
 			} else if value.Valid {
-				_m.FolderID = new(int)
-				*_m.FolderID = int(value.Int64)
+				_m.FolderID = new(uint64)
+				*_m.FolderID = uint64(value.Int64)
 			}
 		case document.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {

@@ -162,7 +162,7 @@ func (_u *AuditEventUpdate) ExecX(ctx context.Context) {
 }
 
 func (_u *AuditEventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
-	_spec := sqlgraph.NewUpdateSpec(auditevent.Table, auditevent.Columns, sqlgraph.NewFieldSpec(auditevent.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(auditevent.Table, auditevent.Columns, sqlgraph.NewFieldSpec(auditevent.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -365,7 +365,7 @@ func (_u *AuditEventUpdateOne) ExecX(ctx context.Context) {
 }
 
 func (_u *AuditEventUpdateOne) sqlSave(ctx context.Context) (_node *AuditEvent, err error) {
-	_spec := sqlgraph.NewUpdateSpec(auditevent.Table, auditevent.Columns, sqlgraph.NewFieldSpec(auditevent.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(auditevent.Table, auditevent.Columns, sqlgraph.NewFieldSpec(auditevent.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "AuditEvent.id" for update`)}

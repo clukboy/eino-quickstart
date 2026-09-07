@@ -11,47 +11,47 @@ import (
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.KnowledgeFolder {
+func ID(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.KnowledgeFolder {
+func IDEQ(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.KnowledgeFolder {
+func IDNEQ(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.KnowledgeFolder {
+func IDIn(ids ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.KnowledgeFolder {
+func IDNotIn(ids ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.KnowledgeFolder {
+func IDGT(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.KnowledgeFolder {
+func IDGTE(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.KnowledgeFolder {
+func IDLT(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.KnowledgeFolder {
+func IDLTE(id uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldLTE(FieldID, id))
 }
 
@@ -71,12 +71,12 @@ func Sort(v int) predicate.KnowledgeFolder {
 }
 
 // KnowledgeBaseID applies equality check predicate on the "knowledge_base_id" field. It's identical to KnowledgeBaseIDEQ.
-func KnowledgeBaseID(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseID(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldKnowledgeBaseID, v))
 }
 
 // ParentID applies equality check predicate on the "parent_id" field. It's identical to ParentIDEQ.
-func ParentID(v int) predicate.KnowledgeFolder {
+func ParentID(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldParentID, v))
 }
 
@@ -261,62 +261,62 @@ func SortLTE(v int) predicate.KnowledgeFolder {
 }
 
 // KnowledgeBaseIDEQ applies the EQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDEQ(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDEQ(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDNEQ applies the NEQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNEQ(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDNEQ(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNEQ(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDIn applies the In predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDIn(vs ...int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDIn(vs ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldIn(FieldKnowledgeBaseID, vs...))
 }
 
 // KnowledgeBaseIDNotIn applies the NotIn predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNotIn(vs ...int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDNotIn(vs ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
 }
 
 // KnowledgeBaseIDGT applies the GT predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDGT(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDGT(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldGT(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDGTE applies the GTE predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDGTE(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDGTE(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldGTE(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDLT applies the LT predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDLT(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDLT(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldLT(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDLTE applies the LTE predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDLTE(v int) predicate.KnowledgeFolder {
+func KnowledgeBaseIDLTE(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldLTE(FieldKnowledgeBaseID, v))
 }
 
 // ParentIDEQ applies the EQ predicate on the "parent_id" field.
-func ParentIDEQ(v int) predicate.KnowledgeFolder {
+func ParentIDEQ(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldParentID, v))
 }
 
 // ParentIDNEQ applies the NEQ predicate on the "parent_id" field.
-func ParentIDNEQ(v int) predicate.KnowledgeFolder {
+func ParentIDNEQ(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNEQ(FieldParentID, v))
 }
 
 // ParentIDIn applies the In predicate on the "parent_id" field.
-func ParentIDIn(vs ...int) predicate.KnowledgeFolder {
+func ParentIDIn(vs ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldIn(FieldParentID, vs...))
 }
 
 // ParentIDNotIn applies the NotIn predicate on the "parent_id" field.
-func ParentIDNotIn(vs ...int) predicate.KnowledgeFolder {
+func ParentIDNotIn(vs ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNotIn(FieldParentID, vs...))
 }
 

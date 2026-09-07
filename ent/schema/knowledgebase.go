@@ -28,8 +28,8 @@ func (KnowledgeBase) Fields() []ent.Field {
 
 // Edges of the KnowledgeBase.
 func (KnowledgeBase) Edges() []ent.Edge {
-	return []ent.Edge{edge.To(
-		"folders", KnowledgeFolder.Type),
+	return []ent.Edge{
+		edge.To("folders", KnowledgeFolder.Type),
 		edge.To("documents", Document.Type),
 	}
 }

@@ -107,8 +107,8 @@ func (_q *SessionMessageQuery) FirstX(ctx context.Context) *SessionMessage {
 
 // FirstID returns the first SessionMessage ID from the query.
 // Returns a *NotFoundError when no SessionMessage ID was found.
-func (_q *SessionMessageQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *SessionMessageQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -120,7 +120,7 @@ func (_q *SessionMessageQuery) FirstID(ctx context.Context) (id int, err error) 
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *SessionMessageQuery) FirstIDX(ctx context.Context) int {
+func (_q *SessionMessageQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -158,8 +158,8 @@ func (_q *SessionMessageQuery) OnlyX(ctx context.Context) *SessionMessage {
 // OnlyID is like Only, but returns the only SessionMessage ID in the query.
 // Returns a *NotSingularError when more than one SessionMessage ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *SessionMessageQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *SessionMessageQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -175,7 +175,7 @@ func (_q *SessionMessageQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *SessionMessageQuery) OnlyIDX(ctx context.Context) int {
+func (_q *SessionMessageQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -203,7 +203,7 @@ func (_q *SessionMessageQuery) AllX(ctx context.Context) []*SessionMessage {
 }
 
 // IDs executes the query and returns a list of SessionMessage IDs.
-func (_q *SessionMessageQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *SessionMessageQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -215,7 +215,7 @@ func (_q *SessionMessageQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *SessionMessageQuery) IDsX(ctx context.Context) []int {
+func (_q *SessionMessageQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -410,8 +410,8 @@ func (_q *SessionMessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) (
 }
 
 func (_q *SessionMessageQuery) loadSession(ctx context.Context, query *SessionQuery, nodes []*SessionMessage, init func(*SessionMessage), assign func(*SessionMessage, *Session)) error {
-	ids := make([]int, 0, len(nodes))
-	nodeids := make(map[int][]*SessionMessage)
+	ids := make([]uint64, 0, len(nodes))
+	nodeids := make(map[uint64][]*SessionMessage)
 	for i := range nodes {
 		if nodes[i].session_messages == nil {
 			continue
@@ -452,7 +452,7 @@ func (_q *SessionMessageQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *SessionMessageQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(sessionmessage.Table, sessionmessage.Columns, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(sessionmessage.Table, sessionmessage.Columns, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

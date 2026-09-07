@@ -927,7 +927,7 @@ func (_m *DocumentCreate) SetNotNilStatus(value *document.Status) *DocumentCreat
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdate) SetNotNilKnowledgeBaseID(value *int) *DocumentUpdate {
+func (_m *DocumentUpdate) SetNotNilKnowledgeBaseID(value *uint64) *DocumentUpdate {
 	if value != nil {
 		return _m.SetKnowledgeBaseID(*value)
 	}
@@ -935,7 +935,7 @@ func (_m *DocumentUpdate) SetNotNilKnowledgeBaseID(value *int) *DocumentUpdate {
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdateOne) SetNotNilKnowledgeBaseID(value *int) *DocumentUpdateOne {
+func (_m *DocumentUpdateOne) SetNotNilKnowledgeBaseID(value *uint64) *DocumentUpdateOne {
 	if value != nil {
 		return _m.SetKnowledgeBaseID(*value)
 	}
@@ -943,7 +943,7 @@ func (_m *DocumentUpdateOne) SetNotNilKnowledgeBaseID(value *int) *DocumentUpdat
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentCreate) SetNotNilKnowledgeBaseID(value *int) *DocumentCreate {
+func (_m *DocumentCreate) SetNotNilKnowledgeBaseID(value *uint64) *DocumentCreate {
 	if value != nil {
 		return _m.SetKnowledgeBaseID(*value)
 	}
@@ -951,7 +951,7 @@ func (_m *DocumentCreate) SetNotNilKnowledgeBaseID(value *int) *DocumentCreate {
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdate) SetNotNilFolderID(value *int) *DocumentUpdate {
+func (_m *DocumentUpdate) SetNotNilFolderID(value *uint64) *DocumentUpdate {
 	if value != nil {
 		return _m.SetFolderID(*value)
 	}
@@ -959,7 +959,7 @@ func (_m *DocumentUpdate) SetNotNilFolderID(value *int) *DocumentUpdate {
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdateOne) SetNotNilFolderID(value *int) *DocumentUpdateOne {
+func (_m *DocumentUpdateOne) SetNotNilFolderID(value *uint64) *DocumentUpdateOne {
 	if value != nil {
 		return _m.SetFolderID(*value)
 	}
@@ -967,7 +967,7 @@ func (_m *DocumentUpdateOne) SetNotNilFolderID(value *int) *DocumentUpdateOne {
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentCreate) SetNotNilFolderID(value *int) *DocumentCreate {
+func (_m *DocumentCreate) SetNotNilFolderID(value *uint64) *DocumentCreate {
 	if value != nil {
 		return _m.SetFolderID(*value)
 	}
@@ -1431,7 +1431,7 @@ func (_m *KnowledgeFolderCreate) SetNotNilSort(value *int) *KnowledgeFolderCreat
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeFolderUpdate) SetNotNilParentID(value *int) *KnowledgeFolderUpdate {
+func (_m *KnowledgeFolderUpdate) SetNotNilParentID(value *uint64) *KnowledgeFolderUpdate {
 	if value != nil {
 		return _m.SetParentID(*value)
 	}
@@ -1439,7 +1439,7 @@ func (_m *KnowledgeFolderUpdate) SetNotNilParentID(value *int) *KnowledgeFolderU
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeFolderUpdateOne) SetNotNilParentID(value *int) *KnowledgeFolderUpdateOne {
+func (_m *KnowledgeFolderUpdateOne) SetNotNilParentID(value *uint64) *KnowledgeFolderUpdateOne {
 	if value != nil {
 		return _m.SetParentID(*value)
 	}
@@ -1447,7 +1447,7 @@ func (_m *KnowledgeFolderUpdateOne) SetNotNilParentID(value *int) *KnowledgeFold
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeFolderCreate) SetNotNilParentID(value *int) *KnowledgeFolderCreate {
+func (_m *KnowledgeFolderCreate) SetNotNilParentID(value *uint64) *KnowledgeFolderCreate {
 	if value != nil {
 		return _m.SetParentID(*value)
 	}
@@ -1647,7 +1647,7 @@ func (_m *SessionMessageCreate) SetNotNilContent(value *string) *SessionMessageC
 }
 
 // set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilChunkID(value *int64) *VectorOutboxUpdate {
+func (_m *VectorOutboxUpdate) SetNotNilChunkID(value *uint64) *VectorOutboxUpdate {
 	if value != nil {
 		return _m.SetChunkID(*value)
 	}
@@ -1655,7 +1655,7 @@ func (_m *VectorOutboxUpdate) SetNotNilChunkID(value *int64) *VectorOutboxUpdate
 }
 
 // set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilChunkID(value *int64) *VectorOutboxUpdateOne {
+func (_m *VectorOutboxUpdateOne) SetNotNilChunkID(value *uint64) *VectorOutboxUpdateOne {
 	if value != nil {
 		return _m.SetChunkID(*value)
 	}
@@ -1663,7 +1663,7 @@ func (_m *VectorOutboxUpdateOne) SetNotNilChunkID(value *int64) *VectorOutboxUpd
 }
 
 // set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilChunkID(value *int64) *VectorOutboxCreate {
+func (_m *VectorOutboxCreate) SetNotNilChunkID(value *uint64) *VectorOutboxCreate {
 	if value != nil {
 		return _m.SetChunkID(*value)
 	}

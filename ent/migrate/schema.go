@@ -11,7 +11,7 @@ import (
 var (
 	// AgentRunsColumns holds the columns for the "agent_runs" table.
 	AgentRunsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "run_id", Type: field.TypeString, Unique: true},
 		{Name: "session_id", Type: field.TypeString},
 		{Name: "requested_by", Type: field.TypeString},
@@ -50,7 +50,7 @@ var (
 	}
 	// ApprovalsColumns holds the columns for the "approvals" table.
 	ApprovalsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "approval_id", Type: field.TypeString, Unique: true},
 		{Name: "session_id", Type: field.TypeString},
 		{Name: "run_id", Type: field.TypeString, Nullable: true},
@@ -88,7 +88,7 @@ var (
 	}
 	// AuditEventsColumns holds the columns for the "audit_events" table.
 	AuditEventsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "session_id", Type: field.TypeString},
 		{Name: "approval_id", Type: field.TypeString, Nullable: true},
 		{Name: "event_type", Type: field.TypeString},
@@ -105,7 +105,7 @@ var (
 	}
 	// ChatTurnsColumns holds the columns for the "chat_turns" table.
 	ChatTurnsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "turn_id", Type: field.TypeString, Unique: true},
 		{Name: "session_id", Type: field.TypeString},
 		{Name: "owner_subject", Type: field.TypeString},
@@ -147,7 +147,7 @@ var (
 	}
 	// CheckpointsColumns holds the columns for the "checkpoints" table.
 	CheckpointsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "checkpoint_id", Type: field.TypeString, Unique: true},
 		{Name: "payload", Type: field.TypeBytes},
 		{Name: "created_at", Type: field.TypeTime},
@@ -162,7 +162,7 @@ var (
 	}
 	// DocumentsColumns holds the columns for the "documents" table.
 	DocumentsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "source", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
@@ -172,8 +172,8 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ready", "indexing", "failed", "deleted"}, Default: "indexing"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "knowledge_base_id", Type: field.TypeInt},
-		{Name: "folder_id", Type: field.TypeInt, Nullable: true},
+		{Name: "knowledge_base_id", Type: field.TypeUint64},
+		{Name: "folder_id", Type: field.TypeUint64, Nullable: true},
 	}
 	// DocumentsTable holds the schema information for the "documents" table.
 	DocumentsTable = &schema.Table{
@@ -214,7 +214,7 @@ var (
 	}
 	// DocumentChunksColumns holds the columns for the "document_chunks" table.
 	DocumentChunksColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "chunk_index", Type: field.TypeInt},
 		{Name: "citation_id", Type: field.TypeString, Unique: true},
 		{Name: "content", Type: field.TypeString, Size: 2147483647},
@@ -227,7 +227,7 @@ var (
 		{Name: "vector_status", Type: field.TypeEnum, Enums: []string{"pending", "indexed", "failed", "deleting"}, Default: "pending"},
 		{Name: "indexed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "document_chunks", Type: field.TypeInt},
+		{Name: "document_chunks", Type: field.TypeUint64},
 	}
 	// DocumentChunksTable holds the schema information for the "document_chunks" table.
 	DocumentChunksTable = &schema.Table{
@@ -267,7 +267,7 @@ var (
 	}
 	// KnowledgeBasesColumns holds the columns for the "knowledge_bases" table.
 	KnowledgeBasesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "name", Type: field.TypeString, Unique: true},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
@@ -284,15 +284,15 @@ var (
 	}
 	// KnowledgeFoldersColumns holds the columns for the "knowledge_folders" table.
 	KnowledgeFoldersColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "name", Type: field.TypeString},
 		{Name: "path", Type: field.TypeString},
 		{Name: "sort", Type: field.TypeInt, Default: 0},
-		{Name: "knowledge_base_id", Type: field.TypeInt},
+		{Name: "knowledge_base_id", Type: field.TypeUint64},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "knowledge_base_folders", Type: field.TypeInt},
-		{Name: "parent_id", Type: field.TypeInt, Nullable: true},
+		{Name: "knowledge_base_folders", Type: field.TypeUint64},
+		{Name: "parent_id", Type: field.TypeUint64, Nullable: true},
 	}
 	// KnowledgeFoldersTable holds the schema information for the "knowledge_folders" table.
 	KnowledgeFoldersTable = &schema.Table{
@@ -328,7 +328,7 @@ var (
 	}
 	// KnowledgeIndexesColumns holds the columns for the "knowledge_indexes" table.
 	KnowledgeIndexesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "name", Type: field.TypeString, Unique: true},
 		{Name: "milvus_collection", Type: field.TypeString, Unique: true},
 		{Name: "embedding_model", Type: field.TypeString},
@@ -345,7 +345,7 @@ var (
 	}
 	// SessionsColumns holds the columns for the "sessions" table.
 	SessionsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "session_id", Type: field.TypeString, Unique: true},
 		{Name: "owner_subject", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
@@ -358,11 +358,11 @@ var (
 	}
 	// SessionMessagesColumns holds the columns for the "session_messages" table.
 	SessionMessagesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "role", Type: field.TypeString},
 		{Name: "content", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "session_messages", Type: field.TypeInt},
+		{Name: "session_messages", Type: field.TypeUint64},
 	}
 	// SessionMessagesTable holds the schema information for the "session_messages" table.
 	SessionMessagesTable = &schema.Table{
@@ -380,8 +380,8 @@ var (
 	}
 	// VectorOutboxesColumns holds the columns for the "vector_outboxes" table.
 	VectorOutboxesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "chunk_id", Type: field.TypeInt64, Unique: true},
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "chunk_id", Type: field.TypeUint64, Unique: true},
 		{Name: "operation", Type: field.TypeEnum, Enums: []string{"upsert", "delete"}},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "processing", "done", "failed"}, Default: "pending"},
 		{Name: "attempts", Type: field.TypeInt, Default: 0},

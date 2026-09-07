@@ -2,9 +2,10 @@ package retrieval
 
 import (
 	"context"
-	"eino-quickstart/ent"
 	"fmt"
 	"strings"
+
+	"eino-quickstart/ent"
 )
 
 type ProductSearcher struct {
@@ -20,11 +21,19 @@ func NewProductSearcher(client *ent.Client) *ProductSearcher {
 // SearchModel 根据产品型号进行精确检索。
 //
 // 优先级：
-// 1. product_model
-// 2. product_exact_model
-// 3. product_family_prefix
-// 4. product_variant_models
-func (s *ProductSearcher) SearchModel(ctx context.Context, actorSubject string, model string, limit int) ([]Candidate, error) {
+// 1. exact_model
+// 2. model
+// 3. family_prefix
+// 4. variant_models
+//
+// 所有型号字段均采用完整值匹配。
+// 不允许 substring 匹配。
+func (s *ProductSearcher) SearchModel(
+	ctx context.Context,
+	scope SearchScope,
+	model string,
+	limit int,
+) ([]Candidate, error) {
 	if s == nil || s.client == nil {
 		return nil, fmt.Errorf(
 			"product searcher database client is required",
@@ -37,76 +46,156 @@ func (s *ProductSearcher) SearchModel(ctx context.Context, actorSubject string, 
 		)
 	}
 
+	scope = scope.Normalized()
+
 	model = strings.TrimSpace(model)
 
 	if model == "" {
 		return []Candidate{}, nil
 	}
 
+	args := []any{
+		model,
+		scope.ActorSubject,
+	}
+
+	kbCondition := ""
+
+	if len(scope.KnowledgeBaseIDs) > 0 {
+		kbCondition = `
+		  AND d.knowledge_base_id = ANY($3)
+		`
+		args = append(
+			args,
+			scope.KnowledgeBaseIDs,
+		)
+	}
+
+	limitPlaceholder := "$3"
+
+	if len(scope.KnowledgeBaseIDs) > 0 {
+		limitPlaceholder = "$4"
+		args = append(args, limit)
+	} else {
+		args = append(args, limit)
+	}
+
 	rows, err := s.client.QueryContext(
 		ctx,
-		`
-		SELECT dc.id,
-			   CASE
-				   -- 1. 精确匹配 exact_model
-				   WHEN lower(COALESCE(dc.metadata ->> 'exact_model', '')) = lower($1)
-					   THEN 4.0
-		
-				   -- 2. 匹配 model
-				   WHEN lower(COALESCE(dc.metadata ->> 'model', '')) = lower($1)
-					   THEN 3.0
-		
-				   -- 3. 匹配 family_prefix
-				   WHEN lower(COALESCE(dc.metadata ->> 'family_prefix', '')) = lower($1)
-					   THEN 2.0
-		
-				   -- 4. 匹配 variant_models (JSON 数组)
-				   WHEN (
-					   dc.metadata -> 'variant_models' IS NOT NULL
-					   AND (
-						   dc.metadata -> 'variant_models' @> to_jsonb($1::text)
-						   OR position(lower($1) in lower(dc.metadata ->> 'variant_models')) > 0
-					   )
-				   )
-					   THEN 1.0
-		
-				   ELSE 0.0
-				   END AS score
-		
+		fmt.Sprintf(`
+		SELECT
+			dc.id,
+			CASE
+				WHEN lower(
+					COALESCE(
+						dc.metadata ->> 'exact_model',
+						''
+					)
+				) = lower($1)
+					THEN 4.0
+
+				WHEN lower(
+					COALESCE(
+						dc.metadata ->> 'model',
+						''
+					)
+				) = lower($1)
+					THEN 3.0
+
+				WHEN lower(
+					COALESCE(
+						dc.metadata ->> 'family_prefix',
+						''
+					)
+				) = lower($1)
+					THEN 2.0
+
+				WHEN EXISTS (
+					SELECT 1
+					FROM jsonb_array_elements_text(
+						COALESCE(
+							dc.metadata -> 'variant_models',
+							'[]'::jsonb
+						)
+					) AS variant(model)
+					WHERE lower(variant.model) = lower($1)
+				)
+					THEN 1.0
+
+				ELSE 0.0
+			END AS score
+
 		FROM document_chunks AS dc
-		
-				 JOIN documents AS d
-					  ON d.id = dc.document_chunks
-		
+
+		JOIN documents AS d
+			ON d.id = dc.document_chunks
+
+		JOIN knowledge_bases AS kb
+			ON kb.id = d.knowledge_base_id
+
 		WHERE d.status = 'ready'
-		
+
+		  AND kb.status = 'ACTIVE'
+
+		  AND (
+			kb.visibility = 'system'
+			OR (
+				kb.visibility = 'private'
+				AND kb.owner_subject = $2
+			)
+		  )
+
 		  AND (
 			d.visibility = 'system'
-				OR (
+			OR (
 				d.visibility = 'private'
-					AND d.owner_subject = $2
-				)
+				AND d.owner_subject = $2
 			)
-		
+		  )
+
+		  %s
+
 		  AND (
-			lower(COALESCE(dc.metadata ->> 'exact_model', '')) = lower($1)
-				OR lower(COALESCE(dc.metadata ->> 'model', '')) = lower($1)
-				OR lower(COALESCE(dc.metadata ->> 'family_prefix', '')) = lower($1)
-				OR (
-					dc.metadata -> 'variant_models' IS NOT NULL
-					AND (
-						dc.metadata -> 'variant_models' @> to_jsonb($1::text)
-						OR position(lower($1) in lower(dc.metadata ->> 'variant_models')) > 0
-					)
+			lower(
+				COALESCE(
+					dc.metadata ->> 'exact_model',
+					''
 				)
+			) = lower($1)
+
+			OR lower(
+				COALESCE(
+					dc.metadata ->> 'model',
+					''
+				)
+			) = lower($1)
+
+			OR lower(
+				COALESCE(
+					dc.metadata ->> 'family_prefix',
+					''
+				)
+			) = lower($1)
+
+			OR EXISTS (
+				SELECT 1
+				FROM jsonb_array_elements_text(
+					COALESCE(
+						dc.metadata -> 'variant_models',
+						'[]'::jsonb
+					)
+				) AS variant(model)
+				WHERE lower(variant.model) = lower($1)
 			)
-		
-		ORDER BY score DESC, dc.id
-		LIMIT $3
-		`,
-		model,
-		actorSubject,
-		limit,
+		  )
+
+		ORDER BY
+			score DESC,
+			dc.id
+
+		LIMIT %s
+		`, kbCondition, limitPlaceholder),
+		args...,
 	)
 
 	if err != nil {
@@ -123,8 +212,14 @@ func (s *ProductSearcher) SearchModel(ctx context.Context, actorSubject string, 
 	for rows.Next() {
 		var item Candidate
 
-		if err := rows.Scan(&item.ChunkID, &item.Score); err != nil {
-			return nil, fmt.Errorf("scan product model result: %w", err)
+		if err := rows.Scan(
+			&item.ChunkID,
+			&item.Score,
+		); err != nil {
+			return nil, fmt.Errorf(
+				"scan product model result: %w",
+				err,
+			)
 		}
 
 		results = append(results, item)

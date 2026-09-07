@@ -383,7 +383,7 @@ func (c *AgentRunClient) UpdateOne(_m *AgentRun) *AgentRunUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *AgentRunClient) UpdateOneID(id int) *AgentRunUpdateOne {
+func (c *AgentRunClient) UpdateOneID(id uint64) *AgentRunUpdateOne {
 	mutation := newAgentRunMutation(c.config, OpUpdateOne, withAgentRunID(id))
 	return &AgentRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -400,7 +400,7 @@ func (c *AgentRunClient) DeleteOne(_m *AgentRun) *AgentRunDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *AgentRunClient) DeleteOneID(id int) *AgentRunDeleteOne {
+func (c *AgentRunClient) DeleteOneID(id uint64) *AgentRunDeleteOne {
 	builder := c.Delete().Where(agentrun.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -417,7 +417,7 @@ func (c *AgentRunClient) Query() *AgentRunQuery {
 }
 
 // Get returns a AgentRun entity by its id.
-func (c *AgentRunClient) Get(ctx context.Context, id int) (*AgentRun, error) {
+func (c *AgentRunClient) Get(ctx context.Context, id uint64) (*AgentRun, error) {
 	var result *AgentRun
 	cacheKey := cache.Key("AgentRun", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -439,7 +439,7 @@ func (c *AgentRunClient) Get(ctx context.Context, id int) (*AgentRun, error) {
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *AgentRunClient) GetX(ctx context.Context, id int) *AgentRun {
+func (c *AgentRunClient) GetX(ctx context.Context, id uint64) *AgentRun {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -533,7 +533,7 @@ func (c *ApprovalClient) UpdateOne(_m *Approval) *ApprovalUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *ApprovalClient) UpdateOneID(id int) *ApprovalUpdateOne {
+func (c *ApprovalClient) UpdateOneID(id uint64) *ApprovalUpdateOne {
 	mutation := newApprovalMutation(c.config, OpUpdateOne, withApprovalID(id))
 	return &ApprovalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -550,7 +550,7 @@ func (c *ApprovalClient) DeleteOne(_m *Approval) *ApprovalDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *ApprovalClient) DeleteOneID(id int) *ApprovalDeleteOne {
+func (c *ApprovalClient) DeleteOneID(id uint64) *ApprovalDeleteOne {
 	builder := c.Delete().Where(approval.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -567,7 +567,7 @@ func (c *ApprovalClient) Query() *ApprovalQuery {
 }
 
 // Get returns a Approval entity by its id.
-func (c *ApprovalClient) Get(ctx context.Context, id int) (*Approval, error) {
+func (c *ApprovalClient) Get(ctx context.Context, id uint64) (*Approval, error) {
 	var result *Approval
 	cacheKey := cache.Key("Approval", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -589,7 +589,7 @@ func (c *ApprovalClient) Get(ctx context.Context, id int) (*Approval, error) {
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *ApprovalClient) GetX(ctx context.Context, id int) *Approval {
+func (c *ApprovalClient) GetX(ctx context.Context, id uint64) *Approval {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -683,7 +683,7 @@ func (c *AuditEventClient) UpdateOne(_m *AuditEvent) *AuditEventUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *AuditEventClient) UpdateOneID(id int) *AuditEventUpdateOne {
+func (c *AuditEventClient) UpdateOneID(id uint64) *AuditEventUpdateOne {
 	mutation := newAuditEventMutation(c.config, OpUpdateOne, withAuditEventID(id))
 	return &AuditEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -700,7 +700,7 @@ func (c *AuditEventClient) DeleteOne(_m *AuditEvent) *AuditEventDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *AuditEventClient) DeleteOneID(id int) *AuditEventDeleteOne {
+func (c *AuditEventClient) DeleteOneID(id uint64) *AuditEventDeleteOne {
 	builder := c.Delete().Where(auditevent.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -717,7 +717,7 @@ func (c *AuditEventClient) Query() *AuditEventQuery {
 }
 
 // Get returns a AuditEvent entity by its id.
-func (c *AuditEventClient) Get(ctx context.Context, id int) (*AuditEvent, error) {
+func (c *AuditEventClient) Get(ctx context.Context, id uint64) (*AuditEvent, error) {
 	var result *AuditEvent
 	cacheKey := cache.Key("AuditEvent", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -739,7 +739,7 @@ func (c *AuditEventClient) Get(ctx context.Context, id int) (*AuditEvent, error)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *AuditEventClient) GetX(ctx context.Context, id int) *AuditEvent {
+func (c *AuditEventClient) GetX(ctx context.Context, id uint64) *AuditEvent {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -833,7 +833,7 @@ func (c *ChatTurnClient) UpdateOne(_m *ChatTurn) *ChatTurnUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *ChatTurnClient) UpdateOneID(id int) *ChatTurnUpdateOne {
+func (c *ChatTurnClient) UpdateOneID(id uint64) *ChatTurnUpdateOne {
 	mutation := newChatTurnMutation(c.config, OpUpdateOne, withChatTurnID(id))
 	return &ChatTurnUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -850,7 +850,7 @@ func (c *ChatTurnClient) DeleteOne(_m *ChatTurn) *ChatTurnDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *ChatTurnClient) DeleteOneID(id int) *ChatTurnDeleteOne {
+func (c *ChatTurnClient) DeleteOneID(id uint64) *ChatTurnDeleteOne {
 	builder := c.Delete().Where(chatturn.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -867,7 +867,7 @@ func (c *ChatTurnClient) Query() *ChatTurnQuery {
 }
 
 // Get returns a ChatTurn entity by its id.
-func (c *ChatTurnClient) Get(ctx context.Context, id int) (*ChatTurn, error) {
+func (c *ChatTurnClient) Get(ctx context.Context, id uint64) (*ChatTurn, error) {
 	var result *ChatTurn
 	cacheKey := cache.Key("ChatTurn", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -889,7 +889,7 @@ func (c *ChatTurnClient) Get(ctx context.Context, id int) (*ChatTurn, error) {
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *ChatTurnClient) GetX(ctx context.Context, id int) *ChatTurn {
+func (c *ChatTurnClient) GetX(ctx context.Context, id uint64) *ChatTurn {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -983,7 +983,7 @@ func (c *CheckpointClient) UpdateOne(_m *Checkpoint) *CheckpointUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *CheckpointClient) UpdateOneID(id int) *CheckpointUpdateOne {
+func (c *CheckpointClient) UpdateOneID(id uint64) *CheckpointUpdateOne {
 	mutation := newCheckpointMutation(c.config, OpUpdateOne, withCheckpointID(id))
 	return &CheckpointUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -1000,7 +1000,7 @@ func (c *CheckpointClient) DeleteOne(_m *Checkpoint) *CheckpointDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *CheckpointClient) DeleteOneID(id int) *CheckpointDeleteOne {
+func (c *CheckpointClient) DeleteOneID(id uint64) *CheckpointDeleteOne {
 	builder := c.Delete().Where(checkpoint.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -1017,7 +1017,7 @@ func (c *CheckpointClient) Query() *CheckpointQuery {
 }
 
 // Get returns a Checkpoint entity by its id.
-func (c *CheckpointClient) Get(ctx context.Context, id int) (*Checkpoint, error) {
+func (c *CheckpointClient) Get(ctx context.Context, id uint64) (*Checkpoint, error) {
 	var result *Checkpoint
 	cacheKey := cache.Key("Checkpoint", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -1039,7 +1039,7 @@ func (c *CheckpointClient) Get(ctx context.Context, id int) (*Checkpoint, error)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *CheckpointClient) GetX(ctx context.Context, id int) *Checkpoint {
+func (c *CheckpointClient) GetX(ctx context.Context, id uint64) *Checkpoint {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -1133,7 +1133,7 @@ func (c *DocumentClient) UpdateOne(_m *Document) *DocumentUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *DocumentClient) UpdateOneID(id int) *DocumentUpdateOne {
+func (c *DocumentClient) UpdateOneID(id uint64) *DocumentUpdateOne {
 	mutation := newDocumentMutation(c.config, OpUpdateOne, withDocumentID(id))
 	return &DocumentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -1150,7 +1150,7 @@ func (c *DocumentClient) DeleteOne(_m *Document) *DocumentDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *DocumentClient) DeleteOneID(id int) *DocumentDeleteOne {
+func (c *DocumentClient) DeleteOneID(id uint64) *DocumentDeleteOne {
 	builder := c.Delete().Where(document.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -1167,7 +1167,7 @@ func (c *DocumentClient) Query() *DocumentQuery {
 }
 
 // Get returns a Document entity by its id.
-func (c *DocumentClient) Get(ctx context.Context, id int) (*Document, error) {
+func (c *DocumentClient) Get(ctx context.Context, id uint64) (*Document, error) {
 	var result *Document
 	cacheKey := cache.Key("Document", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -1189,7 +1189,7 @@ func (c *DocumentClient) Get(ctx context.Context, id int) (*Document, error) {
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *DocumentClient) GetX(ctx context.Context, id int) *Document {
+func (c *DocumentClient) GetX(ctx context.Context, id uint64) *Document {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -1331,7 +1331,7 @@ func (c *DocumentChunkClient) UpdateOne(_m *DocumentChunk) *DocumentChunkUpdateO
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *DocumentChunkClient) UpdateOneID(id int) *DocumentChunkUpdateOne {
+func (c *DocumentChunkClient) UpdateOneID(id uint64) *DocumentChunkUpdateOne {
 	mutation := newDocumentChunkMutation(c.config, OpUpdateOne, withDocumentChunkID(id))
 	return &DocumentChunkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -1348,7 +1348,7 @@ func (c *DocumentChunkClient) DeleteOne(_m *DocumentChunk) *DocumentChunkDeleteO
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *DocumentChunkClient) DeleteOneID(id int) *DocumentChunkDeleteOne {
+func (c *DocumentChunkClient) DeleteOneID(id uint64) *DocumentChunkDeleteOne {
 	builder := c.Delete().Where(documentchunk.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -1365,7 +1365,7 @@ func (c *DocumentChunkClient) Query() *DocumentChunkQuery {
 }
 
 // Get returns a DocumentChunk entity by its id.
-func (c *DocumentChunkClient) Get(ctx context.Context, id int) (*DocumentChunk, error) {
+func (c *DocumentChunkClient) Get(ctx context.Context, id uint64) (*DocumentChunk, error) {
 	var result *DocumentChunk
 	cacheKey := cache.Key("DocumentChunk", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -1387,7 +1387,7 @@ func (c *DocumentChunkClient) Get(ctx context.Context, id int) (*DocumentChunk, 
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *DocumentChunkClient) GetX(ctx context.Context, id int) *DocumentChunk {
+func (c *DocumentChunkClient) GetX(ctx context.Context, id uint64) *DocumentChunk {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -1497,7 +1497,7 @@ func (c *KnowledgeBaseClient) UpdateOne(_m *KnowledgeBase) *KnowledgeBaseUpdateO
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *KnowledgeBaseClient) UpdateOneID(id int) *KnowledgeBaseUpdateOne {
+func (c *KnowledgeBaseClient) UpdateOneID(id uint64) *KnowledgeBaseUpdateOne {
 	mutation := newKnowledgeBaseMutation(c.config, OpUpdateOne, withKnowledgeBaseID(id))
 	return &KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -1514,7 +1514,7 @@ func (c *KnowledgeBaseClient) DeleteOne(_m *KnowledgeBase) *KnowledgeBaseDeleteO
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *KnowledgeBaseClient) DeleteOneID(id int) *KnowledgeBaseDeleteOne {
+func (c *KnowledgeBaseClient) DeleteOneID(id uint64) *KnowledgeBaseDeleteOne {
 	builder := c.Delete().Where(knowledgebase.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -1531,7 +1531,7 @@ func (c *KnowledgeBaseClient) Query() *KnowledgeBaseQuery {
 }
 
 // Get returns a KnowledgeBase entity by its id.
-func (c *KnowledgeBaseClient) Get(ctx context.Context, id int) (*KnowledgeBase, error) {
+func (c *KnowledgeBaseClient) Get(ctx context.Context, id uint64) (*KnowledgeBase, error) {
 	var result *KnowledgeBase
 	cacheKey := cache.Key("KnowledgeBase", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -1553,7 +1553,7 @@ func (c *KnowledgeBaseClient) Get(ctx context.Context, id int) (*KnowledgeBase, 
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *KnowledgeBaseClient) GetX(ctx context.Context, id int) *KnowledgeBase {
+func (c *KnowledgeBaseClient) GetX(ctx context.Context, id uint64) *KnowledgeBase {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -1679,7 +1679,7 @@ func (c *KnowledgeFolderClient) UpdateOne(_m *KnowledgeFolder) *KnowledgeFolderU
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *KnowledgeFolderClient) UpdateOneID(id int) *KnowledgeFolderUpdateOne {
+func (c *KnowledgeFolderClient) UpdateOneID(id uint64) *KnowledgeFolderUpdateOne {
 	mutation := newKnowledgeFolderMutation(c.config, OpUpdateOne, withKnowledgeFolderID(id))
 	return &KnowledgeFolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -1696,7 +1696,7 @@ func (c *KnowledgeFolderClient) DeleteOne(_m *KnowledgeFolder) *KnowledgeFolderD
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *KnowledgeFolderClient) DeleteOneID(id int) *KnowledgeFolderDeleteOne {
+func (c *KnowledgeFolderClient) DeleteOneID(id uint64) *KnowledgeFolderDeleteOne {
 	builder := c.Delete().Where(knowledgefolder.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -1713,7 +1713,7 @@ func (c *KnowledgeFolderClient) Query() *KnowledgeFolderQuery {
 }
 
 // Get returns a KnowledgeFolder entity by its id.
-func (c *KnowledgeFolderClient) Get(ctx context.Context, id int) (*KnowledgeFolder, error) {
+func (c *KnowledgeFolderClient) Get(ctx context.Context, id uint64) (*KnowledgeFolder, error) {
 	var result *KnowledgeFolder
 	cacheKey := cache.Key("KnowledgeFolder", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -1735,7 +1735,7 @@ func (c *KnowledgeFolderClient) Get(ctx context.Context, id int) (*KnowledgeFold
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *KnowledgeFolderClient) GetX(ctx context.Context, id int) *KnowledgeFolder {
+func (c *KnowledgeFolderClient) GetX(ctx context.Context, id uint64) *KnowledgeFolder {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -1893,7 +1893,7 @@ func (c *KnowledgeIndexClient) UpdateOne(_m *KnowledgeIndex) *KnowledgeIndexUpda
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *KnowledgeIndexClient) UpdateOneID(id int) *KnowledgeIndexUpdateOne {
+func (c *KnowledgeIndexClient) UpdateOneID(id uint64) *KnowledgeIndexUpdateOne {
 	mutation := newKnowledgeIndexMutation(c.config, OpUpdateOne, withKnowledgeIndexID(id))
 	return &KnowledgeIndexUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -1910,7 +1910,7 @@ func (c *KnowledgeIndexClient) DeleteOne(_m *KnowledgeIndex) *KnowledgeIndexDele
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *KnowledgeIndexClient) DeleteOneID(id int) *KnowledgeIndexDeleteOne {
+func (c *KnowledgeIndexClient) DeleteOneID(id uint64) *KnowledgeIndexDeleteOne {
 	builder := c.Delete().Where(knowledgeindex.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -1927,7 +1927,7 @@ func (c *KnowledgeIndexClient) Query() *KnowledgeIndexQuery {
 }
 
 // Get returns a KnowledgeIndex entity by its id.
-func (c *KnowledgeIndexClient) Get(ctx context.Context, id int) (*KnowledgeIndex, error) {
+func (c *KnowledgeIndexClient) Get(ctx context.Context, id uint64) (*KnowledgeIndex, error) {
 	var result *KnowledgeIndex
 	cacheKey := cache.Key("KnowledgeIndex", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -1949,7 +1949,7 @@ func (c *KnowledgeIndexClient) Get(ctx context.Context, id int) (*KnowledgeIndex
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *KnowledgeIndexClient) GetX(ctx context.Context, id int) *KnowledgeIndex {
+func (c *KnowledgeIndexClient) GetX(ctx context.Context, id uint64) *KnowledgeIndex {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -2043,7 +2043,7 @@ func (c *SessionClient) UpdateOne(_m *Session) *SessionUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *SessionClient) UpdateOneID(id int) *SessionUpdateOne {
+func (c *SessionClient) UpdateOneID(id uint64) *SessionUpdateOne {
 	mutation := newSessionMutation(c.config, OpUpdateOne, withSessionID(id))
 	return &SessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -2060,7 +2060,7 @@ func (c *SessionClient) DeleteOne(_m *Session) *SessionDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *SessionClient) DeleteOneID(id int) *SessionDeleteOne {
+func (c *SessionClient) DeleteOneID(id uint64) *SessionDeleteOne {
 	builder := c.Delete().Where(session.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -2077,7 +2077,7 @@ func (c *SessionClient) Query() *SessionQuery {
 }
 
 // Get returns a Session entity by its id.
-func (c *SessionClient) Get(ctx context.Context, id int) (*Session, error) {
+func (c *SessionClient) Get(ctx context.Context, id uint64) (*Session, error) {
 	var result *Session
 	cacheKey := cache.Key("Session", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -2099,7 +2099,7 @@ func (c *SessionClient) Get(ctx context.Context, id int) (*Session, error) {
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *SessionClient) GetX(ctx context.Context, id int) *Session {
+func (c *SessionClient) GetX(ctx context.Context, id uint64) *Session {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -2209,7 +2209,7 @@ func (c *SessionMessageClient) UpdateOne(_m *SessionMessage) *SessionMessageUpda
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *SessionMessageClient) UpdateOneID(id int) *SessionMessageUpdateOne {
+func (c *SessionMessageClient) UpdateOneID(id uint64) *SessionMessageUpdateOne {
 	mutation := newSessionMessageMutation(c.config, OpUpdateOne, withSessionMessageID(id))
 	return &SessionMessageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -2226,7 +2226,7 @@ func (c *SessionMessageClient) DeleteOne(_m *SessionMessage) *SessionMessageDele
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *SessionMessageClient) DeleteOneID(id int) *SessionMessageDeleteOne {
+func (c *SessionMessageClient) DeleteOneID(id uint64) *SessionMessageDeleteOne {
 	builder := c.Delete().Where(sessionmessage.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -2243,7 +2243,7 @@ func (c *SessionMessageClient) Query() *SessionMessageQuery {
 }
 
 // Get returns a SessionMessage entity by its id.
-func (c *SessionMessageClient) Get(ctx context.Context, id int) (*SessionMessage, error) {
+func (c *SessionMessageClient) Get(ctx context.Context, id uint64) (*SessionMessage, error) {
 	var result *SessionMessage
 	cacheKey := cache.Key("SessionMessage", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -2265,7 +2265,7 @@ func (c *SessionMessageClient) Get(ctx context.Context, id int) (*SessionMessage
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *SessionMessageClient) GetX(ctx context.Context, id int) *SessionMessage {
+func (c *SessionMessageClient) GetX(ctx context.Context, id uint64) *SessionMessage {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -2375,7 +2375,7 @@ func (c *VectorOutboxClient) UpdateOne(_m *VectorOutbox) *VectorOutboxUpdateOne 
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *VectorOutboxClient) UpdateOneID(id int) *VectorOutboxUpdateOne {
+func (c *VectorOutboxClient) UpdateOneID(id uint64) *VectorOutboxUpdateOne {
 	mutation := newVectorOutboxMutation(c.config, OpUpdateOne, withVectorOutboxID(id))
 	return &VectorOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -2392,7 +2392,7 @@ func (c *VectorOutboxClient) DeleteOne(_m *VectorOutbox) *VectorOutboxDeleteOne 
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *VectorOutboxClient) DeleteOneID(id int) *VectorOutboxDeleteOne {
+func (c *VectorOutboxClient) DeleteOneID(id uint64) *VectorOutboxDeleteOne {
 	builder := c.Delete().Where(vectoroutbox.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -2409,7 +2409,7 @@ func (c *VectorOutboxClient) Query() *VectorOutboxQuery {
 }
 
 // Get returns a VectorOutbox entity by its id.
-func (c *VectorOutboxClient) Get(ctx context.Context, id int) (*VectorOutbox, error) {
+func (c *VectorOutboxClient) Get(ctx context.Context, id uint64) (*VectorOutbox, error) {
 	var result *VectorOutbox
 	cacheKey := cache.Key("VectorOutbox", id)
 	data, err := c.rds.Get(ctx, cacheKey).Bytes()
@@ -2431,7 +2431,7 @@ func (c *VectorOutboxClient) Get(ctx context.Context, id int) (*VectorOutbox, er
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *VectorOutboxClient) GetX(ctx context.Context, id int) *VectorOutbox {
+func (c *VectorOutboxClient) GetX(ctx context.Context, id uint64) *VectorOutbox {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)

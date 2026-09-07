@@ -171,7 +171,7 @@ func (_c *KnowledgeIndexCreate) sqlSave(ctx context.Context) (*KnowledgeIndex, e
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -180,7 +180,7 @@ func (_c *KnowledgeIndexCreate) sqlSave(ctx context.Context) (*KnowledgeIndex, e
 func (_c *KnowledgeIndexCreate) createSpec() (*KnowledgeIndex, *sqlgraph.CreateSpec) {
 	var (
 		_node = &KnowledgeIndex{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(knowledgeindex.Table, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(knowledgeindex.Table, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(knowledgeindex.FieldName, field.TypeString, value)
@@ -260,7 +260,7 @@ func (_c *KnowledgeIndexCreateBulk) Save(ctx context.Context) ([]*KnowledgeIndex
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

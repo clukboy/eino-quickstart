@@ -187,7 +187,7 @@ func (_u *DocumentChunkUpdate) ClearIndexedAt() *DocumentChunkUpdate {
 }
 
 // SetDocumentID sets the "document" edge to the Document entity by ID.
-func (_u *DocumentChunkUpdate) SetDocumentID(id int) *DocumentChunkUpdate {
+func (_u *DocumentChunkUpdate) SetDocumentID(id uint64) *DocumentChunkUpdate {
 	_u.mutation.SetDocumentID(id)
 	return _u
 }
@@ -252,7 +252,7 @@ func (_u *DocumentChunkUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(documentchunk.Table, documentchunk.Columns, sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(documentchunk.Table, documentchunk.Columns, sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -313,7 +313,7 @@ func (_u *DocumentChunkUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{documentchunk.DocumentColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -326,7 +326,7 @@ func (_u *DocumentChunkUpdate) sqlSave(ctx context.Context) (_node int, err erro
 			Columns: []string{documentchunk.DocumentColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -512,7 +512,7 @@ func (_u *DocumentChunkUpdateOne) ClearIndexedAt() *DocumentChunkUpdateOne {
 }
 
 // SetDocumentID sets the "document" edge to the Document entity by ID.
-func (_u *DocumentChunkUpdateOne) SetDocumentID(id int) *DocumentChunkUpdateOne {
+func (_u *DocumentChunkUpdateOne) SetDocumentID(id uint64) *DocumentChunkUpdateOne {
 	_u.mutation.SetDocumentID(id)
 	return _u
 }
@@ -590,7 +590,7 @@ func (_u *DocumentChunkUpdateOne) sqlSave(ctx context.Context) (_node *DocumentC
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(documentchunk.Table, documentchunk.Columns, sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(documentchunk.Table, documentchunk.Columns, sqlgraph.NewFieldSpec(documentchunk.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "DocumentChunk.id" for update`)}
@@ -668,7 +668,7 @@ func (_u *DocumentChunkUpdateOne) sqlSave(ctx context.Context) (_node *DocumentC
 			Columns: []string{documentchunk.DocumentColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -681,7 +681,7 @@ func (_u *DocumentChunkUpdateOne) sqlSave(ctx context.Context) (_node *DocumentC
 			Columns: []string{documentchunk.DocumentColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

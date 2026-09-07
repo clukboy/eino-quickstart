@@ -40,7 +40,7 @@ func (_d *KnowledgeFolderDelete) ExecX(ctx context.Context) int {
 }
 
 func (_d *KnowledgeFolderDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(knowledgefolder.Table, sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewDeleteSpec(knowledgefolder.Table, sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64))
 	if ps := _d.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {

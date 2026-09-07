@@ -11,47 +11,47 @@ import (
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.Document {
+func ID(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.Document {
+func IDEQ(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.Document {
+func IDNEQ(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.Document {
+func IDIn(ids ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.Document {
+func IDNotIn(ids ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.Document {
+func IDGT(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.Document {
+func IDGTE(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.Document {
+func IDLT(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.Document {
+func IDLTE(id uint64) predicate.Document {
 	return predicate.Document(sql.FieldLTE(FieldID, id))
 }
 
@@ -76,12 +76,12 @@ func OwnerSubject(v string) predicate.Document {
 }
 
 // KnowledgeBaseID applies equality check predicate on the "knowledge_base_id" field. It's identical to KnowledgeBaseIDEQ.
-func KnowledgeBaseID(v int) predicate.Document {
+func KnowledgeBaseID(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldKnowledgeBaseID, v))
 }
 
 // FolderID applies equality check predicate on the "folder_id" field. It's identical to FolderIDEQ.
-func FolderID(v int) predicate.Document {
+func FolderID(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldFolderID, v))
 }
 
@@ -406,42 +406,42 @@ func StatusNotIn(vs ...Status) predicate.Document {
 }
 
 // KnowledgeBaseIDEQ applies the EQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDEQ(v int) predicate.Document {
+func KnowledgeBaseIDEQ(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDNEQ applies the NEQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNEQ(v int) predicate.Document {
+func KnowledgeBaseIDNEQ(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldNEQ(FieldKnowledgeBaseID, v))
 }
 
 // KnowledgeBaseIDIn applies the In predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDIn(vs ...int) predicate.Document {
+func KnowledgeBaseIDIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldIn(FieldKnowledgeBaseID, vs...))
 }
 
 // KnowledgeBaseIDNotIn applies the NotIn predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNotIn(vs ...int) predicate.Document {
+func KnowledgeBaseIDNotIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
 }
 
 // FolderIDEQ applies the EQ predicate on the "folder_id" field.
-func FolderIDEQ(v int) predicate.Document {
+func FolderIDEQ(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldFolderID, v))
 }
 
 // FolderIDNEQ applies the NEQ predicate on the "folder_id" field.
-func FolderIDNEQ(v int) predicate.Document {
+func FolderIDNEQ(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldNEQ(FieldFolderID, v))
 }
 
 // FolderIDIn applies the In predicate on the "folder_id" field.
-func FolderIDIn(vs ...int) predicate.Document {
+func FolderIDIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldIn(FieldFolderID, vs...))
 }
 
 // FolderIDNotIn applies the NotIn predicate on the "folder_id" field.
-func FolderIDNotIn(vs ...int) predicate.Document {
+func FolderIDNotIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldFolderID, vs...))
 }
 

@@ -21,7 +21,7 @@ type VectorOutboxCreate struct {
 }
 
 // SetChunkID sets the "chunk_id" field.
-func (_c *VectorOutboxCreate) SetChunkID(v int64) *VectorOutboxCreate {
+func (_c *VectorOutboxCreate) SetChunkID(v uint64) *VectorOutboxCreate {
 	_c.mutation.SetChunkID(v)
 	return _c
 }
@@ -235,7 +235,7 @@ func (_c *VectorOutboxCreate) sqlSave(ctx context.Context) (*VectorOutbox, error
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -244,10 +244,10 @@ func (_c *VectorOutboxCreate) sqlSave(ctx context.Context) (*VectorOutbox, error
 func (_c *VectorOutboxCreate) createSpec() (*VectorOutbox, *sqlgraph.CreateSpec) {
 	var (
 		_node = &VectorOutbox{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(vectoroutbox.Table, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(vectoroutbox.Table, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.ChunkID(); ok {
-		_spec.SetField(vectoroutbox.FieldChunkID, field.TypeInt64, value)
+		_spec.SetField(vectoroutbox.FieldChunkID, field.TypeUint64, value)
 		_node.ChunkID = value
 	}
 	if value, ok := _c.mutation.Operation(); ok {
@@ -332,7 +332,7 @@ func (_c *VectorOutboxCreateBulk) Save(ctx context.Context) ([]*VectorOutbox, er
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

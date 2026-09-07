@@ -82,8 +82,8 @@ func (_q *ChatTurnQuery) FirstX(ctx context.Context) *ChatTurn {
 
 // FirstID returns the first ChatTurn ID from the query.
 // Returns a *NotFoundError when no ChatTurn ID was found.
-func (_q *ChatTurnQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *ChatTurnQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func (_q *ChatTurnQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *ChatTurnQuery) FirstIDX(ctx context.Context) int {
+func (_q *ChatTurnQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +133,8 @@ func (_q *ChatTurnQuery) OnlyX(ctx context.Context) *ChatTurn {
 // OnlyID is like Only, but returns the only ChatTurn ID in the query.
 // Returns a *NotSingularError when more than one ChatTurn ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *ChatTurnQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *ChatTurnQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +150,7 @@ func (_q *ChatTurnQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *ChatTurnQuery) OnlyIDX(ctx context.Context) int {
+func (_q *ChatTurnQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +178,7 @@ func (_q *ChatTurnQuery) AllX(ctx context.Context) []*ChatTurn {
 }
 
 // IDs executes the query and returns a list of ChatTurn IDs.
-func (_q *ChatTurnQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *ChatTurnQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +190,7 @@ func (_q *ChatTurnQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *ChatTurnQuery) IDsX(ctx context.Context) []int {
+func (_q *ChatTurnQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -365,7 +365,7 @@ func (_q *ChatTurnQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *ChatTurnQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(chatturn.Table, chatturn.Columns, sqlgraph.NewFieldSpec(chatturn.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(chatturn.Table, chatturn.Columns, sqlgraph.NewFieldSpec(chatturn.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

@@ -102,7 +102,7 @@ func (_u *CheckpointUpdate) defaults() {
 }
 
 func (_u *CheckpointUpdate) sqlSave(ctx context.Context) (_node int, err error) {
-	_spec := sqlgraph.NewUpdateSpec(checkpoint.Table, checkpoint.Columns, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(checkpoint.Table, checkpoint.Columns, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -229,7 +229,7 @@ func (_u *CheckpointUpdateOne) defaults() {
 }
 
 func (_u *CheckpointUpdateOne) sqlSave(ctx context.Context) (_node *Checkpoint, err error) {
-	_spec := sqlgraph.NewUpdateSpec(checkpoint.Table, checkpoint.Columns, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(checkpoint.Table, checkpoint.Columns, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Checkpoint.id" for update`)}

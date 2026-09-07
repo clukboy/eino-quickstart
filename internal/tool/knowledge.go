@@ -16,6 +16,11 @@ import (
 type KnowledgeSearch struct {
 	Retriever    retrieval.Retriever
 	ActorSubject string
+
+	// AllowedKnowledgeBaseIDs is the server-side KB whitelist.
+	//
+	// LLM 不应该能够通过 tool 参数自行指定 KB。
+	AllowedKnowledgeBaseIDs []uint64
 }
 
 type knowledgeSearchInput struct {
@@ -25,13 +30,22 @@ type knowledgeSearchInput struct {
 
 // NewKnowledgeSearch creates the search_knowledge Eino tool.
 func NewKnowledgeSearch(retriever retrieval.Retriever, actorSubject string) (einotool.InvokableTool, error) {
+	return NewKnowledgeSearchWithKnowledgeBases(
+		retriever,
+		actorSubject,
+		nil,
+	)
+}
+
+func NewKnowledgeSearchWithKnowledgeBases(retriever retrieval.Retriever, actorSubject string, knowledgeBaseIDs []uint64) (einotool.InvokableTool, error) {
 	if retriever == nil {
 		return nil, errors.New("knowledge retriever is required")
 	}
 
 	search := &KnowledgeSearch{
-		Retriever:    retriever,
-		ActorSubject: strings.TrimSpace(actorSubject),
+		Retriever:               retriever,
+		ActorSubject:            strings.TrimSpace(actorSubject),
+		AllowedKnowledgeBaseIDs: normalizeKnowledgeBaseIDs(knowledgeBaseIDs),
 	}
 	return utils.InferTool("search_knowledge", "Search authorized knowledge documents and return cited source excerpts.", search.run)
 }
@@ -63,7 +77,12 @@ func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (
 		return "", errors.New("authenticated actor subject is required")
 	}
 
-	results, err := s.Retriever.Search(ctx, actorSubject, query, input.TopK)
+	results, err := s.Retriever.Search(ctx, retrieval.SearchRequest{
+		ActorSubject:     actorSubject,
+		Query:            query,
+		TopK:             input.TopK,
+		KnowledgeBaseIDs: s.AllowedKnowledgeBaseIDs,
+	})
 	if err != nil {
 		return "", fmt.Errorf("search knowledge: %w", err)
 	}
@@ -88,15 +107,29 @@ func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (
 			fmt.Fprintf(&output, "Section: %s\n", result.HeadingPath)
 		}
 		if result.StartLine > 0 || result.EndLine > 0 {
-			fmt.Fprintf(
-				&output,
-				"Lines: %d-%d\n",
-				result.StartLine,
-				result.EndLine,
-			)
+			fmt.Fprintf(&output, "Lines: %d-%d\n", result.StartLine, result.EndLine)
 		}
 		fmt.Fprintf(&output, "Excerpt: %s\n", result.Content)
 	}
 
 	return output.String(), nil
+}
+
+func normalizeKnowledgeBaseIDs(knowledgeBaseIDs []uint64) []uint64 {
+	if len(knowledgeBaseIDs) == 0 {
+		return nil
+	}
+	result := make([]uint64, 0, len(knowledgeBaseIDs))
+	seen := make(map[uint64]struct{}, len(knowledgeBaseIDs))
+	for _, id := range knowledgeBaseIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
 }

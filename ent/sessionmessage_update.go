@@ -57,7 +57,7 @@ func (_u *SessionMessageUpdate) SetNillableContent(v *string) *SessionMessageUpd
 }
 
 // SetSessionID sets the "session" edge to the Session entity by ID.
-func (_u *SessionMessageUpdate) SetSessionID(id int) *SessionMessageUpdate {
+func (_u *SessionMessageUpdate) SetSessionID(id uint64) *SessionMessageUpdate {
 	_u.mutation.SetSessionID(id)
 	return _u
 }
@@ -127,7 +127,7 @@ func (_u *SessionMessageUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(sessionmessage.Table, sessionmessage.Columns, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(sessionmessage.Table, sessionmessage.Columns, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -149,7 +149,7 @@ func (_u *SessionMessageUpdate) sqlSave(ctx context.Context) (_node int, err err
 			Columns: []string{sessionmessage.SessionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -162,7 +162,7 @@ func (_u *SessionMessageUpdate) sqlSave(ctx context.Context) (_node int, err err
 			Columns: []string{sessionmessage.SessionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -219,7 +219,7 @@ func (_u *SessionMessageUpdateOne) SetNillableContent(v *string) *SessionMessage
 }
 
 // SetSessionID sets the "session" edge to the Session entity by ID.
-func (_u *SessionMessageUpdateOne) SetSessionID(id int) *SessionMessageUpdateOne {
+func (_u *SessionMessageUpdateOne) SetSessionID(id uint64) *SessionMessageUpdateOne {
 	_u.mutation.SetSessionID(id)
 	return _u
 }
@@ -302,7 +302,7 @@ func (_u *SessionMessageUpdateOne) sqlSave(ctx context.Context) (_node *SessionM
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(sessionmessage.Table, sessionmessage.Columns, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(sessionmessage.Table, sessionmessage.Columns, sqlgraph.NewFieldSpec(sessionmessage.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "SessionMessage.id" for update`)}
@@ -341,7 +341,7 @@ func (_u *SessionMessageUpdateOne) sqlSave(ctx context.Context) (_node *SessionM
 			Columns: []string{sessionmessage.SessionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -354,7 +354,7 @@ func (_u *SessionMessageUpdateOne) sqlSave(ctx context.Context) (_node *SessionM
 			Columns: []string{sessionmessage.SessionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

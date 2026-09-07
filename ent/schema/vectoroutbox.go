@@ -16,7 +16,7 @@ type VectorOutbox struct {
 // Fields of the VectorOutbox.
 func (VectorOutbox) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int64("chunk_id").Unique(),
+		field.Uint64("chunk_id").Unique(),
 		field.Enum("operation").
 			Values("upsert", "delete"),
 		field.Enum("status").

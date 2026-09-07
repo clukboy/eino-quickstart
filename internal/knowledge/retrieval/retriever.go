@@ -3,7 +3,7 @@ package retrieval
 import "context"
 
 type Result struct {
-	ChunkID     int64
+	ChunkID     uint64
 	CitationID  string
 	Source      string
 	Title       string
@@ -15,18 +15,50 @@ type Result struct {
 }
 
 type Candidate struct {
-	ChunkID int64
+	ChunkID uint64
 	Score   float64
+}
+type SearchScope struct {
+	ActorSubject     string
+	KnowledgeBaseIDs []uint64
+}
+
+func (s SearchScope) Normalized() SearchScope {
+	result := SearchScope{
+		ActorSubject: s.ActorSubject,
+	}
+
+	seen := make(map[uint64]struct{}, len(s.KnowledgeBaseIDs))
+
+	for _, id := range s.KnowledgeBaseIDs {
+		if id <= 0 {
+			continue
+		}
+
+		if _, exists := seen[id]; exists {
+			continue
+		}
+
+		seen[id] = struct{}{}
+		result.KnowledgeBaseIDs =
+			append(result.KnowledgeBaseIDs, id)
+	}
+
+	return result
 }
 
 type SearchRequest struct {
-	ActorSubject string
+	ActorSubject     string
+	Query            string
+	KnowledgeBaseIDs []uint64
+	TopK             int
+}
 
-	Query string
-
-	KnowledgeBaseIDs []int
-
-	TopK int
+func (r SearchRequest) Scope() SearchScope {
+	return SearchScope{
+		ActorSubject:     r.ActorSubject,
+		KnowledgeBaseIDs: r.KnowledgeBaseIDs,
+	}.Normalized()
 }
 
 type VectorSearcher interface {
@@ -34,7 +66,7 @@ type VectorSearcher interface {
 }
 
 type KeywordSearcher interface {
-	Search(ctx context.Context, actorSubject string, query string, limit int) ([]Candidate, error)
+	Search(ctx context.Context, scope SearchScope, query string, limit int) ([]Candidate, error)
 }
 
 type Retriever interface {

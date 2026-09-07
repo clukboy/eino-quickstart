@@ -213,7 +213,7 @@ func (_c *ChatTurnCreate) sqlSave(ctx context.Context) (*ChatTurn, error) {
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -222,7 +222,7 @@ func (_c *ChatTurnCreate) sqlSave(ctx context.Context) (*ChatTurn, error) {
 func (_c *ChatTurnCreate) createSpec() (*ChatTurn, *sqlgraph.CreateSpec) {
 	var (
 		_node = &ChatTurn{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(chatturn.Table, sqlgraph.NewFieldSpec(chatturn.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(chatturn.Table, sqlgraph.NewFieldSpec(chatturn.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.TurnID(); ok {
 		_spec.SetField(chatturn.FieldTurnID, field.TypeString, value)
@@ -314,7 +314,7 @@ func (_c *ChatTurnCreateBulk) Save(ctx context.Context) ([]*ChatTurn, error) {
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

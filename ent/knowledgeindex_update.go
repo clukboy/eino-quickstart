@@ -157,7 +157,7 @@ func (_u *KnowledgeIndexUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(knowledgeindex.Table, knowledgeindex.Columns, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(knowledgeindex.Table, knowledgeindex.Columns, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -348,7 +348,7 @@ func (_u *KnowledgeIndexUpdateOne) sqlSave(ctx context.Context) (_node *Knowledg
 	if err := _u.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(knowledgeindex.Table, knowledgeindex.Columns, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(knowledgeindex.Table, knowledgeindex.Columns, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeUint64))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "KnowledgeIndex.id" for update`)}

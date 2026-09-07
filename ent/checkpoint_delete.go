@@ -40,7 +40,7 @@ func (_d *CheckpointDelete) ExecX(ctx context.Context) int {
 }
 
 func (_d *CheckpointDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(checkpoint.Table, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewDeleteSpec(checkpoint.Table, sqlgraph.NewFieldSpec(checkpoint.FieldID, field.TypeUint64))
 	if ps := _d.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {

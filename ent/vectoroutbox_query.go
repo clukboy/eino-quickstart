@@ -82,8 +82,8 @@ func (_q *VectorOutboxQuery) FirstX(ctx context.Context) *VectorOutbox {
 
 // FirstID returns the first VectorOutbox ID from the query.
 // Returns a *NotFoundError when no VectorOutbox ID was found.
-func (_q *VectorOutboxQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *VectorOutboxQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func (_q *VectorOutboxQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *VectorOutboxQuery) FirstIDX(ctx context.Context) int {
+func (_q *VectorOutboxQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +133,8 @@ func (_q *VectorOutboxQuery) OnlyX(ctx context.Context) *VectorOutbox {
 // OnlyID is like Only, but returns the only VectorOutbox ID in the query.
 // Returns a *NotSingularError when more than one VectorOutbox ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *VectorOutboxQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *VectorOutboxQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +150,7 @@ func (_q *VectorOutboxQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *VectorOutboxQuery) OnlyIDX(ctx context.Context) int {
+func (_q *VectorOutboxQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +178,7 @@ func (_q *VectorOutboxQuery) AllX(ctx context.Context) []*VectorOutbox {
 }
 
 // IDs executes the query and returns a list of VectorOutbox IDs.
-func (_q *VectorOutboxQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *VectorOutboxQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +190,7 @@ func (_q *VectorOutboxQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *VectorOutboxQuery) IDsX(ctx context.Context) []int {
+func (_q *VectorOutboxQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -262,7 +262,7 @@ func (_q *VectorOutboxQuery) Clone() *VectorOutboxQuery {
 // Example:
 //
 //	var v []struct {
-//		ChunkID int64 `json:"chunk_id,omitempty"`
+//		ChunkID uint64 `json:"chunk_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
@@ -285,7 +285,7 @@ func (_q *VectorOutboxQuery) GroupBy(field string, fields ...string) *VectorOutb
 // Example:
 //
 //	var v []struct {
-//		ChunkID int64 `json:"chunk_id,omitempty"`
+//		ChunkID uint64 `json:"chunk_id,omitempty"`
 //	}
 //
 //	client.VectorOutbox.Query().
@@ -365,7 +365,7 @@ func (_q *VectorOutboxQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *VectorOutboxQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(vectoroutbox.Table, vectoroutbox.Columns, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(vectoroutbox.Table, vectoroutbox.Columns, sqlgraph.NewFieldSpec(vectoroutbox.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

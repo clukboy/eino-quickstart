@@ -11,47 +11,47 @@ import (
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.DocumentChunk {
+func ID(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.DocumentChunk {
+func IDEQ(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.DocumentChunk {
+func IDNEQ(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.DocumentChunk {
+func IDIn(ids ...uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.DocumentChunk {
+func IDNotIn(ids ...uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.DocumentChunk {
+func IDGT(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.DocumentChunk {
+func IDGTE(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.DocumentChunk {
+func IDLT(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.DocumentChunk {
+func IDLTE(id uint64) predicate.DocumentChunk {
 	return predicate.DocumentChunk(sql.FieldLTE(FieldID, id))
 }
 

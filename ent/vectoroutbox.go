@@ -16,9 +16,9 @@ import (
 type VectorOutbox struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// ChunkID holds the value of the "chunk_id" field.
-	ChunkID int64 `json:"chunk_id,omitempty"`
+	ChunkID uint64 `json:"chunk_id,omitempty"`
 	// Operation holds the value of the "operation" field.
 	Operation vectoroutbox.Operation `json:"operation,omitempty"`
 	// Status holds the value of the "status" field.
@@ -69,12 +69,12 @@ func (_m *VectorOutbox) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case vectoroutbox.FieldChunkID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field chunk_id", values[i])
 			} else if value.Valid {
-				_m.ChunkID = value.Int64
+				_m.ChunkID = uint64(value.Int64)
 			}
 		case vectoroutbox.FieldOperation:
 			if value, ok := values[i].(*sql.NullString); !ok {

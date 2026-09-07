@@ -113,14 +113,14 @@ func (_c *KnowledgeBaseCreate) SetNillableUpdatedAt(v *time.Time) *KnowledgeBase
 }
 
 // AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by IDs.
-func (_c *KnowledgeBaseCreate) AddFolderIDs(ids ...int) *KnowledgeBaseCreate {
+func (_c *KnowledgeBaseCreate) AddFolderIDs(ids ...uint64) *KnowledgeBaseCreate {
 	_c.mutation.AddFolderIDs(ids...)
 	return _c
 }
 
 // AddFolders adds the "folders" edges to the KnowledgeFolder entity.
 func (_c *KnowledgeBaseCreate) AddFolders(v ...*KnowledgeFolder) *KnowledgeBaseCreate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -128,14 +128,14 @@ func (_c *KnowledgeBaseCreate) AddFolders(v ...*KnowledgeFolder) *KnowledgeBaseC
 }
 
 // AddDocumentIDs adds the "documents" edge to the Document entity by IDs.
-func (_c *KnowledgeBaseCreate) AddDocumentIDs(ids ...int) *KnowledgeBaseCreate {
+func (_c *KnowledgeBaseCreate) AddDocumentIDs(ids ...uint64) *KnowledgeBaseCreate {
 	_c.mutation.AddDocumentIDs(ids...)
 	return _c
 }
 
 // AddDocuments adds the "documents" edges to the Document entity.
 func (_c *KnowledgeBaseCreate) AddDocuments(v ...*Document) *KnowledgeBaseCreate {
-	ids := make([]int, len(v))
+	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
@@ -244,7 +244,7 @@ func (_c *KnowledgeBaseCreate) sqlSave(ctx context.Context) (*KnowledgeBase, err
 		return nil, err
 	}
 	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	_node.ID = uint64(id)
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -253,7 +253,7 @@ func (_c *KnowledgeBaseCreate) sqlSave(ctx context.Context) (*KnowledgeBase, err
 func (_c *KnowledgeBaseCreate) createSpec() (*KnowledgeBase, *sqlgraph.CreateSpec) {
 	var (
 		_node = &KnowledgeBase{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(knowledgebase.Table, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(knowledgebase.Table, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64))
 	)
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(knowledgebase.FieldName, field.TypeString, value)
@@ -291,7 +291,7 @@ func (_c *KnowledgeBaseCreate) createSpec() (*KnowledgeBase, *sqlgraph.CreateSpe
 			Columns: []string{knowledgebase.FoldersColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -307,7 +307,7 @@ func (_c *KnowledgeBaseCreate) createSpec() (*KnowledgeBase, *sqlgraph.CreateSpe
 			Columns: []string{knowledgebase.DocumentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeInt),
+				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -365,7 +365,7 @@ func (_c *KnowledgeBaseCreateBulk) Save(ctx context.Context) ([]*KnowledgeBase, 
 				mutation.id = &nodes[i].ID
 				if specs[i].ID.Value != nil {
 					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
+					nodes[i].ID = uint64(id)
 				}
 				mutation.done = true
 				return nodes[i], nil

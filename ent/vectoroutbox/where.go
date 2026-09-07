@@ -10,52 +10,52 @@ import (
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.VectorOutbox {
+func ID(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.VectorOutbox {
+func IDEQ(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.VectorOutbox {
+func IDNEQ(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.VectorOutbox {
+func IDIn(ids ...uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.VectorOutbox {
+func IDNotIn(ids ...uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.VectorOutbox {
+func IDGT(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.VectorOutbox {
+func IDGTE(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.VectorOutbox {
+func IDLT(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.VectorOutbox {
+func IDLTE(id uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldLTE(FieldID, id))
 }
 
 // ChunkID applies equality check predicate on the "chunk_id" field. It's identical to ChunkIDEQ.
-func ChunkID(v int64) predicate.VectorOutbox {
+func ChunkID(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldEQ(FieldChunkID, v))
 }
 
@@ -90,42 +90,42 @@ func UpdatedAt(v time.Time) predicate.VectorOutbox {
 }
 
 // ChunkIDEQ applies the EQ predicate on the "chunk_id" field.
-func ChunkIDEQ(v int64) predicate.VectorOutbox {
+func ChunkIDEQ(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldEQ(FieldChunkID, v))
 }
 
 // ChunkIDNEQ applies the NEQ predicate on the "chunk_id" field.
-func ChunkIDNEQ(v int64) predicate.VectorOutbox {
+func ChunkIDNEQ(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldNEQ(FieldChunkID, v))
 }
 
 // ChunkIDIn applies the In predicate on the "chunk_id" field.
-func ChunkIDIn(vs ...int64) predicate.VectorOutbox {
+func ChunkIDIn(vs ...uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldIn(FieldChunkID, vs...))
 }
 
 // ChunkIDNotIn applies the NotIn predicate on the "chunk_id" field.
-func ChunkIDNotIn(vs ...int64) predicate.VectorOutbox {
+func ChunkIDNotIn(vs ...uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldNotIn(FieldChunkID, vs...))
 }
 
 // ChunkIDGT applies the GT predicate on the "chunk_id" field.
-func ChunkIDGT(v int64) predicate.VectorOutbox {
+func ChunkIDGT(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldGT(FieldChunkID, v))
 }
 
 // ChunkIDGTE applies the GTE predicate on the "chunk_id" field.
-func ChunkIDGTE(v int64) predicate.VectorOutbox {
+func ChunkIDGTE(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldGTE(FieldChunkID, v))
 }
 
 // ChunkIDLT applies the LT predicate on the "chunk_id" field.
-func ChunkIDLT(v int64) predicate.VectorOutbox {
+func ChunkIDLT(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldLT(FieldChunkID, v))
 }
 
 // ChunkIDLTE applies the LTE predicate on the "chunk_id" field.
-func ChunkIDLTE(v int64) predicate.VectorOutbox {
+func ChunkIDLTE(v uint64) predicate.VectorOutbox {
 	return predicate.VectorOutbox(sql.FieldLTE(FieldChunkID, v))
 }
 

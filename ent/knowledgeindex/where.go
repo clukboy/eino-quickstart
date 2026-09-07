@@ -10,47 +10,47 @@ import (
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.KnowledgeIndex {
+func ID(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.KnowledgeIndex {
+func IDEQ(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.KnowledgeIndex {
+func IDNEQ(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.KnowledgeIndex {
+func IDIn(ids ...uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.KnowledgeIndex {
+func IDNotIn(ids ...uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.KnowledgeIndex {
+func IDGT(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.KnowledgeIndex {
+func IDGTE(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.KnowledgeIndex {
+func IDLT(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.KnowledgeIndex {
+func IDLTE(id uint64) predicate.KnowledgeIndex {
 	return predicate.KnowledgeIndex(sql.FieldLTE(FieldID, id))
 }
 

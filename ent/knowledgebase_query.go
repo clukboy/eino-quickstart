@@ -131,8 +131,8 @@ func (_q *KnowledgeBaseQuery) FirstX(ctx context.Context) *KnowledgeBase {
 
 // FirstID returns the first KnowledgeBase ID from the query.
 // Returns a *NotFoundError when no KnowledgeBase ID was found.
-func (_q *KnowledgeBaseQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *KnowledgeBaseQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -144,7 +144,7 @@ func (_q *KnowledgeBaseQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *KnowledgeBaseQuery) FirstIDX(ctx context.Context) int {
+func (_q *KnowledgeBaseQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -182,8 +182,8 @@ func (_q *KnowledgeBaseQuery) OnlyX(ctx context.Context) *KnowledgeBase {
 // OnlyID is like Only, but returns the only KnowledgeBase ID in the query.
 // Returns a *NotSingularError when more than one KnowledgeBase ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *KnowledgeBaseQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *KnowledgeBaseQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -199,7 +199,7 @@ func (_q *KnowledgeBaseQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *KnowledgeBaseQuery) OnlyIDX(ctx context.Context) int {
+func (_q *KnowledgeBaseQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -227,7 +227,7 @@ func (_q *KnowledgeBaseQuery) AllX(ctx context.Context) []*KnowledgeBase {
 }
 
 // IDs executes the query and returns a list of KnowledgeBase IDs.
-func (_q *KnowledgeBaseQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *KnowledgeBaseQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -239,7 +239,7 @@ func (_q *KnowledgeBaseQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *KnowledgeBaseQuery) IDsX(ctx context.Context) []int {
+func (_q *KnowledgeBaseQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -449,7 +449,7 @@ func (_q *KnowledgeBaseQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 
 func (_q *KnowledgeBaseQuery) loadFolders(ctx context.Context, query *KnowledgeFolderQuery, nodes []*KnowledgeBase, init func(*KnowledgeBase), assign func(*KnowledgeBase, *KnowledgeFolder)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*KnowledgeBase)
+	nodeids := make(map[uint64]*KnowledgeBase)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -480,7 +480,7 @@ func (_q *KnowledgeBaseQuery) loadFolders(ctx context.Context, query *KnowledgeF
 }
 func (_q *KnowledgeBaseQuery) loadDocuments(ctx context.Context, query *DocumentQuery, nodes []*KnowledgeBase, init func(*KnowledgeBase), assign func(*KnowledgeBase, *Document)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int]*KnowledgeBase)
+	nodeids := make(map[uint64]*KnowledgeBase)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -519,7 +519,7 @@ func (_q *KnowledgeBaseQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *KnowledgeBaseQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(knowledgebase.Table, knowledgebase.Columns, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(knowledgebase.Table, knowledgebase.Columns, sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

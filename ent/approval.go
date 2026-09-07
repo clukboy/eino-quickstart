@@ -16,7 +16,7 @@ import (
 type Approval struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// ApprovalID holds the value of the "approval_id" field.
 	ApprovalID string `json:"approval_id,omitempty"`
 	// SessionID holds the value of the "session_id" field.
@@ -83,7 +83,7 @@ func (_m *Approval) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case approval.FieldApprovalID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field approval_id", values[i])

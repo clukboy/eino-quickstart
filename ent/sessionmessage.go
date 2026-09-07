@@ -17,7 +17,7 @@ import (
 type SessionMessage struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uint64 `json:"id,omitempty"`
 	// Role holds the value of the "role" field.
 	Role string `json:"role,omitempty"`
 	// Content holds the value of the "content" field.
@@ -27,7 +27,7 @@ type SessionMessage struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the SessionMessageQuery when eager-loading is set.
 	Edges            SessionMessageEdges `json:"edges"`
-	session_messages *int
+	session_messages *uint64
 	selectValues     sql.SelectValues
 }
 
@@ -84,7 +84,7 @@ func (_m *SessionMessage) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			_m.ID = int(value.Int64)
+			_m.ID = uint64(value.Int64)
 		case sessionmessage.FieldRole:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field role", values[i])
@@ -107,8 +107,8 @@ func (_m *SessionMessage) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field session_messages", value)
 			} else if value.Valid {
-				_m.session_messages = new(int)
-				*_m.session_messages = int(value.Int64)
+				_m.session_messages = new(uint64)
+				*_m.session_messages = uint64(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])

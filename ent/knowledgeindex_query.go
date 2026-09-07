@@ -82,8 +82,8 @@ func (_q *KnowledgeIndexQuery) FirstX(ctx context.Context) *KnowledgeIndex {
 
 // FirstID returns the first KnowledgeIndex ID from the query.
 // Returns a *NotFoundError when no KnowledgeIndex ID was found.
-func (_q *KnowledgeIndexQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *KnowledgeIndexQuery) FirstID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func (_q *KnowledgeIndexQuery) FirstID(ctx context.Context) (id int, err error) 
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *KnowledgeIndexQuery) FirstIDX(ctx context.Context) int {
+func (_q *KnowledgeIndexQuery) FirstIDX(ctx context.Context) uint64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +133,8 @@ func (_q *KnowledgeIndexQuery) OnlyX(ctx context.Context) *KnowledgeIndex {
 // OnlyID is like Only, but returns the only KnowledgeIndex ID in the query.
 // Returns a *NotSingularError when more than one KnowledgeIndex ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *KnowledgeIndexQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *KnowledgeIndexQuery) OnlyID(ctx context.Context) (id uint64, err error) {
+	var ids []uint64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +150,7 @@ func (_q *KnowledgeIndexQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *KnowledgeIndexQuery) OnlyIDX(ctx context.Context) int {
+func (_q *KnowledgeIndexQuery) OnlyIDX(ctx context.Context) uint64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +178,7 @@ func (_q *KnowledgeIndexQuery) AllX(ctx context.Context) []*KnowledgeIndex {
 }
 
 // IDs executes the query and returns a list of KnowledgeIndex IDs.
-func (_q *KnowledgeIndexQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *KnowledgeIndexQuery) IDs(ctx context.Context) (ids []uint64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +190,7 @@ func (_q *KnowledgeIndexQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *KnowledgeIndexQuery) IDsX(ctx context.Context) []int {
+func (_q *KnowledgeIndexQuery) IDsX(ctx context.Context) []uint64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -365,7 +365,7 @@ func (_q *KnowledgeIndexQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *KnowledgeIndexQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(knowledgeindex.Table, knowledgeindex.Columns, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(knowledgeindex.Table, knowledgeindex.Columns, sqlgraph.NewFieldSpec(knowledgeindex.FieldID, field.TypeUint64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
