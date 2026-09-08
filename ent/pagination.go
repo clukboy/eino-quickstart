@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
@@ -65,6 +66,87 @@ func (o OrderDirection) reverse() OrderDirection {
 }
 
 const errInvalidPagination = "INVALID_PAGINATION"
+
+type AgentKnowledgeBasePager struct {
+	Order  agentknowledgebase.OrderOption
+	Filter func(*AgentKnowledgeBaseQuery) (*AgentKnowledgeBaseQuery, error)
+}
+
+// AgentKnowledgeBasePaginateOption enables pagination customization.
+type AgentKnowledgeBasePaginateOption func(*AgentKnowledgeBasePager)
+
+// DefaultAgentKnowledgeBaseOrder is the default ordering of AgentKnowledgeBase.
+var DefaultAgentKnowledgeBaseOrder = Desc(agentknowledgebase.FieldID)
+
+func newAgentKnowledgeBasePager(opts []AgentKnowledgeBasePaginateOption) (*AgentKnowledgeBasePager, error) {
+	pager := &AgentKnowledgeBasePager{}
+	for _, opt := range opts {
+		opt(pager)
+	}
+	if pager.Order == nil {
+		pager.Order = DefaultAgentKnowledgeBaseOrder
+	}
+	return pager, nil
+}
+
+func (p *AgentKnowledgeBasePager) ApplyFilter(query *AgentKnowledgeBaseQuery) (*AgentKnowledgeBaseQuery, error) {
+	if p.Filter != nil {
+		return p.Filter(query)
+	}
+	return query, nil
+}
+
+// AgentKnowledgeBasePageList is AgentKnowledgeBase PageList result.
+type AgentKnowledgeBasePageList struct {
+	List        []*AgentKnowledgeBase `json:"list"`
+	PageDetails *PageDetails          `json:"pageDetails"`
+}
+
+func (_m *AgentKnowledgeBaseQuery) Page(
+	ctx context.Context, pageNum uint64, pageSize uint64, opts ...AgentKnowledgeBasePaginateOption,
+) (*AgentKnowledgeBasePageList, error) {
+
+	pager, err := newAgentKnowledgeBasePager(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if _m, err = pager.ApplyFilter(_m); err != nil {
+		return nil, err
+	}
+
+	ret := &AgentKnowledgeBasePageList{}
+
+	ret.PageDetails = &PageDetails{
+		Page: pageNum,
+		Size: pageSize,
+	}
+
+	query := _m.Clone()
+	query.ctx.Fields = nil
+	count, err := query.Count(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ret.PageDetails.Total = uint64(count)
+
+	if pager.Order != nil {
+		_m = _m.Order(pager.Order)
+	} else {
+		_m = _m.Order(DefaultAgentKnowledgeBaseOrder)
+	}
+
+	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
+	list, err := _m.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret.List = list
+
+	return ret, nil
+}
 
 type AgentRunPager struct {
 	Order  agentrun.OrderOption

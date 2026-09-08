@@ -5,17 +5,19 @@ import (
 	"eino-quickstart/ent"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/predicate"
 	"eino-quickstart/internal/knowledge/embedding"
 	"eino-quickstart/internal/knowledge/vectorstore"
+	"errors"
 	"fmt"
 	"strings"
 )
 
-type HybridRetriever struct {
-	Client      *ent.Client
-	Embedder    embedding.Embedder
-	VectorStore vectorstore.Store
-
+type HybridRetrieverConfig struct {
+	Client          *ent.Client
+	Embedder        embedding.Embedder
+	VectorStore     vectorstore.Store
 	KeywordSearcher KeywordSearcher
 	ProductSearcher *ProductSearcher
 
@@ -26,12 +28,68 @@ type HybridRetriever struct {
 	ExactCandidates    int
 	MaxQueryCharacters int
 	MaxResultBytes     int
+	VectorWeight       float64
+	KeywordWeight      float64
+	ExactWeight        float64
+	RRFSmoothing       int
+}
 
-	VectorWeight  float64
-	KeywordWeight float64
-	ExactWeight   float64
+type HybridRetriever struct {
+	client      *ent.Client
+	embedder    embedding.Embedder
+	vectorStore vectorstore.Store
 
-	RRFSmoothing int
+	keywordSearcher KeywordSearcher
+	productSearcher *ProductSearcher
+
+	defaultTopK        int
+	maxTopK            int
+	vectorCandidates   int
+	keywordCandidates  int
+	exactCandidates    int
+	maxQueryCharacters int
+	maxResultBytes     int
+
+	vectorWeight  float64
+	keywordWeight float64
+	exactWeight   float64
+
+	rrfSmoothing int
+}
+
+func NewHybridRetriever(config HybridRetrieverConfig) (*HybridRetriever, error) {
+	if config.Client == nil {
+		return nil, errors.New("knowledge ent client is required")
+	}
+	if config.Embedder == nil {
+		return nil, errors.New("knowledge embedder is required")
+	}
+	if config.VectorStore == nil {
+		return nil, errors.New("knowledge vector store is required")
+	}
+	if config.KeywordSearcher == nil {
+		return nil, errors.New("knowledge keyword searcher is required")
+	}
+	if config.DefaultTopK <= 0 || config.MaxTopK < config.DefaultTopK {
+		return nil, errors.New("knowledge topK limits are invalid")
+	}
+	if config.VectorCandidates <= 0 || config.KeywordCandidates <= 0 ||
+		config.ExactCandidates <= 0 {
+		return nil, errors.New("retrieval candidate limits must be greater than zero")
+	}
+	if config.RRFSmoothing <= 0 {
+		return nil, errors.New("retrieval RRF smoothing must be greater than zero")
+	}
+	return &HybridRetriever{
+		client: config.Client, embedder: config.Embedder, vectorStore: config.VectorStore,
+		keywordSearcher: config.KeywordSearcher, productSearcher: config.ProductSearcher,
+		defaultTopK: config.DefaultTopK, maxTopK: config.MaxTopK,
+		vectorCandidates: config.VectorCandidates, keywordCandidates: config.KeywordCandidates,
+		exactCandidates: config.ExactCandidates, maxQueryCharacters: config.MaxQueryCharacters,
+		maxResultBytes: config.MaxResultBytes, vectorWeight: config.VectorWeight,
+		keywordWeight: config.KeywordWeight, exactWeight: config.ExactWeight,
+		rrfSmoothing: config.RRFSmoothing,
+	}, nil
 }
 
 func (r *HybridRetriever) Search(ctx context.Context, request SearchRequest) ([]Result, error) {
@@ -47,16 +105,16 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest
 	if r == nil {
 		return nil, fmt.Errorf("knowledge retriever is nil")
 	}
-	if r.Client == nil {
+	if r.client == nil {
 		return nil, fmt.Errorf("knowledge ent client is required")
 	}
-	if r.Embedder == nil {
+	if r.embedder == nil {
 		return nil, fmt.Errorf("knowledge embedder is required")
 	}
-	if r.VectorStore == nil {
+	if r.vectorStore == nil {
 		return nil, fmt.Errorf("knowledge vector store is required")
 	}
-	if r.KeywordSearcher == nil {
+	if r.keywordSearcher == nil {
 		return nil, fmt.Errorf("knowledge keyword searcher is required")
 	}
 
@@ -66,34 +124,29 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest
 		return nil, fmt.Errorf("knowledge query is required")
 	}
 
-	if r.MaxQueryCharacters > 0 &&
-		len([]rune(request.Query)) > r.MaxQueryCharacters {
+	if r.maxQueryCharacters > 0 &&
+		len([]rune(request.Query)) > r.maxQueryCharacters {
 		return nil, fmt.Errorf("knowledge query exceeds maximum length")
 	}
 
 	if request.TopK == 0 {
-		request.TopK = r.DefaultTopK
+		request.TopK = r.defaultTopK
 	}
 
 	if request.TopK <= 0 {
 		return nil, fmt.Errorf("knowledge topK must be greater than zero")
 	}
 
-	if r.MaxTopK > 0 && request.TopK > r.MaxTopK {
+	if r.maxTopK > 0 && request.TopK > r.maxTopK {
 		return nil, fmt.Errorf("knowledge topK exceeds maximum")
-	}
-
-	if r.VectorCandidates <= 0 {
-		return nil, fmt.Errorf("vector candidate limit must be greater than zero")
-	}
-
-	if r.KeywordCandidates <= 0 {
-		return nil, fmt.Errorf("keyword candidate limit must be greater than zero")
 	}
 
 	scope := request.Scope()
 
 	debugResult := &DebugResult{Query: request.Query}
+	if !scope.HasKnowledgeBases() {
+		return debugResult, nil
+	}
 
 	queryInfo := ParseQuery(request.Query)
 	keywordQuery := BuildKeywordQuery(queryInfo)
@@ -102,7 +155,7 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest
 	}
 	var vectorCandidates []Candidate
 
-	vectors, err := r.Embedder.Embed(ctx, []string{request.Query})
+	vectors, err := r.embedder.Embed(ctx, []string{request.Query})
 	if err != nil {
 		return nil, fmt.Errorf("query embedding: %w", err)
 	}
@@ -110,7 +163,7 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest
 		err = fmt.Errorf("query embedding response has invalid count")
 	}
 
-	vectorResults, err := r.VectorStore.Search(ctx, vectors[0], r.VectorCandidates)
+	vectorResults, err := r.vectorStore.Search(ctx, vectors[0], r.vectorCandidates)
 	if err != nil {
 		return nil, fmt.Errorf("vector search: %w", err)
 	}
@@ -133,33 +186,33 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest
 	debugResult.VectorResults = vectorCandidates
 
 	var exactCandidates []Candidate
-	if queryInfo.HasModel && r.ProductSearcher != nil {
-		exactCandidates, err = r.ProductSearcher.SearchModel(ctx, scope, queryInfo.Model, r.ExactCandidates)
+	if queryInfo.HasModel && r.productSearcher != nil {
+		exactCandidates, err = r.productSearcher.SearchModel(ctx, scope, queryInfo.Model, r.exactCandidates)
 		if err != nil {
 			return nil, fmt.Errorf("exact product search: %w", err)
 		}
 	}
 	debugResult.ExactResults = exactCandidates
 
-	keywordCandidates, err := r.KeywordSearcher.Search(ctx, scope, keywordQuery, r.KeywordCandidates)
+	keywordCandidates, err := r.keywordSearcher.Search(ctx, scope, keywordQuery, r.keywordCandidates)
 	if err != nil {
 		return nil, fmt.Errorf("keyword search: %w", err)
 	}
 
 	debugResult.KeywordResults = keywordCandidates
 
-	fused := FuseRRF(r.RRFSmoothing,
+	fused := FuseRRF(r.rrfSmoothing,
 		WeightedCandidates{
 			Items:  exactCandidates,
-			Weight: r.ExactWeight,
+			Weight: r.exactWeight,
 		},
 		WeightedCandidates{
 			Items:  vectorCandidates,
-			Weight: r.VectorWeight,
+			Weight: r.vectorWeight,
 		},
 		WeightedCandidates{
 			Items:  keywordCandidates,
-			Weight: r.KeywordWeight,
+			Weight: r.keywordWeight,
 		},
 	)
 
@@ -175,7 +228,7 @@ func (r *HybridRetriever) DebugSearch(ctx context.Context, request SearchRequest
 }
 
 func (r *HybridRetriever) filterAuthorizedCandidates(ctx context.Context, scope SearchScope, candidates []Candidate) ([]Candidate, error) {
-	if len(candidates) == 0 {
+	if !scope.HasKnowledgeBases() || len(candidates) == 0 {
 		return []Candidate{}, nil
 	}
 
@@ -198,17 +251,10 @@ func (r *HybridRetriever) filterAuthorizedCandidates(ctx context.Context, scope 
 	if len(ids) == 0 {
 		return []Candidate{}, nil
 	}
-	chunks, err := r.Client.DocumentChunk.Query().
+	chunks, err := r.client.DocumentChunk.Query().
 		Where(
 			documentchunk.IDIn(ids...),
-			documentchunk.HasDocumentWith(
-				document.StatusEQ(document.StatusReady),
-				document.KnowledgeBaseIDIn(scope.KnowledgeBaseIDs...),
-				document.Or(
-					document.VisibilityEQ(document.VisibilitySystem),
-					document.And(document.VisibilityEQ(document.VisibilityPrivate), document.OwnerSubjectEQ(scope.ActorSubject)),
-				),
-			),
+			documentchunk.HasDocumentWith(authorizedDocumentPredicates(scope)...),
 		).All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load authorized candidates: %w", err)
@@ -233,13 +279,13 @@ func (r *HybridRetriever) loadAuthorizedResults(ctx context.Context, scope Searc
 	if r == nil {
 		return nil, fmt.Errorf("knowledge retriever is nil")
 	}
-	if r.Client == nil {
+	if r.client == nil {
 		return nil, fmt.Errorf("knowledge ent client is required")
 	}
 	if topK <= 0 {
 		return nil, fmt.Errorf("knowledge topK must be greater than zero")
 	}
-	if len(candidates) == 0 {
+	if !scope.HasKnowledgeBases() || len(candidates) == 0 {
 		return []Result{}, nil
 	}
 
@@ -263,21 +309,11 @@ func (r *HybridRetriever) loadAuthorizedResults(ctx context.Context, scope Searc
 		return []Result{}, nil
 	}
 
-	chunks, err := r.Client.DocumentChunk.Query().
+	chunks, err := r.client.DocumentChunk.Query().
 		Where(
 			documentchunk.IDIn(ids...),
 			documentchunk.VectorStatusEQ(documentchunk.VectorStatusIndexed),
-			documentchunk.HasDocumentWith(
-				document.StatusEQ(document.StatusReady),
-				document.KnowledgeBaseIDIn(scope.KnowledgeBaseIDs...),
-				document.Or(
-					document.VisibilityEQ(document.VisibilitySystem),
-					document.And(
-						document.VisibilityEQ(document.VisibilityPrivate),
-						document.OwnerSubjectEQ(scope.ActorSubject),
-					),
-				),
-			),
+			documentchunk.HasDocumentWith(authorizedDocumentPredicates(scope)...),
 		).
 		WithDocument().
 		All(ctx)
@@ -293,11 +329,12 @@ func (r *HybridRetriever) loadAuthorizedResults(ctx context.Context, scope Searc
 	}
 
 	results := make([]Result, 0, min(topK, len(candidates)))
-	remainingBytes := r.MaxResultBytes
+	remainingBytes := r.maxResultBytes
 	for _, candidate := range candidates {
 		if len(results) == topK {
 			break
 		}
+
 		chunk, found := byID[candidate.ChunkID]
 		if !found {
 			continue
@@ -330,6 +367,21 @@ func (r *HybridRetriever) loadAuthorizedResults(ctx context.Context, scope Searc
 	}
 
 	return results, nil
+}
+
+func authorizedDocumentPredicates(scope SearchScope) []predicate.Document {
+	scope = scope.Normalized()
+	predicates := []predicate.Document{
+		document.StatusEQ(document.StatusReady),
+		document.HasKnowledgeBaseWith(
+			knowledgebase.StatusEQ(knowledgebase.StatusACTIVE),
+		),
+	}
+	predicates = append(
+		predicates,
+		document.KnowledgeBaseIDIn(scope.KnowledgeBaseIDs...),
+	)
+	return predicates
 }
 
 func truncateUTF8(value string, maximumBytes int) string {

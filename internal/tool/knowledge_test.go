@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -13,22 +14,30 @@ import (
 )
 
 type fakeKnowledgeRetriever struct {
-	actor   string
-	query   string
-	topK    int
+	request retrieval.SearchRequest
 	results []retrieval.Result
 	err     error
 }
 
+type fakeKnowledgeBaseBindings struct {
+	subject string
+	ids     []uint64
+	err     error
+}
+
+func (b *fakeKnowledgeBaseBindings) KnowledgeBaseIDs(
+	_ context.Context,
+	subject string,
+) ([]uint64, error) {
+	b.subject = subject
+	return b.ids, b.err
+}
+
 func (r *fakeKnowledgeRetriever) Search(
 	_ context.Context,
-	actorSubject string,
-	query string,
-	topK int,
+	request retrieval.SearchRequest,
 ) ([]retrieval.Result, error) {
-	r.actor = actorSubject
-	r.query = query
-	r.topK = topK
+	r.request = request
 	return r.results, r.err
 }
 
@@ -43,7 +52,11 @@ func TestKnowledgeSearchToolReturnsCitedResults(t *testing.T) {
 		EndLine:     14,
 		Content:     "Install the package with the documented command.",
 	}}}
-	search, err := NewKnowledgeSearch(retriever, " actor-1 ")
+	search, err := NewKnowledgeSearchWithKnowledgeBases(
+		retriever,
+		" actor-1 ",
+		[]uint64{1},
+	)
 	if err != nil {
 		t.Fatalf("NewKnowledgeSearch() error = %v", err)
 	}
@@ -75,15 +88,20 @@ func TestKnowledgeSearchToolReturnsCitedResults(t *testing.T) {
 			t.Errorf("output missing %q:\n%s", expected, output)
 		}
 	}
-	if retriever.actor != "actor-1" || retriever.query != "install package" ||
-		retriever.topK != 2 {
+	if retriever.request.ActorSubject != "actor-1" ||
+		retriever.request.Query != "install package" ||
+		retriever.request.TopK != 2 {
 		t.Errorf("retriever arguments = %#v", retriever)
 	}
 }
 
 func TestKnowledgeSearchToolValidatesInputAndErrors(t *testing.T) {
 	retriever := &fakeKnowledgeRetriever{}
-	search, err := NewKnowledgeSearch(retriever, "actor")
+	search, err := NewKnowledgeSearchWithKnowledgeBases(
+		retriever,
+		"actor",
+		[]uint64{1},
+	)
 	if err != nil {
 		t.Fatalf("NewKnowledgeSearch() error = %v", err)
 	}
@@ -115,8 +133,9 @@ func TestKnowledgeSearchToolValidatesInputAndErrors(t *testing.T) {
 func TestKnowledgeSearchUsesAuthenticatedActor(t *testing.T) {
 	retriever := &fakeKnowledgeRetriever{}
 	search := &KnowledgeSearch{
-		Retriever:    retriever,
-		ActorSubject: "fallback-actor",
+		Retriever:               retriever,
+		ActorSubject:            "fallback-actor",
+		AllowedKnowledgeBaseIDs: []uint64{1},
 	}
 	authenticator, err := auth.New([]auth.APIKey{{
 		Secret: "test-key",
@@ -143,7 +162,46 @@ func TestKnowledgeSearchUsesAuthenticatedActor(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer test-key")
 	handler.ServeHTTP(httptest.NewRecorder(), request)
 
-	if retriever.actor != "context-actor" {
-		t.Errorf("actor = %q, want authenticated subject", retriever.actor)
+	if retriever.request.ActorSubject != "context-actor" {
+		t.Errorf("actor = %q, want authenticated subject", retriever.request.ActorSubject)
+	}
+}
+
+func TestKnowledgeSearchRequiresKnowledgeBaseAllowlist(t *testing.T) {
+	if _, err := NewKnowledgeSearch(&fakeKnowledgeRetriever{}, "actor"); err == nil {
+		t.Error("NewKnowledgeSearch() error = nil, want allowlist error")
+	}
+	if _, err := NewKnowledgeSearchWithKnowledgeBases(
+		&fakeKnowledgeRetriever{},
+		"actor",
+		nil,
+	); err == nil {
+		t.Error("NewKnowledgeSearchWithKnowledgeBases() error = nil, want allowlist error")
+	}
+}
+
+func TestKnowledgeSearchResolvesBindingsForAuthenticatedActor(t *testing.T) {
+	retriever := &fakeKnowledgeRetriever{}
+	bindings := &fakeKnowledgeBaseBindings{ids: []uint64{5, 9}}
+	search, err := NewKnowledgeSearchWithBindings(retriever, "fallback", bindings)
+	if err != nil {
+		t.Fatalf("NewKnowledgeSearchWithBindings() error = %v", err)
+	}
+
+	output, err := search.InvokableRun(
+		context.Background(),
+		`{"query":"question"}`,
+	)
+	if err != nil {
+		t.Fatalf("InvokableRun() error = %v", err)
+	}
+	if output != "No authorized knowledge-base results found." {
+		t.Errorf("output = %q", output)
+	}
+	if bindings.subject != "fallback" {
+		t.Errorf("binding subject = %q, want fallback", bindings.subject)
+	}
+	if got, want := retriever.request.KnowledgeBaseIDs, []uint64{5, 9}; !reflect.DeepEqual(got, want) {
+		t.Errorf("knowledge base IDs = %v, want %v", got, want)
 	}
 }

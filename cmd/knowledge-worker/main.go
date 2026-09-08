@@ -137,7 +137,6 @@ func main() {
 		knowledge.LoaderConfig{
 			Root:             cfg.Knowledge.Root,
 			MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
-			KnowledgeBaseID:  knowledgeBase.ID,
 		},
 	)
 	if err != nil {
@@ -190,12 +189,14 @@ func main() {
 		cfg.Knowledge.Root,
 	)
 
-	ingestResult, err := svc.IngestRoot(
-		ctx,
-		loader,
-		"system",
-		"system",
-	)
+	ingestResult, err := svc.IngestRoot(ctx, knowledge.IngestRootRequest{
+		Loader: loader,
+		Target: knowledge.IngestTarget{
+			KnowledgeBaseID: knowledgeBase.ID,
+			OwnerSubject:    "system",
+			Visibility:      "system",
+		},
+	})
 	if err != nil {
 		log.Fatalf("ingest knowledge root: %v", err)
 	}
@@ -254,10 +255,13 @@ func main() {
 	//   - periodically processes vector_outbox
 	//   - stops when ctx is cancelled
 	// -------------------------------------------------------------------------
-	worker := knowledge.NewIndexerWorker(
+	worker, err := knowledge.NewIndexerWorker(
 		indexer,
 		time.Duration(cfg.Indexer.IntervalSeconds)*time.Second,
 	)
+	if err != nil {
+		log.Fatalf("create knowledge indexer worker: %v", err)
+	}
 
 	log.Printf(
 		"knowledge indexer worker started: interval=%s",

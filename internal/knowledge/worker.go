@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 )
@@ -14,11 +15,17 @@ type IndexerWorker struct {
 func NewIndexerWorker(
 	indexer *Indexer,
 	interval time.Duration,
-) *IndexerWorker {
+) (*IndexerWorker, error) {
+	if indexer == nil {
+		return nil, errors.New("knowledge indexer is required")
+	}
+	if interval <= 0 {
+		return nil, errors.New("knowledge index interval must be greater than zero")
+	}
 	return &IndexerWorker{
 		indexer:  indexer,
 		interval: interval,
-	}
+	}, nil
 }
 
 func (w *IndexerWorker) Run(ctx context.Context) {

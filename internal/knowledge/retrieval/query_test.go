@@ -160,7 +160,6 @@ func TestSearchScopeNormalized(t *testing.T) {
 			2,
 			2,
 			0,
-			-1,
 			1,
 		},
 	}

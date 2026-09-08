@@ -29,7 +29,6 @@ type KnowledgeFolderQuery struct {
 	withParent        *KnowledgeFolderQuery
 	withChildren      *KnowledgeFolderQuery
 	withDocuments     *DocumentQuery
-	withFKs           bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -477,7 +476,6 @@ func (_q *KnowledgeFolderQuery) prepareQuery(ctx context.Context) error {
 func (_q *KnowledgeFolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*KnowledgeFolder, error) {
 	var (
 		nodes       = []*KnowledgeFolder{}
-		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
 		loadedTypes = [4]bool{
 			_q.withKnowledgeBase != nil,
@@ -486,12 +484,6 @@ func (_q *KnowledgeFolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) 
 			_q.withDocuments != nil,
 		}
 	)
-	if _q.withKnowledgeBase != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, knowledgefolder.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*KnowledgeFolder).scanValues(nil, columns)
 	}
@@ -543,10 +535,7 @@ func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *Kn
 	ids := make([]uint64, 0, len(nodes))
 	nodeids := make(map[uint64][]*KnowledgeFolder)
 	for i := range nodes {
-		if nodes[i].knowledge_base_folders == nil {
-			continue
-		}
-		fk := *nodes[i].knowledge_base_folders
+		fk := nodes[i].KnowledgeBaseID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -563,7 +552,7 @@ func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *Kn
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "knowledge_base_folders" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "knowledge_base_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -613,7 +602,6 @@ func (_q *KnowledgeFolderQuery) loadChildren(ctx context.Context, query *Knowled
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
 	if len(query.ctx.Fields) > 0 {
 		query.ctx.AppendFieldOnce(knowledgefolder.FieldParentID)
 	}
@@ -695,6 +683,9 @@ func (_q *KnowledgeFolderQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != knowledgefolder.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withKnowledgeBase != nil {
+			_spec.Node.AddColumnOnce(knowledgefolder.FieldKnowledgeBaseID)
 		}
 		if _q.withParent != nil {
 			_spec.Node.AddColumnOnce(knowledgefolder.FieldParentID)

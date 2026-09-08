@@ -8,7 +8,7 @@ type WeightedCandidates struct {
 }
 
 func FuseRRF(smoothing int, inputs ...WeightedCandidates) []Candidate {
-	scores := make(map[int64]float64)
+	scores := make(map[uint64]float64)
 
 	for _, input := range inputs {
 		for index, item := range input.Items {

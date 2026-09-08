@@ -96,12 +96,6 @@ func (_c *KnowledgeFolderCreate) SetNillableUpdatedAt(v *time.Time) *KnowledgeFo
 	return _c
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base" edge to the KnowledgeBase entity by ID.
-func (_c *KnowledgeFolderCreate) SetKnowledgeBaseID(id uint64) *KnowledgeFolderCreate {
-	_c.mutation.SetKnowledgeBaseID(id)
-	return _c
-}
-
 // SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
 func (_c *KnowledgeFolderCreate) SetKnowledgeBase(v *KnowledgeBase) *KnowledgeFolderCreate {
 	return _c.SetKnowledgeBaseID(v.ID)
@@ -252,10 +246,6 @@ func (_c *KnowledgeFolderCreate) createSpec() (*KnowledgeFolder, *sqlgraph.Creat
 		_spec.SetField(knowledgefolder.FieldSort, field.TypeInt, value)
 		_node.Sort = value
 	}
-	if value, ok := _c.mutation.KnowledgeBaseID(); ok {
-		_spec.SetField(knowledgefolder.FieldKnowledgeBaseID, field.TypeUint64, value)
-		_node.KnowledgeBaseID = value
-	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(knowledgefolder.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -278,7 +268,7 @@ func (_c *KnowledgeFolderCreate) createSpec() (*KnowledgeFolder, *sqlgraph.Creat
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.knowledge_base_folders = &nodes[0]
+		_node.KnowledgeBaseID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ParentIDs(); len(nodes) > 0 {

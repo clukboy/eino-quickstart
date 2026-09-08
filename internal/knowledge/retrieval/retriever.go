@@ -1,6 +1,9 @@
 package retrieval
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type Result struct {
 	ChunkID     uint64
@@ -25,7 +28,7 @@ type SearchScope struct {
 
 func (s SearchScope) Normalized() SearchScope {
 	result := SearchScope{
-		ActorSubject: s.ActorSubject,
+		ActorSubject: strings.TrimSpace(s.ActorSubject),
 	}
 
 	seen := make(map[uint64]struct{}, len(s.KnowledgeBaseIDs))
@@ -45,6 +48,10 @@ func (s SearchScope) Normalized() SearchScope {
 	}
 
 	return result
+}
+
+func (s SearchScope) HasKnowledgeBases() bool {
+	return len(s.Normalized().KnowledgeBaseIDs) > 0
 }
 
 type SearchRequest struct {

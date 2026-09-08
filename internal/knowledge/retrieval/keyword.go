@@ -32,6 +32,9 @@ func (s *PostgresKeywordSearcher) Search(ctx context.Context, scope SearchScope,
 	}
 
 	scope = scope.Normalized()
+	if !scope.HasKnowledgeBases() {
+		return []Candidate{}, nil
+	}
 
 	query = strings.TrimSpace(query)
 
@@ -51,35 +54,13 @@ func (s *PostgresKeywordSearcher) Search(ctx context.Context, scope SearchScope,
 	// scope 参数：
 	//
 	// $1 query
-	// $2 actor
+	// $2 KB ids
 	// $3 limit
-	//
-	// 如果存在 KB：
-	//
-	// $3 KB ids
-	// $4 limit
-	kbCondition := ""
-	limitPlaceholder := "$3"
-
 	args := []any{
 		query,
-		scope.ActorSubject,
+		scope.KnowledgeBaseIDs,
+		limit,
 	}
-
-	if len(scope.KnowledgeBaseIDs) > 0 {
-		kbCondition = `
-		  AND d.knowledge_base_id = ANY($3)
-		`
-
-		args = append(
-			args,
-			scope.KnowledgeBaseIDs,
-		)
-
-		limitPlaceholder = "$4"
-	}
-
-	args = append(args, limit)
 
 	rows, err := s.client.QueryContext(
 		ctx,
@@ -98,23 +79,7 @@ func (s *PostgresKeywordSearcher) Search(ctx context.Context, scope SearchScope,
 
 			  AND kb.status = 'ACTIVE'
 
-			  AND (
-				kb.visibility = 'system'
-				OR (
-					kb.visibility = 'private'
-					AND kb.owner_subject = $2
-				)
-			  )
-
-			  AND (
-				d.visibility = 'system'
-				OR (
-					d.visibility = 'private'
-					AND d.owner_subject = $2
-				)
-			  )
-
-			  %s
+			  AND d.knowledge_base_id = ANY($2)
 		)
 
 		SELECT
@@ -218,8 +183,8 @@ func (s *PostgresKeywordSearcher) Search(ctx context.Context, scope SearchScope,
 			score DESC,
 			id
 
-		LIMIT %s
-		`, searchText, kbCondition, limitPlaceholder),
+		LIMIT 		$3
+		`, searchText),
 		args...,
 	)
 

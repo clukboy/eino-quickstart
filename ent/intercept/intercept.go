@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"eino-quickstart/ent"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
@@ -79,6 +80,33 @@ func (f TraverseFunc) Traverse(ctx context.Context, q ent.Query) error {
 		return err
 	}
 	return f(ctx, query)
+}
+
+// The AgentKnowledgeBaseFunc type is an adapter to allow the use of ordinary function as a Querier.
+type AgentKnowledgeBaseFunc func(context.Context, *ent.AgentKnowledgeBaseQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f AgentKnowledgeBaseFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.AgentKnowledgeBaseQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AgentKnowledgeBaseQuery", q)
+}
+
+// The TraverseAgentKnowledgeBase type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAgentKnowledgeBase func(context.Context, *ent.AgentKnowledgeBaseQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseAgentKnowledgeBase) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseAgentKnowledgeBase) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.AgentKnowledgeBaseQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.AgentKnowledgeBaseQuery", q)
 }
 
 // The AgentRunFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -435,6 +463,8 @@ func (f TraverseVectorOutbox) Traverse(ctx context.Context, q ent.Query) error {
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q ent.Query) (Query, error) {
 	switch q := q.(type) {
+	case *ent.AgentKnowledgeBaseQuery:
+		return &query[*ent.AgentKnowledgeBaseQuery, predicate.AgentKnowledgeBase, agentknowledgebase.OrderOption]{typ: ent.TypeAgentKnowledgeBase, tq: q}, nil
 	case *ent.AgentRunQuery:
 		return &query[*ent.AgentRunQuery, predicate.AgentRun, agentrun.OrderOption]{typ: ent.TypeAgentRun, tq: q}, nil
 	case *ent.ApprovalQuery:

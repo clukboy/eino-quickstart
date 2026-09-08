@@ -9,6 +9,35 @@ import (
 )
 
 var (
+	// AgentKnowledgeBasesColumns holds the columns for the "agent_knowledge_bases" table.
+	AgentKnowledgeBasesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "subject", Type: field.TypeString},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "knowledge_base_id", Type: field.TypeUint64},
+	}
+	// AgentKnowledgeBasesTable holds the schema information for the "agent_knowledge_bases" table.
+	AgentKnowledgeBasesTable = &schema.Table{
+		Name:       "agent_knowledge_bases",
+		Columns:    AgentKnowledgeBasesColumns,
+		PrimaryKey: []*schema.Column{AgentKnowledgeBasesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_knowledge_bases_knowledge_bases_agent_knowledge_bindings",
+				Columns:    []*schema.Column{AgentKnowledgeBasesColumns[4]},
+				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agentknowledgebase_subject_knowledge_base_id",
+				Unique:  true,
+				Columns: []*schema.Column{AgentKnowledgeBasesColumns[1], AgentKnowledgeBasesColumns[4]},
+			},
+		},
+	}
 	// AgentRunsColumns holds the columns for the "agent_runs" table.
 	AgentRunsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -288,10 +317,9 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "path", Type: field.TypeString},
 		{Name: "sort", Type: field.TypeInt, Default: 0},
-		{Name: "knowledge_base_id", Type: field.TypeUint64},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "knowledge_base_folders", Type: field.TypeUint64},
+		{Name: "knowledge_base_id", Type: field.TypeUint64},
 		{Name: "parent_id", Type: field.TypeUint64, Nullable: true},
 	}
 	// KnowledgeFoldersTable holds the schema information for the "knowledge_folders" table.
@@ -302,13 +330,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "knowledge_folders_knowledge_bases_folders",
-				Columns:    []*schema.Column{KnowledgeFoldersColumns[7]},
+				Columns:    []*schema.Column{KnowledgeFoldersColumns[6]},
 				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "knowledge_folders_knowledge_folders_children",
-				Columns:    []*schema.Column{KnowledgeFoldersColumns[8]},
+				Columns:    []*schema.Column{KnowledgeFoldersColumns[7]},
 				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -317,12 +345,12 @@ var (
 			{
 				Name:    "knowledgefolder_knowledge_base_id_parent_id",
 				Unique:  false,
-				Columns: []*schema.Column{KnowledgeFoldersColumns[4], KnowledgeFoldersColumns[8]},
+				Columns: []*schema.Column{KnowledgeFoldersColumns[6], KnowledgeFoldersColumns[7]},
 			},
 			{
 				Name:    "knowledgefolder_knowledge_base_id_path",
 				Unique:  true,
-				Columns: []*schema.Column{KnowledgeFoldersColumns[4], KnowledgeFoldersColumns[2]},
+				Columns: []*schema.Column{KnowledgeFoldersColumns[6], KnowledgeFoldersColumns[2]},
 			},
 		},
 	}
@@ -406,6 +434,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AgentKnowledgeBasesTable,
 		AgentRunsTable,
 		ApprovalsTable,
 		AuditEventsTable,
@@ -423,6 +452,7 @@ var (
 )
 
 func init() {
+	AgentKnowledgeBasesTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
 	DocumentsTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
 	DocumentsTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
 	DocumentChunksTable.ForeignKeys[0].RefTable = DocumentsTable

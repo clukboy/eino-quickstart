@@ -7,42 +7,34 @@ import (
 	"eino-quickstart/ent/document"
 )
 
-func TestValidateIngestInput(t *testing.T) {
-	input, err := validateIngestInput(
-		" docs/guide.md ",
-		" Guide ",
-		"\n# Guide\ncontent\n",
-		"",
-		"SYSTEM",
-	)
+func TestValidateIngestRequest(t *testing.T) {
+	input, err := validateIngestRequest(IngestRequest{
+		Source: " docs/guide.md ", Title: " Guide ", Content: "\n# Guide\ncontent\n",
+		Target: IngestTarget{KnowledgeBaseID: 1, Visibility: "SYSTEM"},
+	})
 	if err != nil {
 		t.Fatalf("validateIngestInput() error = %v", err)
 	}
-	if input.source != "docs/guide.md" || input.title != "Guide" ||
-		input.visibility != document.VisibilitySystem ||
-		input.ownerSubject != "system" {
+	if input.Source != "docs/guide.md" || input.Title != "Guide" ||
+		input.Visibility != document.VisibilitySystem ||
+		input.OwnerSubject != "system" {
 		t.Errorf("validated input = %#v", input)
 	}
-	if input.content != "\n# Guide\ncontent\n" {
-		t.Errorf("content = %q, want original content for source line citations", input.content)
+	if input.Content != "\n# Guide\ncontent\n" {
+		t.Errorf("content = %q, want original content for source line citations", input.Content)
 	}
 
-	for name, args := range map[string][]string{
-		"empty source":       {"", "title", "content", "system", "system"},
-		"empty title":        {"source", "", "content", "system", "system"},
-		"empty content":      {"source", "title", " \n ", "system", "system"},
-		"private no owner":   {"source", "title", "content", "", "private"},
-		"invalid visibility": {"source", "title", "content", "owner", "public"},
-		"control in source":  {"source\nnext", "title", "content", "system", "system"},
+	for name, request := range map[string]IngestRequest{
+		"empty source":       {Title: "title", Content: "content", Target: IngestTarget{KnowledgeBaseID: 1, OwnerSubject: "system", Visibility: "system"}},
+		"empty title":        {Source: "source", Content: "content", Target: IngestTarget{KnowledgeBaseID: 1, OwnerSubject: "system", Visibility: "system"}},
+		"empty content":      {Source: "source", Title: "title", Content: " \n ", Target: IngestTarget{KnowledgeBaseID: 1, OwnerSubject: "system", Visibility: "system"}},
+		"missing base":       {Source: "source", Title: "title", Content: "content", Target: IngestTarget{OwnerSubject: "system", Visibility: "system"}},
+		"private no owner":   {Source: "source", Title: "title", Content: "content", Target: IngestTarget{KnowledgeBaseID: 1, Visibility: "private"}},
+		"invalid visibility": {Source: "source", Title: "title", Content: "content", Target: IngestTarget{KnowledgeBaseID: 1, OwnerSubject: "owner", Visibility: "public"}},
+		"control in source":  {Source: "source\nnext", Title: "title", Content: "content", Target: IngestTarget{KnowledgeBaseID: 1, OwnerSubject: "system", Visibility: "system"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := validateIngestInput(
-				args[0],
-				args[1],
-				args[2],
-				args[3],
-				args[4],
-			)
+			_, err := validateIngestRequest(request)
 			if err == nil {
 				t.Error("validateIngestInput() error = nil, want validation error")
 			}

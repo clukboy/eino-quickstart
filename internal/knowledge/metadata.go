@@ -5,6 +5,45 @@ import (
 	"strings"
 )
 
+// Metadata owns document metadata during ingestion. It copies caller input so
+// later caller mutations cannot change persisted document or chunk metadata.
+type Metadata struct {
+	values map[string]any
+}
+
+func NewMetadata(values map[string]any) Metadata {
+	return Metadata{values: cloneMap(values)}
+}
+
+func (m Metadata) withProduct(productInfo *product.Product) Metadata {
+	result := NewMetadata(m.values)
+	if productInfo == nil {
+		return result
+	}
+	for key, value := range productInfo.ToMap() {
+		if value != nil {
+			result.values[key] = value
+		}
+	}
+	result.values["document_type"] = "product"
+	return result
+}
+
+func (m Metadata) forChunk(headingPath string, content string) Metadata {
+	result := NewMetadata(m.values)
+	if topics := DetectTopics(headingPath, content); len(topics) > 0 {
+		result.values["topics"] = topics
+	}
+	if headingPath != "" {
+		result.values["heading_path"] = splitHeadingPath(headingPath)
+	}
+	return result
+}
+
+func (m Metadata) storageValue() map[string]any {
+	return cloneMap(m.values)
+}
+
 var topicRules = []struct {
 	Topic    string
 	Keywords []string
@@ -112,30 +151,6 @@ var topicRules = []struct {
 			"问答",
 		},
 	},
-}
-
-func BuildChunkMetadata(documentMetadata map[string]any, productInfo *product.Product, headingPath string, content string) map[string]any {
-	result := cloneMap(documentMetadata)
-	if result == nil {
-		result = make(map[string]any)
-	}
-
-	if productInfo != nil {
-		for key, value := range productInfo.ToMap() {
-			if value == nil {
-				continue
-			}
-			result[key] = value
-		}
-	}
-	topics := DetectTopics(headingPath, content)
-	if len(topics) > 0 {
-		result["topics"] = topics
-	}
-	if headingPath != "" {
-		result["heading_path"] = splitHeadingPath(headingPath)
-	}
-	return result
 }
 
 func DetectTopics(headingPath string, content string) []string {

@@ -102,26 +102,22 @@ func main() {
 			entClient,
 		)
 
-	retriever := &retrieval.HybridRetriever{
-		Client:          entClient,
-		Embedder:        embedder,
-		VectorStore:     vecStore,
-		KeywordSearcher: keywordSearcher,
-		ProductSearcher: productSearcher,
-
-		DefaultTopK:        cfg.Knowledge.DefaultTopK,
-		MaxTopK:            cfg.Knowledge.MaxTopK,
+	retriever, err := retrieval.NewHybridRetriever(retrieval.HybridRetrieverConfig{
+		Client: entClient, Embedder: embedder, VectorStore: vecStore,
+		KeywordSearcher: keywordSearcher, ProductSearcher: productSearcher,
+		DefaultTopK: cfg.Knowledge.DefaultTopK, MaxTopK: cfg.Knowledge.MaxTopK,
 		VectorCandidates:   cfg.Retrieval.VectorCandidateLimit,
 		KeywordCandidates:  cfg.Retrieval.KeywordCandidateLimit,
 		ExactCandidates:    cfg.Retrieval.ExactCandidateLimit,
 		MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
 		MaxResultBytes:     cfg.Knowledge.MaxResultBytes,
-
-		VectorWeight:  cfg.Retrieval.VectorWeight,
-		KeywordWeight: cfg.Retrieval.KeywordWeight,
-		ExactWeight:   cfg.Retrieval.ExactWeight,
-
-		RRFSmoothing: cfg.Retrieval.RRFSmoothing,
+		VectorWeight:       cfg.Retrieval.VectorWeight,
+		KeywordWeight:      cfg.Retrieval.KeywordWeight,
+		ExactWeight:        cfg.Retrieval.ExactWeight,
+		RRFSmoothing:       cfg.Retrieval.RRFSmoothing,
+	})
+	if err != nil {
+		log.Fatalf("create hybrid retriever: %v", err)
 	}
 
 	// ============================================================
@@ -155,12 +151,11 @@ func main() {
 			return
 		}
 
-		debugResult, err := retriever.DebugSearch(
-			ctx,
-			"system",
-			query,
-			cfg.Knowledge.DefaultTopK,
-		)
+		debugResult, err := retriever.DebugSearch(ctx, retrieval.SearchRequest{
+			ActorSubject: "system",
+			Query:        query,
+			TopK:         cfg.Knowledge.DefaultTopK,
+		})
 
 		if err != nil {
 			fmt.Printf(

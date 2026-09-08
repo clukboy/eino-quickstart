@@ -20,8 +20,7 @@ func (KnowledgeFolder) Fields() []ent.Field {
 		field.String("name"),
 		field.String("path"),
 		field.Int("sort").Default(0),
-		field.Uint64("knowledge_base_id").Immutable(),
-
+		field.Uint64("knowledge_base_id"),
 		field.Uint64("parent_id").Optional().Nillable(),
 
 		field.Time("created_at").Default(time.Now).Immutable(),
@@ -32,7 +31,11 @@ func (KnowledgeFolder) Fields() []ent.Field {
 // Edges of the KnowledgeFolder.
 func (KnowledgeFolder) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("knowledge_base", KnowledgeBase.Type).Ref("folders").Unique().Required(),
+		edge.From("knowledge_base", KnowledgeBase.Type).
+			Ref("folders").
+			Field("knowledge_base_id").
+			Unique().
+			Required(),
 		edge.From("parent", KnowledgeFolder.Type).Field("parent_id").Ref("children").Unique(),
 		edge.To("children", KnowledgeFolder.Type),
 		edge.To("documents", Document.Type),

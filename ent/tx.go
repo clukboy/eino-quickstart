@@ -14,6 +14,8 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
+	// AgentKnowledgeBase is the client for interacting with the AgentKnowledgeBase builders.
+	AgentKnowledgeBase *AgentKnowledgeBaseClient
 	// AgentRun is the client for interacting with the AgentRun builders.
 	AgentRun *AgentRunClient
 	// Approval is the client for interacting with the Approval builders.
@@ -171,6 +173,7 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
+	tx.AgentKnowledgeBase = NewAgentKnowledgeBaseClient(tx.config)
 	tx.AgentRun = NewAgentRunClient(tx.config)
 	tx.Approval = NewApprovalClient(tx.config)
 	tx.AuditEvent = NewAuditEventClient(tx.config)
@@ -193,7 +196,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: AgentRun.QueryXXX(), the query will be executed
+// applies a query, for example: AgentKnowledgeBase.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

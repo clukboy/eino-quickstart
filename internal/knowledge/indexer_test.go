@@ -66,7 +66,7 @@ func TestIndexerProcessesUpsertsAndDeletes(t *testing.T) {
 	if want := []int64{102}; !reflect.DeepEqual(store.deletes, want) {
 		t.Errorf("Delete() IDs = %#v, want %#v", store.deletes, want)
 	}
-	if want := []int{1, 2}; !reflect.DeepEqual(repository.completed, want) {
+	if want := []uint64{1, 2}; !reflect.DeepEqual(repository.completed, want) {
 		t.Errorf("completed IDs = %v, want %v", repository.completed, want)
 	}
 }
@@ -227,19 +227,19 @@ func testUpsertOutbox(attempts int) claimedOutbox {
 type recordingIndexerRepository struct {
 	items      []claimedOutbox
 	claimCalls int
-	completed  []int
+	completed  []uint64
 	retried    []retryCall
 	failed     []failureCall
 }
 
 type retryCall struct {
-	id          int
+	id          uint64
 	availableAt time.Time
 	lastError   string
 }
 
 type failureCall struct {
-	id        int
+	id        uint64
 	lastError string
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/middleware"
+	"eino-quickstart/internal/knowledge"
 	"eino-quickstart/internal/knowledge/embedding"
 	"eino-quickstart/internal/knowledge/retrieval"
 	"eino-quickstart/internal/knowledge/vectorstore"
@@ -127,6 +128,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	knowledgeService, err := knowledge.NewService(knowledge.ServiceConfig{
+		Client: entClient,
+		Chunker: knowledge.Chunker{
+			Size: cfg.Knowledge.ChunkSizeCharacters, Overlap: cfg.Knowledge.ChunkOverlapChars,
+		},
+		MaxChunksPerDoc: cfg.Knowledge.MaxChunksPerDoc,
+		EmbeddingModel:  cfg.Embedding.Model,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	argumentPolicy, err := privacy.NewArgumentPolicy(cfg.Security.MaxApprovalArgumentBytes, cfg.Security.SensitiveArgumentKeys)
 	if err != nil {
@@ -169,30 +181,33 @@ func main() {
 
 	productSearcher := retrieval.NewProductSearcher(entClient)
 
-	retriever := &retrieval.HybridRetriever{
-		Client:      entClient,
-		Embedder:    embedder,
-		VectorStore: vecStore,
-
-		KeywordSearcher: keywordSearcher,
-		ProductSearcher: productSearcher,
-
-		DefaultTopK:        cfg.Knowledge.DefaultTopK,
-		MaxTopK:            cfg.Knowledge.MaxTopK,
+	retriever, err := retrieval.NewHybridRetriever(retrieval.HybridRetrieverConfig{
+		Client: entClient, Embedder: embedder, VectorStore: vecStore,
+		KeywordSearcher: keywordSearcher, ProductSearcher: productSearcher,
+		DefaultTopK: cfg.Knowledge.DefaultTopK, MaxTopK: cfg.Knowledge.MaxTopK,
 		VectorCandidates:   cfg.Retrieval.VectorCandidateLimit,
 		KeywordCandidates:  cfg.Retrieval.KeywordCandidateLimit,
 		ExactCandidates:    cfg.Retrieval.ExactCandidateLimit,
 		MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
 		MaxResultBytes:     cfg.Knowledge.MaxResultBytes,
-
-		VectorWeight:  cfg.Retrieval.VectorWeight,
-		KeywordWeight: cfg.Retrieval.KeywordWeight,
-		ExactWeight:   cfg.Retrieval.ExactWeight,
-
-		RRFSmoothing: cfg.Retrieval.RRFSmoothing,
+		VectorWeight:       cfg.Retrieval.VectorWeight,
+		KeywordWeight:      cfg.Retrieval.KeywordWeight,
+		ExactWeight:        cfg.Retrieval.ExactWeight,
+		RRFSmoothing:       cfg.Retrieval.RRFSmoothing,
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	knowledgeSearchTool, err := tool.NewKnowledgeSearchWithKnowledgeBases(retriever, "", []uint64{})
+	knowledgeBindings, err := tool.NewEntKnowledgeBaseBindings(entClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+	knowledgeSearchTool, err := tool.NewKnowledgeSearchWithBindings(
+		retriever,
+		"",
+		knowledgeBindings,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -242,15 +257,18 @@ func main() {
 	runs := run.NewStore(entClient)
 	turns := turn.NewStore(entClient)
 	srv := &server.Server{
-		Agent:          ag,
-		Sessions:       sessions,
-		Turns:          turns,
-		Approvals:      approvals,
-		Runs:           runs,
-		Authenticator:  authenticator,
-		Logger:         logger,
-		Metrics:        metrics,
-		MaxRequestBody: int64(cfg.Runtime.MaxRequestBodyBytes),
+		Agent:                     ag,
+		Sessions:                  sessions,
+		Turns:                     turns,
+		Approvals:                 approvals,
+		Runs:                      runs,
+		Authenticator:             authenticator,
+		Logger:                    logger,
+		Metrics:                   metrics,
+		KnowledgeClient:           entClient,
+		KnowledgeIngestor:         knowledgeService,
+		KnowledgeMaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
+		MaxRequestBody:            int64(cfg.Runtime.MaxRequestBodyBytes),
 	}
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	httpServer := &http.Server{

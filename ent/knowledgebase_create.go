@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
@@ -140,6 +141,21 @@ func (_c *KnowledgeBaseCreate) AddDocuments(v ...*Document) *KnowledgeBaseCreate
 		ids[i] = v[i].ID
 	}
 	return _c.AddDocumentIDs(ids...)
+}
+
+// AddAgentKnowledgeBindingIDs adds the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity by IDs.
+func (_c *KnowledgeBaseCreate) AddAgentKnowledgeBindingIDs(ids ...uint64) *KnowledgeBaseCreate {
+	_c.mutation.AddAgentKnowledgeBindingIDs(ids...)
+	return _c
+}
+
+// AddAgentKnowledgeBindings adds the "agent_knowledge_bindings" edges to the AgentKnowledgeBase entity.
+func (_c *KnowledgeBaseCreate) AddAgentKnowledgeBindings(v ...*AgentKnowledgeBase) *KnowledgeBaseCreate {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentKnowledgeBindingIDs(ids...)
 }
 
 // Mutation returns the KnowledgeBaseMutation object of the builder.
@@ -308,6 +324,22 @@ func (_c *KnowledgeBaseCreate) createSpec() (*KnowledgeBase, *sqlgraph.CreateSpe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentKnowledgeBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

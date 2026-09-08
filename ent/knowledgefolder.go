@@ -34,9 +34,8 @@ type KnowledgeFolder struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the KnowledgeFolderQuery when eager-loading is set.
-	Edges                  KnowledgeFolderEdges `json:"edges"`
-	knowledge_base_folders *uint64
-	selectValues           sql.SelectValues
+	Edges        KnowledgeFolderEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // KnowledgeFolderEdges holds the relations/edges for other nodes in the graph.
@@ -105,8 +104,6 @@ func (*KnowledgeFolder) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case knowledgefolder.FieldCreatedAt, knowledgefolder.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case knowledgefolder.ForeignKeys[0]: // knowledge_base_folders
-			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -170,13 +167,6 @@ func (_m *KnowledgeFolder) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
-			}
-		case knowledgefolder.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for edge-field knowledge_base_folders", value)
-			} else if value.Valid {
-				_m.knowledge_base_folders = new(uint64)
-				*_m.knowledge_base_folders = uint64(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])

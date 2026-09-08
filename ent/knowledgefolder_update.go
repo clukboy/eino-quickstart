@@ -79,6 +79,20 @@ func (_u *KnowledgeFolderUpdate) AddSort(v int) *KnowledgeFolderUpdate {
 	return _u
 }
 
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (_u *KnowledgeFolderUpdate) SetKnowledgeBaseID(v uint64) *KnowledgeFolderUpdate {
+	_u.mutation.SetKnowledgeBaseID(v)
+	return _u
+}
+
+// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
+func (_u *KnowledgeFolderUpdate) SetNillableKnowledgeBaseID(v *uint64) *KnowledgeFolderUpdate {
+	if v != nil {
+		_u.SetKnowledgeBaseID(*v)
+	}
+	return _u
+}
+
 // SetParentID sets the "parent_id" field.
 func (_u *KnowledgeFolderUpdate) SetParentID(v uint64) *KnowledgeFolderUpdate {
 	_u.mutation.SetParentID(v)
@@ -102,12 +116,6 @@ func (_u *KnowledgeFolderUpdate) ClearParentID() *KnowledgeFolderUpdate {
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *KnowledgeFolderUpdate) SetUpdatedAt(v time.Time) *KnowledgeFolderUpdate {
 	_u.mutation.SetUpdatedAt(v)
-	return _u
-}
-
-// SetKnowledgeBaseID sets the "knowledge_base" edge to the KnowledgeBase entity by ID.
-func (_u *KnowledgeFolderUpdate) SetKnowledgeBaseID(id uint64) *KnowledgeFolderUpdate {
-	_u.mutation.SetKnowledgeBaseID(id)
 	return _u
 }
 
@@ -498,6 +506,20 @@ func (_u *KnowledgeFolderUpdateOne) AddSort(v int) *KnowledgeFolderUpdateOne {
 	return _u
 }
 
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (_u *KnowledgeFolderUpdateOne) SetKnowledgeBaseID(v uint64) *KnowledgeFolderUpdateOne {
+	_u.mutation.SetKnowledgeBaseID(v)
+	return _u
+}
+
+// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
+func (_u *KnowledgeFolderUpdateOne) SetNillableKnowledgeBaseID(v *uint64) *KnowledgeFolderUpdateOne {
+	if v != nil {
+		_u.SetKnowledgeBaseID(*v)
+	}
+	return _u
+}
+
 // SetParentID sets the "parent_id" field.
 func (_u *KnowledgeFolderUpdateOne) SetParentID(v uint64) *KnowledgeFolderUpdateOne {
 	_u.mutation.SetParentID(v)
@@ -521,12 +543,6 @@ func (_u *KnowledgeFolderUpdateOne) ClearParentID() *KnowledgeFolderUpdateOne {
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *KnowledgeFolderUpdateOne) SetUpdatedAt(v time.Time) *KnowledgeFolderUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
-	return _u
-}
-
-// SetKnowledgeBaseID sets the "knowledge_base" edge to the KnowledgeBase entity by ID.
-func (_u *KnowledgeFolderUpdateOne) SetKnowledgeBaseID(id uint64) *KnowledgeFolderUpdateOne {
-	_u.mutation.SetKnowledgeBaseID(id)
 	return _u
 }
 

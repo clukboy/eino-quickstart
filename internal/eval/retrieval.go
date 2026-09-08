@@ -17,7 +17,11 @@ type RetrievalEvaluator struct {
 func (e RetrievalEvaluator) Evaluate(ctx context.Context, test RetrievalCase) CaseResult {
 	startedAt := time.Now()
 
-	results, err := e.Retriever.Search(ctx, test.ActorSubject, test.Query, e.TopK)
+	results, err := e.Retriever.Search(ctx, retrieval.SearchRequest{
+		ActorSubject: test.ActorSubject,
+		Query:        test.Query,
+		TopK:         e.TopK,
+	})
 
 	result := CaseResult{
 		ID:       test.ID,

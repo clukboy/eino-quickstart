@@ -304,6 +304,14 @@ func Load(path string) (*Config, error) {
 	if cfg.Runtime.MaxRequestBodyBytes <= 0 {
 		return nil, fmt.Errorf("runtime.maxRequestBodyBytes must be greater than zero")
 	}
+	if cfg.Knowledge.MaxDocumentBytes <= 0 {
+		return nil, fmt.Errorf("knowledge.maxDocumentBytes must be greater than zero")
+	}
+	if cfg.Runtime.MaxRequestBodyBytes < cfg.Knowledge.MaxDocumentBytes {
+		return nil, fmt.Errorf(
+			"runtime.maxRequestBodyBytes must be at least knowledge.maxDocumentBytes",
+		)
+	}
 
 	switch cfg.Observability.LogLevel {
 	case "debug", "info", "warn", "error":
@@ -442,7 +450,6 @@ func Load(path string) (*Config, error) {
 			"knowledge.defaultTopK must be between 1 and maxTopK",
 		)
 	}
-
 	if cfg.Embedding.Model == "" {
 		return nil, fmt.Errorf("embedding.model is required")
 	}

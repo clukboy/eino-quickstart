@@ -47,6 +47,9 @@ func (s *ProductSearcher) SearchModel(
 	}
 
 	scope = scope.Normalized()
+	if !scope.HasKnowledgeBases() {
+		return []Candidate{}, nil
+	}
 
 	model = strings.TrimSpace(model)
 
@@ -56,28 +59,8 @@ func (s *ProductSearcher) SearchModel(
 
 	args := []any{
 		model,
-		scope.ActorSubject,
-	}
-
-	kbCondition := ""
-
-	if len(scope.KnowledgeBaseIDs) > 0 {
-		kbCondition = `
-		  AND d.knowledge_base_id = ANY($3)
-		`
-		args = append(
-			args,
-			scope.KnowledgeBaseIDs,
-		)
-	}
-
-	limitPlaceholder := "$3"
-
-	if len(scope.KnowledgeBaseIDs) > 0 {
-		limitPlaceholder = "$4"
-		args = append(args, limit)
-	} else {
-		args = append(args, limit)
+		scope.KnowledgeBaseIDs,
+		limit,
 	}
 
 	rows, err := s.client.QueryContext(
@@ -137,23 +120,7 @@ func (s *ProductSearcher) SearchModel(
 
 		  AND kb.status = 'ACTIVE'
 
-		  AND (
-			kb.visibility = 'system'
-			OR (
-				kb.visibility = 'private'
-				AND kb.owner_subject = $2
-			)
-		  )
-
-		  AND (
-			d.visibility = 'system'
-			OR (
-				d.visibility = 'private'
-				AND d.owner_subject = $2
-			)
-		  )
-
-		  %s
+		  AND d.knowledge_base_id = ANY($2)
 
 		  AND (
 			lower(
@@ -193,8 +160,8 @@ func (s *ProductSearcher) SearchModel(
 			score DESC,
 			dc.id
 
-		LIMIT %s
-		`, kbCondition, limitPlaceholder),
+		LIMIT $3
+		`),
 		args...,
 	)
 

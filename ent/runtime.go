@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
@@ -24,6 +25,12 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	agentknowledgebaseFields := schema.AgentKnowledgeBase{}.Fields()
+	_ = agentknowledgebaseFields
+	// agentknowledgebaseDescCreatedAt is the schema descriptor for created_at field.
+	agentknowledgebaseDescCreatedAt := agentknowledgebaseFields[3].Descriptor()
+	// agentknowledgebase.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agentknowledgebase.DefaultCreatedAt = agentknowledgebaseDescCreatedAt.Default.(func() time.Time)
 	agentrunFields := schema.AgentRun{}.Fields()
 	_ = agentrunFields
 	// agentrunDescCreatedAt is the schema descriptor for created_at field.

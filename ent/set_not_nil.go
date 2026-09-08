@@ -15,6 +15,30 @@ import (
 )
 
 // set field if value's pointer is not nil.
+func (_m *AgentKnowledgeBaseUpdate) SetNotNilKnowledgeBaseID(value *uint64) *AgentKnowledgeBaseUpdate {
+	if value != nil {
+		return _m.SetKnowledgeBaseID(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *AgentKnowledgeBaseUpdateOne) SetNotNilKnowledgeBaseID(value *uint64) *AgentKnowledgeBaseUpdateOne {
+	if value != nil {
+		return _m.SetKnowledgeBaseID(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *AgentKnowledgeBaseCreate) SetNotNilKnowledgeBaseID(value *uint64) *AgentKnowledgeBaseCreate {
+	if value != nil {
+		return _m.SetKnowledgeBaseID(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
 func (_m *AgentRunUpdate) SetNotNilStatus(value *agentrun.Status) *AgentRunUpdate {
 	if value != nil {
 		return _m.SetStatus(*value)
@@ -1426,6 +1450,30 @@ func (_m *KnowledgeFolderUpdateOne) SetNotNilSort(value *int) *KnowledgeFolderUp
 func (_m *KnowledgeFolderCreate) SetNotNilSort(value *int) *KnowledgeFolderCreate {
 	if value != nil {
 		return _m.SetSort(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *KnowledgeFolderUpdate) SetNotNilKnowledgeBaseID(value *uint64) *KnowledgeFolderUpdate {
+	if value != nil {
+		return _m.SetKnowledgeBaseID(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *KnowledgeFolderUpdateOne) SetNotNilKnowledgeBaseID(value *uint64) *KnowledgeFolderUpdateOne {
+	if value != nil {
+		return _m.SetKnowledgeBaseID(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *KnowledgeFolderCreate) SetNotNilKnowledgeBaseID(value *uint64) *KnowledgeFolderCreate {
+	if value != nil {
+		return _m.SetKnowledgeBaseID(*value)
 	}
 	return _m
 }

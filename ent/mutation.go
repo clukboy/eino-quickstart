@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
@@ -36,20 +37,566 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeAgentRun        = "AgentRun"
-	TypeApproval        = "Approval"
-	TypeAuditEvent      = "AuditEvent"
-	TypeChatTurn        = "ChatTurn"
-	TypeCheckpoint      = "Checkpoint"
-	TypeDocument        = "Document"
-	TypeDocumentChunk   = "DocumentChunk"
-	TypeKnowledgeBase   = "KnowledgeBase"
-	TypeKnowledgeFolder = "KnowledgeFolder"
-	TypeKnowledgeIndex  = "KnowledgeIndex"
-	TypeSession         = "Session"
-	TypeSessionMessage  = "SessionMessage"
-	TypeVectorOutbox    = "VectorOutbox"
+	TypeAgentKnowledgeBase = "AgentKnowledgeBase"
+	TypeAgentRun           = "AgentRun"
+	TypeApproval           = "Approval"
+	TypeAuditEvent         = "AuditEvent"
+	TypeChatTurn           = "ChatTurn"
+	TypeCheckpoint         = "Checkpoint"
+	TypeDocument           = "Document"
+	TypeDocumentChunk      = "DocumentChunk"
+	TypeKnowledgeBase      = "KnowledgeBase"
+	TypeKnowledgeFolder    = "KnowledgeFolder"
+	TypeKnowledgeIndex     = "KnowledgeIndex"
+	TypeSession            = "Session"
+	TypeSessionMessage     = "SessionMessage"
+	TypeVectorOutbox       = "VectorOutbox"
 )
+
+// AgentKnowledgeBaseMutation represents an operation that mutates the AgentKnowledgeBase nodes in the graph.
+type AgentKnowledgeBaseMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *uint64
+	subject               *string
+	created_by            *string
+	created_at            *time.Time
+	clearedFields         map[string]struct{}
+	knowledge_base        *uint64
+	clearedknowledge_base bool
+	done                  bool
+	oldValue              func(context.Context) (*AgentKnowledgeBase, error)
+	predicates            []predicate.AgentKnowledgeBase
+}
+
+var _ ent.Mutation = (*AgentKnowledgeBaseMutation)(nil)
+
+// agentknowledgebaseOption allows management of the mutation configuration using functional options.
+type agentknowledgebaseOption func(*AgentKnowledgeBaseMutation)
+
+// newAgentKnowledgeBaseMutation creates new mutation for the AgentKnowledgeBase entity.
+func newAgentKnowledgeBaseMutation(c config, op Op, opts ...agentknowledgebaseOption) *AgentKnowledgeBaseMutation {
+	m := &AgentKnowledgeBaseMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAgentKnowledgeBase,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAgentKnowledgeBaseID sets the ID field of the mutation.
+func withAgentKnowledgeBaseID(id uint64) agentknowledgebaseOption {
+	return func(m *AgentKnowledgeBaseMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AgentKnowledgeBase
+		)
+		m.oldValue = func(ctx context.Context) (*AgentKnowledgeBase, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AgentKnowledgeBase.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAgentKnowledgeBase sets the old AgentKnowledgeBase of the mutation.
+func withAgentKnowledgeBase(node *AgentKnowledgeBase) agentknowledgebaseOption {
+	return func(m *AgentKnowledgeBaseMutation) {
+		m.oldValue = func(context.Context) (*AgentKnowledgeBase, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AgentKnowledgeBaseMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AgentKnowledgeBaseMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AgentKnowledgeBaseMutation) ID() (id uint64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AgentKnowledgeBaseMutation) IDs(ctx context.Context) ([]uint64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uint64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AgentKnowledgeBase.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSubject sets the "subject" field.
+func (m *AgentKnowledgeBaseMutation) SetSubject(s string) {
+	m.subject = &s
+}
+
+// Subject returns the value of the "subject" field in the mutation.
+func (m *AgentKnowledgeBaseMutation) Subject() (r string, exists bool) {
+	v := m.subject
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubject returns the old "subject" field's value of the AgentKnowledgeBase entity.
+// If the AgentKnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentKnowledgeBaseMutation) OldSubject(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubject is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubject requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubject: %w", err)
+	}
+	return oldValue.Subject, nil
+}
+
+// ResetSubject resets all changes to the "subject" field.
+func (m *AgentKnowledgeBaseMutation) ResetSubject() {
+	m.subject = nil
+}
+
+// SetKnowledgeBaseID sets the "knowledge_base_id" field.
+func (m *AgentKnowledgeBaseMutation) SetKnowledgeBaseID(u uint64) {
+	m.knowledge_base = &u
+}
+
+// KnowledgeBaseID returns the value of the "knowledge_base_id" field in the mutation.
+func (m *AgentKnowledgeBaseMutation) KnowledgeBaseID() (r uint64, exists bool) {
+	v := m.knowledge_base
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKnowledgeBaseID returns the old "knowledge_base_id" field's value of the AgentKnowledgeBase entity.
+// If the AgentKnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentKnowledgeBaseMutation) OldKnowledgeBaseID(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKnowledgeBaseID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKnowledgeBaseID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKnowledgeBaseID: %w", err)
+	}
+	return oldValue.KnowledgeBaseID, nil
+}
+
+// ResetKnowledgeBaseID resets all changes to the "knowledge_base_id" field.
+func (m *AgentKnowledgeBaseMutation) ResetKnowledgeBaseID() {
+	m.knowledge_base = nil
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *AgentKnowledgeBaseMutation) SetCreatedBy(s string) {
+	m.created_by = &s
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *AgentKnowledgeBaseMutation) CreatedBy() (r string, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the AgentKnowledgeBase entity.
+// If the AgentKnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentKnowledgeBaseMutation) OldCreatedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *AgentKnowledgeBaseMutation) ResetCreatedBy() {
+	m.created_by = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AgentKnowledgeBaseMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AgentKnowledgeBaseMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AgentKnowledgeBase entity.
+// If the AgentKnowledgeBase object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentKnowledgeBaseMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AgentKnowledgeBaseMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
+func (m *AgentKnowledgeBaseMutation) ClearKnowledgeBase() {
+	m.clearedknowledge_base = true
+	m.clearedFields[agentknowledgebase.FieldKnowledgeBaseID] = struct{}{}
+}
+
+// KnowledgeBaseCleared reports if the "knowledge_base" edge to the KnowledgeBase entity was cleared.
+func (m *AgentKnowledgeBaseMutation) KnowledgeBaseCleared() bool {
+	return m.clearedknowledge_base
+}
+
+// KnowledgeBaseIDs returns the "knowledge_base" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// KnowledgeBaseID instead. It exists only for internal usage by the builders.
+func (m *AgentKnowledgeBaseMutation) KnowledgeBaseIDs() (ids []uint64) {
+	if id := m.knowledge_base; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetKnowledgeBase resets all changes to the "knowledge_base" edge.
+func (m *AgentKnowledgeBaseMutation) ResetKnowledgeBase() {
+	m.knowledge_base = nil
+	m.clearedknowledge_base = false
+}
+
+// Where appends a list predicates to the AgentKnowledgeBaseMutation builder.
+func (m *AgentKnowledgeBaseMutation) Where(ps ...predicate.AgentKnowledgeBase) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AgentKnowledgeBaseMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AgentKnowledgeBaseMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AgentKnowledgeBase, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AgentKnowledgeBaseMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AgentKnowledgeBaseMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AgentKnowledgeBase).
+func (m *AgentKnowledgeBaseMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AgentKnowledgeBaseMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.subject != nil {
+		fields = append(fields, agentknowledgebase.FieldSubject)
+	}
+	if m.knowledge_base != nil {
+		fields = append(fields, agentknowledgebase.FieldKnowledgeBaseID)
+	}
+	if m.created_by != nil {
+		fields = append(fields, agentknowledgebase.FieldCreatedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, agentknowledgebase.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AgentKnowledgeBaseMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case agentknowledgebase.FieldSubject:
+		return m.Subject()
+	case agentknowledgebase.FieldKnowledgeBaseID:
+		return m.KnowledgeBaseID()
+	case agentknowledgebase.FieldCreatedBy:
+		return m.CreatedBy()
+	case agentknowledgebase.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AgentKnowledgeBaseMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case agentknowledgebase.FieldSubject:
+		return m.OldSubject(ctx)
+	case agentknowledgebase.FieldKnowledgeBaseID:
+		return m.OldKnowledgeBaseID(ctx)
+	case agentknowledgebase.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case agentknowledgebase.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AgentKnowledgeBase field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentKnowledgeBaseMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case agentknowledgebase.FieldSubject:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubject(v)
+		return nil
+	case agentknowledgebase.FieldKnowledgeBaseID:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKnowledgeBaseID(v)
+		return nil
+	case agentknowledgebase.FieldCreatedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case agentknowledgebase.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AgentKnowledgeBase field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AgentKnowledgeBaseMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AgentKnowledgeBaseMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentKnowledgeBaseMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AgentKnowledgeBase numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AgentKnowledgeBaseMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AgentKnowledgeBaseMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AgentKnowledgeBaseMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown AgentKnowledgeBase nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AgentKnowledgeBaseMutation) ResetField(name string) error {
+	switch name {
+	case agentknowledgebase.FieldSubject:
+		m.ResetSubject()
+		return nil
+	case agentknowledgebase.FieldKnowledgeBaseID:
+		m.ResetKnowledgeBaseID()
+		return nil
+	case agentknowledgebase.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case agentknowledgebase.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentKnowledgeBase field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AgentKnowledgeBaseMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.knowledge_base != nil {
+		edges = append(edges, agentknowledgebase.EdgeKnowledgeBase)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AgentKnowledgeBaseMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case agentknowledgebase.EdgeKnowledgeBase:
+		if id := m.knowledge_base; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AgentKnowledgeBaseMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AgentKnowledgeBaseMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AgentKnowledgeBaseMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedknowledge_base {
+		edges = append(edges, agentknowledgebase.EdgeKnowledgeBase)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AgentKnowledgeBaseMutation) EdgeCleared(name string) bool {
+	switch name {
+	case agentknowledgebase.EdgeKnowledgeBase:
+		return m.clearedknowledge_base
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AgentKnowledgeBaseMutation) ClearEdge(name string) error {
+	switch name {
+	case agentknowledgebase.EdgeKnowledgeBase:
+		m.ClearKnowledgeBase()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentKnowledgeBase unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AgentKnowledgeBaseMutation) ResetEdge(name string) error {
+	switch name {
+	case agentknowledgebase.EdgeKnowledgeBase:
+		m.ResetKnowledgeBase()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentKnowledgeBase edge %s", name)
+}
 
 // AgentRunMutation represents an operation that mutates the AgentRun nodes in the graph.
 type AgentRunMutation struct {
@@ -6843,26 +7390,29 @@ func (m *DocumentChunkMutation) ResetEdge(name string) error {
 // KnowledgeBaseMutation represents an operation that mutates the KnowledgeBase nodes in the graph.
 type KnowledgeBaseMutation struct {
 	config
-	op               Op
-	typ              string
-	id               *uint64
-	name             *string
-	description      *string
-	owner_subject    *string
-	visibility       *knowledgebase.Visibility
-	status           *knowledgebase.Status
-	created_at       *time.Time
-	updated_at       *time.Time
-	clearedFields    map[string]struct{}
-	folders          map[uint64]struct{}
-	removedfolders   map[uint64]struct{}
-	clearedfolders   bool
-	documents        map[uint64]struct{}
-	removeddocuments map[uint64]struct{}
-	cleareddocuments bool
-	done             bool
-	oldValue         func(context.Context) (*KnowledgeBase, error)
-	predicates       []predicate.KnowledgeBase
+	op                              Op
+	typ                             string
+	id                              *uint64
+	name                            *string
+	description                     *string
+	owner_subject                   *string
+	visibility                      *knowledgebase.Visibility
+	status                          *knowledgebase.Status
+	created_at                      *time.Time
+	updated_at                      *time.Time
+	clearedFields                   map[string]struct{}
+	folders                         map[uint64]struct{}
+	removedfolders                  map[uint64]struct{}
+	clearedfolders                  bool
+	documents                       map[uint64]struct{}
+	removeddocuments                map[uint64]struct{}
+	cleareddocuments                bool
+	agent_knowledge_bindings        map[uint64]struct{}
+	removedagent_knowledge_bindings map[uint64]struct{}
+	clearedagent_knowledge_bindings bool
+	done                            bool
+	oldValue                        func(context.Context) (*KnowledgeBase, error)
+	predicates                      []predicate.KnowledgeBase
 }
 
 var _ ent.Mutation = (*KnowledgeBaseMutation)(nil)
@@ -7336,6 +7886,60 @@ func (m *KnowledgeBaseMutation) ResetDocuments() {
 	m.removeddocuments = nil
 }
 
+// AddAgentKnowledgeBindingIDs adds the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity by ids.
+func (m *KnowledgeBaseMutation) AddAgentKnowledgeBindingIDs(ids ...uint64) {
+	if m.agent_knowledge_bindings == nil {
+		m.agent_knowledge_bindings = make(map[uint64]struct{})
+	}
+	for i := range ids {
+		m.agent_knowledge_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentKnowledgeBindings clears the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity.
+func (m *KnowledgeBaseMutation) ClearAgentKnowledgeBindings() {
+	m.clearedagent_knowledge_bindings = true
+}
+
+// AgentKnowledgeBindingsCleared reports if the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity was cleared.
+func (m *KnowledgeBaseMutation) AgentKnowledgeBindingsCleared() bool {
+	return m.clearedagent_knowledge_bindings
+}
+
+// RemoveAgentKnowledgeBindingIDs removes the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity by IDs.
+func (m *KnowledgeBaseMutation) RemoveAgentKnowledgeBindingIDs(ids ...uint64) {
+	if m.removedagent_knowledge_bindings == nil {
+		m.removedagent_knowledge_bindings = make(map[uint64]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_knowledge_bindings, ids[i])
+		m.removedagent_knowledge_bindings[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentKnowledgeBindings returns the removed IDs of the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity.
+func (m *KnowledgeBaseMutation) RemovedAgentKnowledgeBindingsIDs() (ids []uint64) {
+	for id := range m.removedagent_knowledge_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentKnowledgeBindingsIDs returns the "agent_knowledge_bindings" edge IDs in the mutation.
+func (m *KnowledgeBaseMutation) AgentKnowledgeBindingsIDs() (ids []uint64) {
+	for id := range m.agent_knowledge_bindings {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentKnowledgeBindings resets all changes to the "agent_knowledge_bindings" edge.
+func (m *KnowledgeBaseMutation) ResetAgentKnowledgeBindings() {
+	m.agent_knowledge_bindings = nil
+	m.clearedagent_knowledge_bindings = false
+	m.removedagent_knowledge_bindings = nil
+}
+
 // Where appends a list predicates to the KnowledgeBaseMutation builder.
 func (m *KnowledgeBaseMutation) Where(ps ...predicate.KnowledgeBase) {
 	m.predicates = append(m.predicates, ps...)
@@ -7580,12 +8184,15 @@ func (m *KnowledgeBaseMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *KnowledgeBaseMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.folders != nil {
 		edges = append(edges, knowledgebase.EdgeFolders)
 	}
 	if m.documents != nil {
 		edges = append(edges, knowledgebase.EdgeDocuments)
+	}
+	if m.agent_knowledge_bindings != nil {
+		edges = append(edges, knowledgebase.EdgeAgentKnowledgeBindings)
 	}
 	return edges
 }
@@ -7606,18 +8213,27 @@ func (m *KnowledgeBaseMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case knowledgebase.EdgeAgentKnowledgeBindings:
+		ids := make([]ent.Value, 0, len(m.agent_knowledge_bindings))
+		for id := range m.agent_knowledge_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *KnowledgeBaseMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedfolders != nil {
 		edges = append(edges, knowledgebase.EdgeFolders)
 	}
 	if m.removeddocuments != nil {
 		edges = append(edges, knowledgebase.EdgeDocuments)
+	}
+	if m.removedagent_knowledge_bindings != nil {
+		edges = append(edges, knowledgebase.EdgeAgentKnowledgeBindings)
 	}
 	return edges
 }
@@ -7638,18 +8254,27 @@ func (m *KnowledgeBaseMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case knowledgebase.EdgeAgentKnowledgeBindings:
+		ids := make([]ent.Value, 0, len(m.removedagent_knowledge_bindings))
+		for id := range m.removedagent_knowledge_bindings {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *KnowledgeBaseMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedfolders {
 		edges = append(edges, knowledgebase.EdgeFolders)
 	}
 	if m.cleareddocuments {
 		edges = append(edges, knowledgebase.EdgeDocuments)
+	}
+	if m.clearedagent_knowledge_bindings {
+		edges = append(edges, knowledgebase.EdgeAgentKnowledgeBindings)
 	}
 	return edges
 }
@@ -7662,6 +8287,8 @@ func (m *KnowledgeBaseMutation) EdgeCleared(name string) bool {
 		return m.clearedfolders
 	case knowledgebase.EdgeDocuments:
 		return m.cleareddocuments
+	case knowledgebase.EdgeAgentKnowledgeBindings:
+		return m.clearedagent_knowledge_bindings
 	}
 	return false
 }
@@ -7684,6 +8311,9 @@ func (m *KnowledgeBaseMutation) ResetEdge(name string) error {
 	case knowledgebase.EdgeDocuments:
 		m.ResetDocuments()
 		return nil
+	case knowledgebase.EdgeAgentKnowledgeBindings:
+		m.ResetAgentKnowledgeBindings()
+		return nil
 	}
 	return fmt.Errorf("unknown KnowledgeBase edge %s", name)
 }
@@ -7698,8 +8328,6 @@ type KnowledgeFolderMutation struct {
 	_path                 *string
 	sort                  *int
 	addsort               *int
-	knowledge_base_id     *uint64
-	addknowledge_base_id  *int64
 	created_at            *time.Time
 	updated_at            *time.Time
 	clearedFields         map[string]struct{}
@@ -7946,13 +8574,12 @@ func (m *KnowledgeFolderMutation) ResetSort() {
 
 // SetKnowledgeBaseID sets the "knowledge_base_id" field.
 func (m *KnowledgeFolderMutation) SetKnowledgeBaseID(u uint64) {
-	m.knowledge_base_id = &u
-	m.addknowledge_base_id = nil
+	m.knowledge_base = &u
 }
 
 // KnowledgeBaseID returns the value of the "knowledge_base_id" field in the mutation.
 func (m *KnowledgeFolderMutation) KnowledgeBaseID() (r uint64, exists bool) {
-	v := m.knowledge_base_id
+	v := m.knowledge_base
 	if v == nil {
 		return
 	}
@@ -7976,28 +8603,9 @@ func (m *KnowledgeFolderMutation) OldKnowledgeBaseID(ctx context.Context) (v uin
 	return oldValue.KnowledgeBaseID, nil
 }
 
-// AddKnowledgeBaseID adds u to the "knowledge_base_id" field.
-func (m *KnowledgeFolderMutation) AddKnowledgeBaseID(u int64) {
-	if m.addknowledge_base_id != nil {
-		*m.addknowledge_base_id += u
-	} else {
-		m.addknowledge_base_id = &u
-	}
-}
-
-// AddedKnowledgeBaseID returns the value that was added to the "knowledge_base_id" field in this mutation.
-func (m *KnowledgeFolderMutation) AddedKnowledgeBaseID() (r int64, exists bool) {
-	v := m.addknowledge_base_id
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
 // ResetKnowledgeBaseID resets all changes to the "knowledge_base_id" field.
 func (m *KnowledgeFolderMutation) ResetKnowledgeBaseID() {
-	m.knowledge_base_id = nil
-	m.addknowledge_base_id = nil
+	m.knowledge_base = nil
 }
 
 // SetParentID sets the "parent_id" field.
@@ -8121,27 +8729,15 @@ func (m *KnowledgeFolderMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base" edge to the KnowledgeBase entity by id.
-func (m *KnowledgeFolderMutation) SetKnowledgeBaseID(id uint64) {
-	m.knowledge_base = &id
-}
-
 // ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
 func (m *KnowledgeFolderMutation) ClearKnowledgeBase() {
 	m.clearedknowledge_base = true
+	m.clearedFields[knowledgefolder.FieldKnowledgeBaseID] = struct{}{}
 }
 
 // KnowledgeBaseCleared reports if the "knowledge_base" edge to the KnowledgeBase entity was cleared.
 func (m *KnowledgeFolderMutation) KnowledgeBaseCleared() bool {
 	return m.clearedknowledge_base
-}
-
-// KnowledgeBaseID returns the "knowledge_base" edge ID in the mutation.
-func (m *KnowledgeFolderMutation) KnowledgeBaseID() (id uint64, exists bool) {
-	if m.knowledge_base != nil {
-		return *m.knowledge_base, true
-	}
-	return
 }
 
 // KnowledgeBaseIDs returns the "knowledge_base" edge IDs in the mutation.
@@ -8339,7 +8935,7 @@ func (m *KnowledgeFolderMutation) Fields() []string {
 	if m.sort != nil {
 		fields = append(fields, knowledgefolder.FieldSort)
 	}
-	if m.knowledge_base_id != nil {
+	if m.knowledge_base != nil {
 		fields = append(fields, knowledgefolder.FieldKnowledgeBaseID)
 	}
 	if m.parent != nil {
@@ -8465,9 +9061,6 @@ func (m *KnowledgeFolderMutation) AddedFields() []string {
 	if m.addsort != nil {
 		fields = append(fields, knowledgefolder.FieldSort)
 	}
-	if m.addknowledge_base_id != nil {
-		fields = append(fields, knowledgefolder.FieldKnowledgeBaseID)
-	}
 	return fields
 }
 
@@ -8478,8 +9071,6 @@ func (m *KnowledgeFolderMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case knowledgefolder.FieldSort:
 		return m.AddedSort()
-	case knowledgefolder.FieldKnowledgeBaseID:
-		return m.AddedKnowledgeBaseID()
 	}
 	return nil, false
 }
@@ -8495,13 +9086,6 @@ func (m *KnowledgeFolderMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddSort(v)
-		return nil
-	case knowledgefolder.FieldKnowledgeBaseID:
-		v, ok := value.(int64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddKnowledgeBaseID(v)
 		return nil
 	}
 	return fmt.Errorf("unknown KnowledgeFolder numeric field %s", name)

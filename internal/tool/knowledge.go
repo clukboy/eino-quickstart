@@ -2,6 +2,8 @@ package tool
 
 import (
 	"context"
+	"eino-quickstart/ent"
+	"eino-quickstart/ent/agentknowledgebase"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,11 +18,53 @@ import (
 type KnowledgeSearch struct {
 	Retriever    retrieval.Retriever
 	ActorSubject string
+	Bindings     KnowledgeBaseBindings
 
-	// AllowedKnowledgeBaseIDs is the server-side KB whitelist.
+	// AllowedKnowledgeBaseIDs supports fixed bindings for callers that do not
+	// have an authenticated subject-to-knowledge-base resolver.
 	//
 	// LLM 不应该能够通过 tool 参数自行指定 KB。
 	AllowedKnowledgeBaseIDs []uint64
+}
+
+type KnowledgeBaseBindings interface {
+	KnowledgeBaseIDs(ctx context.Context, subject string) ([]uint64, error)
+}
+
+type EntKnowledgeBaseBindings struct {
+	client *ent.Client
+}
+
+func NewEntKnowledgeBaseBindings(client *ent.Client) (*EntKnowledgeBaseBindings, error) {
+	if client == nil {
+		return nil, errors.New("knowledge binding database client is required")
+	}
+	return &EntKnowledgeBaseBindings{client: client}, nil
+}
+
+func (b *EntKnowledgeBaseBindings) KnowledgeBaseIDs(
+	ctx context.Context,
+	subject string,
+) ([]uint64, error) {
+	if b == nil || b.client == nil {
+		return nil, errors.New("knowledge binding database client is required")
+	}
+	subject = strings.TrimSpace(subject)
+	if subject == "" {
+		return nil, errors.New("authenticated actor subject is required")
+	}
+	bindings, err := b.client.AgentKnowledgeBase.Query().
+		Where(agentknowledgebase.SubjectEQ(subject)).
+		Order(agentknowledgebase.ByKnowledgeBaseID()).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query knowledge base bindings: %w", err)
+	}
+	ids := make([]uint64, 0, len(bindings))
+	for _, binding := range bindings {
+		ids = append(ids, binding.KnowledgeBaseID)
+	}
+	return normalizeKnowledgeBaseIDs(ids), nil
 }
 
 type knowledgeSearchInput struct {
@@ -30,10 +74,8 @@ type knowledgeSearchInput struct {
 
 // NewKnowledgeSearch creates the search_knowledge Eino tool.
 func NewKnowledgeSearch(retriever retrieval.Retriever, actorSubject string) (einotool.InvokableTool, error) {
-	return NewKnowledgeSearchWithKnowledgeBases(
-		retriever,
-		actorSubject,
-		nil,
+	return nil, errors.New(
+		"knowledge search requires an explicit knowledge base allowlist",
 	)
 }
 
@@ -41,13 +83,43 @@ func NewKnowledgeSearchWithKnowledgeBases(retriever retrieval.Retriever, actorSu
 	if retriever == nil {
 		return nil, errors.New("knowledge retriever is required")
 	}
+	allowedKnowledgeBaseIDs := normalizeKnowledgeBaseIDs(knowledgeBaseIDs)
+	if len(allowedKnowledgeBaseIDs) == 0 {
+		return nil, errors.New(
+			"knowledge search requires at least one allowed knowledge base",
+		)
+	}
 
 	search := &KnowledgeSearch{
 		Retriever:               retriever,
 		ActorSubject:            strings.TrimSpace(actorSubject),
-		AllowedKnowledgeBaseIDs: normalizeKnowledgeBaseIDs(knowledgeBaseIDs),
+		AllowedKnowledgeBaseIDs: allowedKnowledgeBaseIDs,
 	}
 	return utils.InferTool("search_knowledge", "Search authorized knowledge documents and return cited source excerpts.", search.run)
+}
+
+// NewKnowledgeSearchWithBindings creates a search tool whose KB whitelist is
+// resolved from the authenticated subject every time the tool is invoked.
+func NewKnowledgeSearchWithBindings(
+	retriever retrieval.Retriever,
+	actorSubject string,
+	bindings KnowledgeBaseBindings,
+) (einotool.InvokableTool, error) {
+	if retriever == nil {
+		return nil, errors.New("knowledge retriever is required")
+	}
+	if bindings == nil {
+		return nil, errors.New("knowledge base bindings are required")
+	}
+	return utils.InferTool(
+		"search_knowledge",
+		"Search authorized knowledge documents and return cited source excerpts.",
+		(&KnowledgeSearch{
+			Retriever:    retriever,
+			ActorSubject: strings.TrimSpace(actorSubject),
+			Bindings:     bindings,
+		}).run,
+	)
 }
 
 // NewKnowledgeSearchTool is an alias for NewKnowledgeSearch.
@@ -76,12 +148,20 @@ func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (
 	if actorSubject == "" {
 		return "", errors.New("authenticated actor subject is required")
 	}
+	knowledgeBaseIDs := s.AllowedKnowledgeBaseIDs
+	if s.Bindings != nil {
+		resolvedIDs, err := s.Bindings.KnowledgeBaseIDs(ctx, actorSubject)
+		if err != nil {
+			return "", fmt.Errorf("resolve knowledge base bindings: %w", err)
+		}
+		knowledgeBaseIDs = resolvedIDs
+	}
 
 	results, err := s.Retriever.Search(ctx, retrieval.SearchRequest{
 		ActorSubject:     actorSubject,
 		Query:            query,
 		TopK:             input.TopK,
-		KnowledgeBaseIDs: s.AllowedKnowledgeBaseIDs,
+		KnowledgeBaseIDs: knowledgeBaseIDs,
 	})
 	if err != nil {
 		return "", fmt.Errorf("search knowledge: %w", err)

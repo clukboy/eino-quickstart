@@ -43,9 +43,11 @@ type KnowledgeBaseEdges struct {
 	Folders []*KnowledgeFolder `json:"folders,omitempty"`
 	// Documents holds the value of the documents edge.
 	Documents []*Document `json:"documents,omitempty"`
+	// AgentKnowledgeBindings holds the value of the agent_knowledge_bindings edge.
+	AgentKnowledgeBindings []*AgentKnowledgeBase `json:"agent_knowledge_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // FoldersOrErr returns the Folders value or an error if the edge
@@ -64,6 +66,15 @@ func (e KnowledgeBaseEdges) DocumentsOrErr() ([]*Document, error) {
 		return e.Documents, nil
 	}
 	return nil, &NotLoadedError{edge: "documents"}
+}
+
+// AgentKnowledgeBindingsOrErr returns the AgentKnowledgeBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e KnowledgeBaseEdges) AgentKnowledgeBindingsOrErr() ([]*AgentKnowledgeBase, error) {
+	if e.loadedTypes[2] {
+		return e.AgentKnowledgeBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_knowledge_bindings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -161,6 +172,11 @@ func (_m *KnowledgeBase) QueryFolders() *KnowledgeFolderQuery {
 // QueryDocuments queries the "documents" edge of the KnowledgeBase entity.
 func (_m *KnowledgeBase) QueryDocuments() *DocumentQuery {
 	return NewKnowledgeBaseClient(_m.config).QueryDocuments(_m)
+}
+
+// QueryAgentKnowledgeBindings queries the "agent_knowledge_bindings" edge of the KnowledgeBase entity.
+func (_m *KnowledgeBase) QueryAgentKnowledgeBindings() *AgentKnowledgeBaseQuery {
+	return NewKnowledgeBaseClient(_m.config).QueryAgentKnowledgeBindings(_m)
 }
 
 // Update returns a builder for updating this KnowledgeBase.

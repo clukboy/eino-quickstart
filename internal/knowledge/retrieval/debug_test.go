@@ -53,10 +53,10 @@ func TestFuseRRF(t *testing.T) {
 
 	// Chunk 2 同时出现在 Vector 和 Keyword，
 	// 应该拥有最高 RRF 分数。
-	require.Equal(t, int64(2), results[0].ChunkID)
+	require.Equal(t, uint64(2), results[0].ChunkID)
 
 	// Chunk 3 也是双路召回，但排名低于 Chunk 2。
-	require.Equal(t, int64(3), results[1].ChunkID)
+	require.Equal(t, uint64(3), results[1].ChunkID)
 }
 
 func TestFuseRRFWeight(t *testing.T) {
@@ -89,7 +89,7 @@ func TestFuseRRFWeight(t *testing.T) {
 
 	require.Equal(
 		t,
-		int64(1),
+		uint64(1),
 		results[0].ChunkID,
 	)
 }

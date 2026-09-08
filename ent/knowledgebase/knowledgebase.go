@@ -33,6 +33,8 @@ const (
 	EdgeFolders = "folders"
 	// EdgeDocuments holds the string denoting the documents edge name in mutations.
 	EdgeDocuments = "documents"
+	// EdgeAgentKnowledgeBindings holds the string denoting the agent_knowledge_bindings edge name in mutations.
+	EdgeAgentKnowledgeBindings = "agent_knowledge_bindings"
 	// Table holds the table name of the knowledgebase in the database.
 	Table = "knowledge_bases"
 	// FoldersTable is the table that holds the folders relation/edge.
@@ -41,7 +43,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "knowledgefolder" package.
 	FoldersInverseTable = "knowledge_folders"
 	// FoldersColumn is the table column denoting the folders relation/edge.
-	FoldersColumn = "knowledge_base_folders"
+	FoldersColumn = "knowledge_base_id"
 	// DocumentsTable is the table that holds the documents relation/edge.
 	DocumentsTable = "documents"
 	// DocumentsInverseTable is the table name for the Document entity.
@@ -49,6 +51,13 @@ const (
 	DocumentsInverseTable = "documents"
 	// DocumentsColumn is the table column denoting the documents relation/edge.
 	DocumentsColumn = "knowledge_base_id"
+	// AgentKnowledgeBindingsTable is the table that holds the agent_knowledge_bindings relation/edge.
+	AgentKnowledgeBindingsTable = "agent_knowledge_bases"
+	// AgentKnowledgeBindingsInverseTable is the table name for the AgentKnowledgeBase entity.
+	// It exists in this package in order to avoid circular dependency with the "agentknowledgebase" package.
+	AgentKnowledgeBindingsInverseTable = "agent_knowledge_bases"
+	// AgentKnowledgeBindingsColumn is the table column denoting the agent_knowledge_bindings relation/edge.
+	AgentKnowledgeBindingsColumn = "knowledge_base_id"
 )
 
 // Columns holds all SQL columns for knowledgebase fields.
@@ -206,6 +215,20 @@ func ByDocuments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newDocumentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAgentKnowledgeBindingsCount orders the results by agent_knowledge_bindings count.
+func ByAgentKnowledgeBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentKnowledgeBindingsStep(), opts...)
+	}
+}
+
+// ByAgentKnowledgeBindings orders the results by agent_knowledge_bindings terms.
+func ByAgentKnowledgeBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentKnowledgeBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newFoldersStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -218,5 +241,12 @@ func newDocumentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DocumentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DocumentsTable, DocumentsColumn),
+	)
+}
+func newAgentKnowledgeBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentKnowledgeBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentKnowledgeBindingsTable, AgentKnowledgeBindingsColumn),
 	)
 }

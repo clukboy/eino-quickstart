@@ -88,13 +88,12 @@ func TestHybridSearchScopeNormalized(t *testing.T) {
 			1,
 			2,
 			0,
-			-1,
 		},
 	}
 
 	got := scope.Normalized()
 
-	if got.ActorSubject != " actor " {
+	if got.ActorSubject != "actor" {
 		t.Errorf(
 			"actorSubject=%q",
 			got.ActorSubject,

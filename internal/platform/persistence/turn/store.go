@@ -276,7 +276,7 @@ func (s *Store) DeleteTerminalBefore(
 		return 0, nil
 	}
 
-	ids := make([]int, len(records))
+	ids := make([]uint64, len(records))
 	for i, record := range records {
 		ids[i] = record.ID
 	}

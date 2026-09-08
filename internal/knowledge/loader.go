@@ -24,14 +24,6 @@ var supportedDocumentExtensions = map[string]struct{}{
 type LoaderConfig struct {
 	Root             string
 	MaxDocumentBytes int
-
-	// KnowledgeBaseID identifies the target knowledge base.
-	// It is required by Service.Ingest.
-	KnowledgeBaseID uint64
-
-	// FolderID optionally puts all loaded documents under one folder.
-	// nil means no explicit folder.
-	FolderID *int
 }
 
 // LoadedDocument is a document read from a Loader's configured root.
@@ -40,19 +32,12 @@ type LoadedDocument struct {
 	Source  string
 	Title   string
 	Content string
-
-	// Metadata contains loader-level metadata.
-	// Product metadata is generated later by Service.
-	Metadata map[string]any
 }
 
 // Loader recursively reads supported UTF-8 text documents from one root.
 type Loader struct {
 	root             string
 	maxDocumentBytes int
-
-	knowledgeBaseID uint64
-	folderID        *int
 }
 
 // NewLoader creates a loader rooted at config.Root.
@@ -65,10 +50,6 @@ func NewLoader(config LoaderConfig) (*Loader, error) {
 
 	if strings.TrimSpace(config.Root) == "" {
 		return nil, errors.New("knowledge root is required")
-	}
-
-	if config.KnowledgeBaseID <= 0 {
-		return nil, errors.New("knowledge base id must be greater than zero")
 	}
 
 	absoluteRoot, err := filepath.Abs(config.Root)
@@ -93,20 +74,9 @@ func NewLoader(config LoaderConfig) (*Loader, error) {
 		)
 	}
 
-	var folderID *int
-	if config.FolderID != nil {
-		value := *config.FolderID
-		if value <= 0 {
-			return nil, errors.New("folder id must be greater than zero")
-		}
-		folderID = &value
-	}
-
 	return &Loader{
 		root:             filepath.Clean(resolvedRoot),
 		maxDocumentBytes: config.MaxDocumentBytes,
-		knowledgeBaseID:  config.KnowledgeBaseID,
-		folderID:         folderID,
 	}, nil
 }
 
@@ -122,10 +92,6 @@ func (l *Loader) Load(ctx context.Context) ([]LoadedDocument, error) {
 
 	if l.root == "" || l.maxDocumentBytes <= 0 {
 		return nil, errors.New("knowledge loader is not configured")
-	}
-
-	if l.knowledgeBaseID <= 0 {
-		return nil, errors.New("knowledge base id must be greater than zero")
 	}
 
 	if err := l.verifyRoot(); err != nil {
@@ -290,10 +256,9 @@ func (l *Loader) loadFile(path string) (LoadedDocument, error) {
 	}
 
 	return LoadedDocument{
-		Source:   source,
-		Title:    title,
-		Content:  string(data),
-		Metadata: map[string]any{},
+		Source:  source,
+		Title:   title,
+		Content: string(data),
 	}, nil
 }
 

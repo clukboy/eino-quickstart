@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AgentKnowledgeBase is the predicate function for agentknowledgebase builders.
+type AgentKnowledgeBase func(*sql.Selector)
+
 // AgentRun is the predicate function for agentrun builders.
 type AgentRun func(*sql.Selector)
 

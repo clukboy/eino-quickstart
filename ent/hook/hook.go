@@ -8,6 +8,18 @@ import (
 	"fmt"
 )
 
+// The AgentKnowledgeBaseFunc type is an adapter to allow the use of ordinary
+// function as AgentKnowledgeBase mutator.
+type AgentKnowledgeBaseFunc func(context.Context, *ent.AgentKnowledgeBaseMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentKnowledgeBaseFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentKnowledgeBaseMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentKnowledgeBaseMutation", m)
+}
+
 // The AgentRunFunc type is an adapter to allow the use of ordinary
 // function as AgentRun mutator.
 type AgentRunFunc func(context.Context, *ent.AgentRunMutation) (ent.Value, error)

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
@@ -85,19 +86,20 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			agentrun.Table:        agentrun.ValidColumn,
-			approval.Table:        approval.ValidColumn,
-			auditevent.Table:      auditevent.ValidColumn,
-			chatturn.Table:        chatturn.ValidColumn,
-			checkpoint.Table:      checkpoint.ValidColumn,
-			document.Table:        document.ValidColumn,
-			documentchunk.Table:   documentchunk.ValidColumn,
-			knowledgebase.Table:   knowledgebase.ValidColumn,
-			knowledgefolder.Table: knowledgefolder.ValidColumn,
-			knowledgeindex.Table:  knowledgeindex.ValidColumn,
-			session.Table:         session.ValidColumn,
-			sessionmessage.Table:  sessionmessage.ValidColumn,
-			vectoroutbox.Table:    vectoroutbox.ValidColumn,
+			agentknowledgebase.Table: agentknowledgebase.ValidColumn,
+			agentrun.Table:           agentrun.ValidColumn,
+			approval.Table:           approval.ValidColumn,
+			auditevent.Table:         auditevent.ValidColumn,
+			chatturn.Table:           chatturn.ValidColumn,
+			checkpoint.Table:         checkpoint.ValidColumn,
+			document.Table:           document.ValidColumn,
+			documentchunk.Table:      documentchunk.ValidColumn,
+			knowledgebase.Table:      knowledgebase.ValidColumn,
+			knowledgefolder.Table:    knowledgefolder.ValidColumn,
+			knowledgeindex.Table:     knowledgeindex.ValidColumn,
+			session.Table:            session.ValidColumn,
+			sessionmessage.Table:     sessionmessage.ValidColumn,
+			vectoroutbox.Table:       vectoroutbox.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

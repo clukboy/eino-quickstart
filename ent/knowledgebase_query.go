@@ -5,6 +5,7 @@ package ent
 import (
 	"context"
 	"database/sql/driver"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
@@ -21,12 +22,13 @@ import (
 // KnowledgeBaseQuery is the builder for querying KnowledgeBase entities.
 type KnowledgeBaseQuery struct {
 	config
-	ctx           *QueryContext
-	order         []knowledgebase.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.KnowledgeBase
-	withFolders   *KnowledgeFolderQuery
-	withDocuments *DocumentQuery
+	ctx                        *QueryContext
+	order                      []knowledgebase.OrderOption
+	inters                     []Interceptor
+	predicates                 []predicate.KnowledgeBase
+	withFolders                *KnowledgeFolderQuery
+	withDocuments              *DocumentQuery
+	withAgentKnowledgeBindings *AgentKnowledgeBaseQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -100,6 +102,28 @@ func (_q *KnowledgeBaseQuery) QueryDocuments() *DocumentQuery {
 			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, selector),
 			sqlgraph.To(document.Table, document.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.DocumentsTable, knowledgebase.DocumentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentKnowledgeBindings chains the current query on the "agent_knowledge_bindings" edge.
+func (_q *KnowledgeBaseQuery) QueryAgentKnowledgeBindings() *AgentKnowledgeBaseQuery {
+	query := (&AgentKnowledgeBaseClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, selector),
+			sqlgraph.To(agentknowledgebase.Table, agentknowledgebase.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.AgentKnowledgeBindingsTable, knowledgebase.AgentKnowledgeBindingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -294,13 +318,14 @@ func (_q *KnowledgeBaseQuery) Clone() *KnowledgeBaseQuery {
 		return nil
 	}
 	return &KnowledgeBaseQuery{
-		config:        _q.config,
-		ctx:           _q.ctx.Clone(),
-		order:         append([]knowledgebase.OrderOption{}, _q.order...),
-		inters:        append([]Interceptor{}, _q.inters...),
-		predicates:    append([]predicate.KnowledgeBase{}, _q.predicates...),
-		withFolders:   _q.withFolders.Clone(),
-		withDocuments: _q.withDocuments.Clone(),
+		config:                     _q.config,
+		ctx:                        _q.ctx.Clone(),
+		order:                      append([]knowledgebase.OrderOption{}, _q.order...),
+		inters:                     append([]Interceptor{}, _q.inters...),
+		predicates:                 append([]predicate.KnowledgeBase{}, _q.predicates...),
+		withFolders:                _q.withFolders.Clone(),
+		withDocuments:              _q.withDocuments.Clone(),
+		withAgentKnowledgeBindings: _q.withAgentKnowledgeBindings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -326,6 +351,17 @@ func (_q *KnowledgeBaseQuery) WithDocuments(opts ...func(*DocumentQuery)) *Knowl
 		opt(query)
 	}
 	_q.withDocuments = query
+	return _q
+}
+
+// WithAgentKnowledgeBindings tells the query-builder to eager-load the nodes that are connected to
+// the "agent_knowledge_bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *KnowledgeBaseQuery) WithAgentKnowledgeBindings(opts ...func(*AgentKnowledgeBaseQuery)) *KnowledgeBaseQuery {
+	query := (&AgentKnowledgeBaseClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentKnowledgeBindings = query
 	return _q
 }
 
@@ -407,9 +443,10 @@ func (_q *KnowledgeBaseQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	var (
 		nodes       = []*KnowledgeBase{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withFolders != nil,
 			_q.withDocuments != nil,
+			_q.withAgentKnowledgeBindings != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -444,6 +481,15 @@ func (_q *KnowledgeBaseQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 			return nil, err
 		}
 	}
+	if query := _q.withAgentKnowledgeBindings; query != nil {
+		if err := _q.loadAgentKnowledgeBindings(ctx, query, nodes,
+			func(n *KnowledgeBase) { n.Edges.AgentKnowledgeBindings = []*AgentKnowledgeBase{} },
+			func(n *KnowledgeBase, e *AgentKnowledgeBase) {
+				n.Edges.AgentKnowledgeBindings = append(n.Edges.AgentKnowledgeBindings, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
@@ -457,7 +503,9 @@ func (_q *KnowledgeBaseQuery) loadFolders(ctx context.Context, query *KnowledgeF
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(knowledgefolder.FieldKnowledgeBaseID)
+	}
 	query.Where(predicate.KnowledgeFolder(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(knowledgebase.FoldersColumn), fks...))
 	}))
@@ -466,13 +514,10 @@ func (_q *KnowledgeBaseQuery) loadFolders(ctx context.Context, query *KnowledgeF
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.knowledge_base_folders
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "knowledge_base_folders" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		fk := n.KnowledgeBaseID
+		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "knowledge_base_folders" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "knowledge_base_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}
@@ -493,6 +538,36 @@ func (_q *KnowledgeBaseQuery) loadDocuments(ctx context.Context, query *Document
 	}
 	query.Where(predicate.Document(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(knowledgebase.DocumentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.KnowledgeBaseID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "knowledge_base_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *KnowledgeBaseQuery) loadAgentKnowledgeBindings(ctx context.Context, query *AgentKnowledgeBaseQuery, nodes []*KnowledgeBase, init func(*KnowledgeBase), assign func(*KnowledgeBase, *AgentKnowledgeBase)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uint64]*KnowledgeBase)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentknowledgebase.FieldKnowledgeBaseID)
+	}
+	query.Where(predicate.AgentKnowledgeBase(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(knowledgebase.AgentKnowledgeBindingsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

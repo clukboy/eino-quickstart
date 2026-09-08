@@ -81,8 +81,8 @@ type indexerRepository interface {
 }
 
 type claimedOutbox struct {
-	ID          int
-	ChunkID     int64
+	ID          uint64
+	ChunkID     uint64
 	Operation   vectoroutbox.Operation
 	Attempts    int
 	LockedUntil time.Time
@@ -90,7 +90,7 @@ type claimedOutbox struct {
 }
 
 type indexChunk struct {
-	ID             int
+	ID             uint64
 	Content        string
 	EmbeddingModel string
 }
@@ -241,8 +241,12 @@ func (i *Indexer) processUpserts(
 	if err == nil {
 		vectors := make([]vectorstore.Vector, len(items))
 		for position, item := range items {
+			if item.ChunkID > math.MaxInt64 {
+				err = fmt.Errorf("document chunk ID %d exceeds vector store range", item.ChunkID)
+				break
+			}
 			vectors[position] = vectorstore.Vector{
-				ChunkID:        item.ChunkID,
+				ChunkID:        int64(item.ChunkID),
 				Embedding:      append([]float32(nil), embeddings[position]...),
 				EmbeddingModel: item.Chunk.EmbeddingModel,
 			}
@@ -278,7 +282,10 @@ func (i *Indexer) processDeletes(
 
 	chunkIDs := make([]int64, len(items))
 	for position, item := range items {
-		chunkIDs[position] = item.ChunkID
+		if item.ChunkID > math.MaxInt64 {
+			return fmt.Errorf("document chunk ID %d exceeds vector store range", item.ChunkID)
+		}
+		chunkIDs[position] = int64(item.ChunkID)
 	}
 	if err := i.vectorStore.Delete(ctx, chunkIDs); err != nil {
 		for _, item := range items {
@@ -497,7 +504,7 @@ func (r *entIndexerRepository) Claim(
 		}
 		if item.Operation == vectoroutbox.OperationUpsert {
 			chunk, err := r.client.DocumentChunk.Query().
-				Where(documentchunk.IDEQ(int(item.ChunkID))).
+				Where(documentchunk.IDEQ(item.ChunkID)).
 				Only(ctx)
 			if err != nil {
 				if ent.IsNotFound(err) {
@@ -731,14 +738,13 @@ func markChunkFailed(
 func lockChunkDocument(
 	ctx context.Context,
 	client *ent.Client,
-	chunkID int64,
+	chunkID uint64,
 ) (*ent.DocumentChunk, *ent.Document, error) {
-	chunkIDInt := int(chunkID)
-	if chunkID <= 0 || int64(chunkIDInt) != chunkID {
+	if chunkID == 0 {
 		return nil, nil, fmt.Errorf("invalid document chunk ID %d", chunkID)
 	}
 	chunk, err := client.DocumentChunk.Query().
-		Where(documentchunk.IDEQ(chunkIDInt)).
+		Where(documentchunk.IDEQ(chunkID)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {

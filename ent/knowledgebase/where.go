@@ -451,6 +451,29 @@ func HasDocumentsWith(preds ...predicate.Document) predicate.KnowledgeBase {
 	})
 }
 
+// HasAgentKnowledgeBindings applies the HasEdge predicate on the "agent_knowledge_bindings" edge.
+func HasAgentKnowledgeBindings() predicate.KnowledgeBase {
+	return predicate.KnowledgeBase(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentKnowledgeBindingsTable, AgentKnowledgeBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentKnowledgeBindingsWith applies the HasEdge predicate on the "agent_knowledge_bindings" edge with a given conditions (other predicates).
+func HasAgentKnowledgeBindingsWith(preds ...predicate.AgentKnowledgeBase) predicate.KnowledgeBase {
+	return predicate.KnowledgeBase(func(s *sql.Selector) {
+		step := newAgentKnowledgeBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.KnowledgeBase) predicate.KnowledgeBase {
 	return predicate.KnowledgeBase(sql.AndPredicates(predicates...))

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
@@ -142,6 +143,21 @@ func (_u *KnowledgeBaseUpdate) AddDocuments(v ...*Document) *KnowledgeBaseUpdate
 	return _u.AddDocumentIDs(ids...)
 }
 
+// AddAgentKnowledgeBindingIDs adds the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity by IDs.
+func (_u *KnowledgeBaseUpdate) AddAgentKnowledgeBindingIDs(ids ...uint64) *KnowledgeBaseUpdate {
+	_u.mutation.AddAgentKnowledgeBindingIDs(ids...)
+	return _u
+}
+
+// AddAgentKnowledgeBindings adds the "agent_knowledge_bindings" edges to the AgentKnowledgeBase entity.
+func (_u *KnowledgeBaseUpdate) AddAgentKnowledgeBindings(v ...*AgentKnowledgeBase) *KnowledgeBaseUpdate {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentKnowledgeBindingIDs(ids...)
+}
+
 // Mutation returns the KnowledgeBaseMutation object of the builder.
 func (_u *KnowledgeBaseUpdate) Mutation() *KnowledgeBaseMutation {
 	return _u.mutation
@@ -187,6 +203,27 @@ func (_u *KnowledgeBaseUpdate) RemoveDocuments(v ...*Document) *KnowledgeBaseUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDocumentIDs(ids...)
+}
+
+// ClearAgentKnowledgeBindings clears all "agent_knowledge_bindings" edges to the AgentKnowledgeBase entity.
+func (_u *KnowledgeBaseUpdate) ClearAgentKnowledgeBindings() *KnowledgeBaseUpdate {
+	_u.mutation.ClearAgentKnowledgeBindings()
+	return _u
+}
+
+// RemoveAgentKnowledgeBindingIDs removes the "agent_knowledge_bindings" edge to AgentKnowledgeBase entities by IDs.
+func (_u *KnowledgeBaseUpdate) RemoveAgentKnowledgeBindingIDs(ids ...uint64) *KnowledgeBaseUpdate {
+	_u.mutation.RemoveAgentKnowledgeBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAgentKnowledgeBindings removes "agent_knowledge_bindings" edges to AgentKnowledgeBase entities.
+func (_u *KnowledgeBaseUpdate) RemoveAgentKnowledgeBindings(v ...*AgentKnowledgeBase) *KnowledgeBaseUpdate {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentKnowledgeBindingIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -363,6 +400,51 @@ func (_u *KnowledgeBaseUpdate) sqlSave(ctx context.Context) (_node int, err erro
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AgentKnowledgeBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentKnowledgeBindingsIDs(); len(nodes) > 0 && !_u.mutation.AgentKnowledgeBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentKnowledgeBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{knowledgebase.Label}
@@ -495,6 +577,21 @@ func (_u *KnowledgeBaseUpdateOne) AddDocuments(v ...*Document) *KnowledgeBaseUpd
 	return _u.AddDocumentIDs(ids...)
 }
 
+// AddAgentKnowledgeBindingIDs adds the "agent_knowledge_bindings" edge to the AgentKnowledgeBase entity by IDs.
+func (_u *KnowledgeBaseUpdateOne) AddAgentKnowledgeBindingIDs(ids ...uint64) *KnowledgeBaseUpdateOne {
+	_u.mutation.AddAgentKnowledgeBindingIDs(ids...)
+	return _u
+}
+
+// AddAgentKnowledgeBindings adds the "agent_knowledge_bindings" edges to the AgentKnowledgeBase entity.
+func (_u *KnowledgeBaseUpdateOne) AddAgentKnowledgeBindings(v ...*AgentKnowledgeBase) *KnowledgeBaseUpdateOne {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentKnowledgeBindingIDs(ids...)
+}
+
 // Mutation returns the KnowledgeBaseMutation object of the builder.
 func (_u *KnowledgeBaseUpdateOne) Mutation() *KnowledgeBaseMutation {
 	return _u.mutation
@@ -540,6 +637,27 @@ func (_u *KnowledgeBaseUpdateOne) RemoveDocuments(v ...*Document) *KnowledgeBase
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDocumentIDs(ids...)
+}
+
+// ClearAgentKnowledgeBindings clears all "agent_knowledge_bindings" edges to the AgentKnowledgeBase entity.
+func (_u *KnowledgeBaseUpdateOne) ClearAgentKnowledgeBindings() *KnowledgeBaseUpdateOne {
+	_u.mutation.ClearAgentKnowledgeBindings()
+	return _u
+}
+
+// RemoveAgentKnowledgeBindingIDs removes the "agent_knowledge_bindings" edge to AgentKnowledgeBase entities by IDs.
+func (_u *KnowledgeBaseUpdateOne) RemoveAgentKnowledgeBindingIDs(ids ...uint64) *KnowledgeBaseUpdateOne {
+	_u.mutation.RemoveAgentKnowledgeBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAgentKnowledgeBindings removes "agent_knowledge_bindings" edges to AgentKnowledgeBase entities.
+func (_u *KnowledgeBaseUpdateOne) RemoveAgentKnowledgeBindings(v ...*AgentKnowledgeBase) *KnowledgeBaseUpdateOne {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentKnowledgeBindingIDs(ids...)
 }
 
 // Where appends a list predicates to the KnowledgeBaseUpdate builder.
@@ -739,6 +857,51 @@ func (_u *KnowledgeBaseUpdateOne) sqlSave(ctx context.Context) (_node *Knowledge
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(document.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentKnowledgeBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentKnowledgeBindingsIDs(); len(nodes) > 0 && !_u.mutation.AgentKnowledgeBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentKnowledgeBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   knowledgebase.AgentKnowledgeBindingsTable,
+			Columns: []string{knowledgebase.AgentKnowledgeBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentknowledgebase.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"eino-quickstart/ent"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/middleware"
+	"eino-quickstart/internal/knowledge"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/approval"
@@ -24,15 +26,18 @@ import (
 )
 
 type Server struct {
-	Agent          *agent.Harness
-	Sessions       *session.Store
-	Approvals      *approval.Store
-	Runs           *run.Store
-	Turns          *turn.Store
-	Authenticator  *auth.Authenticator
-	Logger         *slog.Logger
-	Metrics        *observability.Metrics
-	MaxRequestBody int64
+	Agent                     *agent.Harness
+	Sessions                  *session.Store
+	Approvals                 *approval.Store
+	Runs                      *run.Store
+	Turns                     *turn.Store
+	Authenticator             *auth.Authenticator
+	Logger                    *slog.Logger
+	Metrics                   *observability.Metrics
+	KnowledgeClient           *ent.Client
+	KnowledgeIngestor         *knowledge.Service
+	KnowledgeMaxDocumentBytes int
+	MaxRequestBody            int64
 }
 
 type ChatRequest struct {
@@ -71,6 +76,38 @@ func (s *Server) Routes() http.Handler {
 		auth.Require(auth.RoleAgent)(
 			http.HandlerFunc(s.createSession),
 		),
+	)
+	mux.Handle(
+		"POST /api/v1/knowledge-bases",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.createKnowledgeBase)),
+	)
+	mux.Handle(
+		"GET /api/v1/knowledge-bases",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.listKnowledgeBases)),
+	)
+	mux.Handle(
+		"GET /api/v1/knowledge-bases/{id}",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.getKnowledgeBase)),
+	)
+	mux.Handle(
+		"POST /api/v1/knowledge-bases/{id}/documents",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.uploadKnowledgeDocument)),
+	)
+	mux.Handle(
+		"GET /api/v1/knowledge-bases/{id}/documents",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.listKnowledgeDocuments)),
+	)
+	mux.Handle(
+		"GET /api/v1/agents/{subject}/knowledge-bases",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.listAgentKnowledgeBases)),
+	)
+	mux.Handle(
+		"PUT /api/v1/agents/{subject}/knowledge-bases/{id}",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.grantAgentKnowledgeBase)),
+	)
+	mux.Handle(
+		"DELETE /api/v1/agents/{subject}/knowledge-bases/{id}",
+		auth.Require(auth.RoleAdmin)(http.HandlerFunc(s.revokeAgentKnowledgeBase)),
 	)
 	mux.Handle(
 		"POST /api/v1/chat",

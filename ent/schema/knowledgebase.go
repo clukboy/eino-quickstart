@@ -31,5 +31,6 @@ func (KnowledgeBase) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("folders", KnowledgeFolder.Type),
 		edge.To("documents", Document.Type),
+		edge.To("agent_knowledge_bindings", AgentKnowledgeBase.Type),
 	}
 }

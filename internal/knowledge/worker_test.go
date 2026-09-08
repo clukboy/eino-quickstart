@@ -29,3 +29,9 @@ func TestIndexerWorkerStopsOnContextCancellation(t *testing.T) {
 		t.Fatal("worker did not stop after context cancellation")
 	}
 }
+
+func TestNewIndexerWorkerRejectsInvalidConfiguration(t *testing.T) {
+	if _, err := NewIndexerWorker(nil, time.Second); err == nil {
+		t.Error("NewIndexerWorker() error = nil, want missing indexer error")
+	}
+}

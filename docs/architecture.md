@@ -72,6 +72,14 @@ knowledge workspace automation
 | `GET` | `/api/v1/approvals/{id}` | `approver` | 查询审批 |
 | `POST` | `/api/v1/approvals/{id}/decision` | `approver` | 批准或拒绝 |
 | `POST` | `/api/v1/approvals/{id}/resume` | `agent` | 恢复已批准运行 |
+| `POST` | `/api/v1/knowledge-bases` | `admin` | 创建知识库；`name`、可选 `description` 和 `visibility`（`private` 或 `system`） |
+| `GET` | `/api/v1/knowledge-bases` | `admin` | 列出知识库 |
+| `GET` | `/api/v1/knowledge-bases/{id}` | `admin` | 获取知识库详情 |
+| `POST` | `/api/v1/knowledge-bases/{id}/documents` | `admin` | 上传 UTF-8 `.md`、`.markdown`、`.txt` 或 `.text` 文件；multipart `file`，可选 `title`、`metadata` JSON |
+| `GET` | `/api/v1/knowledge-bases/{id}/documents` | `admin` | 列出资料及其异步索引状态 |
+| `GET` | `/api/v1/agents/{subject}/knowledge-bases` | `admin` | 查询 API Key 主体可访问的知识库 |
+| `PUT` | `/api/v1/agents/{subject}/knowledge-bases/{id}` | `admin` | 为 API Key 主体授权一个启用中的知识库 |
+| `DELETE` | `/api/v1/agents/{subject}/knowledge-bases/{id}` | `admin` | 撤销 API Key 主体的知识库授权 |
 
 认证使用请求中的 API Key。响应与 SSE 事件的字段定义见 `internal/transport/httpapi/server.go`。
 
@@ -87,5 +95,18 @@ knowledge workspace automation
 ```
 
 文档和切块记录保存在 PostgreSQL；Milvus 仅保存 `chunk_id` 与向量。最终查询会再次按文档可见性过滤，因此向量库的候选结果不能直接暴露给用户。
+
+| 模块 | 单一职责 | 不负责 |
+| --- | --- | --- |
+| `knowledge.Loader` | 在受控目录内安全读取支持的文本文件 | 知识库归属、权限和入库 |
+| `knowledge.Service` | 校验摄取目标、生成分块/元数据，并以事务写入文档与 outbox | 文件系统扫描、向量生成 |
+| `knowledge.Indexer` | 消费 outbox，调用 embedding 与向量库，并维护索引状态 | 文档解析、检索排序 |
+| `knowledge.IndexerWorker` | 按固定周期触发 Indexer | 业务处理与存储访问 |
+| `retrieval.HybridRetriever` | 编排型号、关键词和向量召回，统一授权过滤与融合排序 | 直接对外格式化回答 |
+| `tool.KnowledgeSearch` | 将经过认证的主体和服务端 KB 白名单转换为检索请求并格式化引用 | 让模型决定可访问的知识库 |
+
+知识库、资料和授权关系均由 `internal/transport/httpapi` 的管理员接口维护；核心 `internal/knowledge` 仅负责摄取、分块、索引与检索。`agent_knowledge_bases` 以 API Key 的 `subject` 为主体保存可访问 KB ID；`search_knowledge` 在每次调用时读取这些绑定，因此未绑定主体绝不会检索任何资料，模型也不能通过工具参数扩大范围。`IngestTarget` 明确携带知识库、文件夹、`Metadata` 和可见性；它属于摄取请求，不属于文件 Loader。`Metadata` 会复制调用方 map，并在摄取时统一合并产品字段、分块主题和标题路径，避免各调用方直接修改持久化元数据。`SearchScope` 的知识库 ID 是强制白名单：空列表表示无检索权限，绝不会回退为全库搜索。
+
+当前系统只有固定内部执行器 `knowledge_agent`；它代表发起请求的 API Key 主体运行。未来如加入可持久化的 Agent 实体，可将绑定主体从 `subject` 扩展为 Agent ID。
 
 本地上传、分块、索引和检索的验证步骤见 [RAG 本地验证](rag-testing.md)。

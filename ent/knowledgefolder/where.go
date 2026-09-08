@@ -280,26 +280,6 @@ func KnowledgeBaseIDNotIn(vs ...uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
 }
 
-// KnowledgeBaseIDGT applies the GT predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDGT(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldGT(FieldKnowledgeBaseID, v))
-}
-
-// KnowledgeBaseIDGTE applies the GTE predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDGTE(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldGTE(FieldKnowledgeBaseID, v))
-}
-
-// KnowledgeBaseIDLT applies the LT predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDLT(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldLT(FieldKnowledgeBaseID, v))
-}
-
-// KnowledgeBaseIDLTE applies the LTE predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDLTE(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldLTE(FieldKnowledgeBaseID, v))
-}
-
 // ParentIDEQ applies the EQ predicate on the "parent_id" field.
 func ParentIDEQ(v uint64) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldParentID, v))

@@ -16,10 +16,10 @@ import (
 )
 
 type Service struct {
-	Client          *ent.Client
-	Chunker         Chunker
-	MaxChunksPerDoc int
-	EmbeddingModel  string
+	client          *ent.Client
+	chunker         Chunker
+	maxChunksPerDoc int
+	embeddingModel  string
 }
 
 // ServiceConfig configures document ingestion and vector-outbox creation.
@@ -36,18 +36,27 @@ type IngestRootResult struct {
 	Ingested int
 }
 
-type IngestRequest struct {
-	KnowledgeBaseID int
-	FolderID        *int
+// IngestTarget identifies the destination and access boundary for documents.
+// Sources only load content; callers supply this target when ingesting it.
+type IngestTarget struct {
+	KnowledgeBaseID uint64
+	FolderID        *uint64
+	Metadata        Metadata
+	OwnerSubject    string
+	Visibility      string
+}
 
+type IngestRootRequest struct {
+	Loader *Loader
+	Target IngestTarget
+}
+
+type IngestRequest struct {
 	Source  string
 	Title   string
 	Content string
 
-	Metadata map[string]any
-
-	OwnerSubject string
-	Visibility   string
+	Target IngestTarget
 }
 
 var errSourceCreateConflict = errors.New("document source creation conflict")
@@ -55,40 +64,40 @@ var errSourceCreateConflict = errors.New("document source creation conflict")
 // NewService creates a knowledge ingestion service.
 func NewService(config ServiceConfig) (*Service, error) {
 	service := &Service{
-		Client:          config.Client,
-		Chunker:         config.Chunker,
-		MaxChunksPerDoc: config.MaxChunksPerDoc,
-		EmbeddingModel:  strings.TrimSpace(config.EmbeddingModel),
+		client:          config.Client,
+		chunker:         config.Chunker,
+		maxChunksPerDoc: config.MaxChunksPerDoc,
+		embeddingModel:  strings.TrimSpace(config.EmbeddingModel),
 	}
-	if service.Client == nil {
+	if service.client == nil {
 		return nil, errors.New("knowledge ent client is required")
 	}
-	if service.Chunker.Size <= 0 {
+	if service.chunker.Size <= 0 {
 		return nil, errors.New("chunk size must be greater than zero")
 	}
-	if service.Chunker.Overlap < 0 ||
-		service.Chunker.Overlap >= service.Chunker.Size {
+	if service.chunker.Overlap < 0 ||
+		service.chunker.Overlap >= service.chunker.Size {
 		return nil, errors.New(
 			"chunk overlap must be non-negative and smaller than chunk size",
 		)
 	}
-	if service.MaxChunksPerDoc <= 0 {
+	if service.maxChunksPerDoc <= 0 {
 		return nil, errors.New(
 			"maximum chunks per document must be greater than zero",
 		)
 	}
-	if service.EmbeddingModel == "" {
+	if service.embeddingModel == "" {
 		return nil, errors.New("embedding model is required")
 	}
 	return service, nil
 }
 
 // IngestRoot loads documents from a loader and ingests them in source order.
-func (s *Service) IngestRoot(ctx context.Context, loader *Loader, ownerSubject string, visibility string) (IngestRootResult, error) {
-	if loader == nil {
+func (s *Service) IngestRoot(ctx context.Context, request IngestRootRequest) (IngestRootResult, error) {
+	if request.Loader == nil {
 		return IngestRootResult{}, errors.New("knowledge loader is required")
 	}
-	documents, err := loader.Load(ctx)
+	documents, err := request.Loader.Load(ctx)
 	if err != nil {
 		return IngestRootResult{}, err
 	}
@@ -96,14 +105,10 @@ func (s *Service) IngestRoot(ctx context.Context, loader *Loader, ownerSubject s
 	result := IngestRootResult{Loaded: len(documents)}
 	for _, item := range documents {
 		if err := s.Ingest(ctx, IngestRequest{
-			KnowledgeBaseID: loader.KnowledgeBaseID,
-			FolderID:        loader.FolderID,
-			Source:          item.Source,
-			Title:           item.Title,
-			Content:         item.Content,
-			Metadata:        item.Metadata,
-			OwnerSubject:    ownerSubject,
-			Visibility:      visibility,
+			Source:  item.Source,
+			Title:   item.Title,
+			Content: item.Content,
+			Target:  request.Target,
 		}); err != nil {
 			return result, fmt.Errorf(
 				"ingest loaded document %q: %w",
@@ -120,16 +125,16 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) error {
 	if s == nil {
 		return errors.New("knowledge service is nil")
 	}
-	if s.Client == nil {
+	if s.client == nil {
 		return errors.New("knowledge ent client is required")
 	}
 	if ctx == nil {
 		return errors.New("ingestion context is required")
 	}
-	if s.MaxChunksPerDoc <= 0 {
+	if s.maxChunksPerDoc <= 0 {
 		return errors.New("maximum chunks per document must be greater than zero")
 	}
-	if strings.TrimSpace(s.EmbeddingModel) == "" {
+	if strings.TrimSpace(s.embeddingModel) == "" {
 		return errors.New("embedding model is required")
 	}
 
@@ -142,34 +147,26 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) error {
 		return fmt.Errorf("parse product metadata: %w", err)
 	}
 
-	chunks, err := s.Chunker.Split(input.Content)
+	chunks, err := s.chunker.Split(input.Content)
 	if err != nil {
 		return fmt.Errorf("split document into chunks: %w", err)
 	}
 	if len(chunks) == 0 {
 		return errors.New("document content produced no chunks")
 	}
-	if len(chunks) > s.MaxChunksPerDoc {
+	if len(chunks) > s.maxChunksPerDoc {
 		return fmt.Errorf(
 			"document has %d chunks, exceeding the maximum of %d",
 			len(chunks),
-			s.MaxChunksPerDoc,
+			s.maxChunksPerDoc,
 		)
 	}
 
-	documentMetadata := cloneMap(input.Metadata)
-
-	if productInfo != nil {
-		for key, value := range productInfo.ToMap() {
-			documentMetadata[key] = value
-		}
-
-		documentMetadata["document_type"] = "product"
-	}
+	documentMetadata := input.Metadata.withProduct(productInfo)
 
 	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(input.Content)))
 	for attempt := 0; attempt < 2; attempt++ {
-		err = s.ingestOnce(ctx, input, documentMetadata, productInfo, chunks, checksum)
+		err = s.ingestOnce(ctx, input, documentMetadata, chunks, checksum)
 		if !errors.Is(err, errSourceCreateConflict) {
 			break
 		}
@@ -182,15 +179,14 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) error {
 }
 
 type ingestInput struct {
-	KnowledgeBaseID int
-	FolderID        *int
+	KnowledgeBaseID uint64
+	FolderID        *uint64
 
 	Source  string
 	Title   string
 	Content string
 
-	Metadata map[string]any
-
+	Metadata     Metadata
 	OwnerSubject string
 	Visibility   document.Visibility
 }
@@ -200,15 +196,21 @@ func validateIngestRequest(req IngestRequest) (ingestInput, error) {
 		Source:          strings.TrimSpace(req.Source),
 		Title:           strings.TrimSpace(req.Title),
 		Content:         req.Content,
-		OwnerSubject:    strings.TrimSpace(req.OwnerSubject),
-		Visibility:      document.Visibility(strings.ToLower(strings.TrimSpace(req.Visibility))),
-		Metadata:        cloneMap(req.Metadata),
-		KnowledgeBaseID: req.KnowledgeBaseID,
-		FolderID:        req.FolderID,
+		OwnerSubject:    strings.TrimSpace(req.Target.OwnerSubject),
+		Visibility:      document.Visibility(strings.ToLower(strings.TrimSpace(req.Target.Visibility))),
+		Metadata:        NewMetadata(req.Target.Metadata.values),
+		KnowledgeBaseID: req.Target.KnowledgeBaseID,
+		FolderID:        cloneUint64Pointer(req.Target.FolderID),
 	}
 
 	if input.Source == "" {
 		return ingestInput{}, errors.New("document source is required")
+	}
+	if input.KnowledgeBaseID == 0 {
+		return ingestInput{}, errors.New("knowledge base id is required")
+	}
+	if input.FolderID != nil && *input.FolderID == 0 {
+		return ingestInput{}, errors.New("folder id must be greater than zero")
 	}
 	if input.Title == "" {
 		return ingestInput{}, errors.New("document title is required")
@@ -238,17 +240,23 @@ func validateIngestRequest(req IngestRequest) (ingestInput, error) {
 	default:
 		return ingestInput{}, fmt.Errorf(
 			"document visibility %q must be system or private",
-			req.Visibility,
+			req.Target.Visibility,
 		)
 	}
 
 	return input, nil
 }
 
-func (s *Service) ingestOnce(ctx context.Context, input ingestInput, metadata map[string]any, productInfo *product.Product, chunks []Chunk, checksum string) (err error) {
-	return entx.WithTx(ctx, s.Client, func(tx *ent.Tx) error {
+func (s *Service) ingestOnce(ctx context.Context, input ingestInput, metadata Metadata, chunks []Chunk, checksum string) (err error) {
+	return entx.WithTx(ctx, s.client, func(tx *ent.Tx) error {
 		client := tx.Client()
-		doc, created, err := upsertDocument(ctx, client, input, checksum)
+		doc, created, err := upsertDocument(
+			ctx,
+			client,
+			input,
+			metadata.storageValue(),
+			checksum,
+		)
 		if err != nil {
 			if created && ent.IsConstraintError(err) {
 				return errSourceCreateConflict
@@ -266,7 +274,7 @@ func (s *Service) ingestOnce(ctx context.Context, input ingestInput, metadata ma
 			if err := queueVectorOperation(
 				ctx,
 				client,
-				int64(chunk.ID),
+				chunk.ID,
 				vectoroutbox.OperationDelete,
 			); err != nil {
 				return err
@@ -282,12 +290,10 @@ func (s *Service) ingestOnce(ctx context.Context, input ingestInput, metadata ma
 		}
 
 		for index, chunk := range chunks {
-			chunkMetadata := BuildChunkMetadata(
-				metadata,
-				productInfo,
+			chunkMetadata := metadata.forChunk(
 				chunk.HeadingPath,
 				chunk.Content,
-			)
+			).storageValue()
 			record, err := client.DocumentChunk.Create().
 				SetDocumentID(doc.ID).
 				SetChunkIndex(index).
@@ -298,14 +304,14 @@ func (s *Service) ingestOnce(ctx context.Context, input ingestInput, metadata ma
 				SetEndLine(chunk.EndLine).
 				SetMetadata(chunkMetadata).
 				SetCharacterCount(len([]rune(chunk.Content))).
-				SetEmbeddingModel(strings.TrimSpace(s.EmbeddingModel)).
+				SetEmbeddingModel(strings.TrimSpace(s.embeddingModel)).
 				SetVectorStatus(documentchunk.VectorStatusPending).
 				Save(ctx)
 			if err != nil {
 				return fmt.Errorf("create document chunk %d: %w", index, err)
 			}
 
-			if err := queueVectorOperation(ctx, client, int64(record.ID), vectoroutbox.OperationUpsert); err != nil {
+			if err := queueVectorOperation(ctx, client, record.ID, vectoroutbox.OperationUpsert); err != nil {
 				return err
 			}
 		}
@@ -356,7 +362,7 @@ func upsertDocument(ctx context.Context, client *ent.Client, input ingestInput, 
 	return created, true, nil
 }
 
-func queueVectorOperation(ctx context.Context, client *ent.Client, chunkID int64, operation vectoroutbox.Operation) error {
+func queueVectorOperation(ctx context.Context, client *ent.Client, chunkID uint64, operation vectoroutbox.Operation) error {
 	existing, err := client.VectorOutbox.Query().
 		Where(vectoroutbox.ChunkIDEQ(chunkID)).
 		Only(ctx)
@@ -399,6 +405,14 @@ func optionalString(value string) *string {
 	}
 
 	return &value
+}
+
+func cloneUint64Pointer(value *uint64) *uint64 {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }
 
 func containsControlCharacter(value string) bool {

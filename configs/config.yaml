@@ -79,7 +79,7 @@ runtime:
   readTimeoutSeconds: 15
   writeTimeoutSeconds: 120
   idleTimeoutSeconds: 60
-  maxRequestBodyBytes: 1048576
+  maxRequestBodyBytes: 5242880
 
 observability:
   logLevel: "info"
