@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"eino-quickstart/internal/infrastructure/embedding"
 	"log"
 	"os"
 	"os/signal"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"eino-quickstart/internal/knowledge"
-	"eino-quickstart/internal/knowledge/embedding"
 	"eino-quickstart/internal/knowledge/vectorstore"
 	"eino-quickstart/internal/platform/config"
 	"eino-quickstart/internal/platform/storage/entx"

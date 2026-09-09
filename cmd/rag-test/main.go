@@ -3,13 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
+	"eino-quickstart/internal/infrastructure/embedding"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
-	"eino-quickstart/internal/knowledge/embedding"
 	"eino-quickstart/internal/knowledge/retrieval"
 	"eino-quickstart/internal/knowledge/vectorstore"
 	"eino-quickstart/internal/platform/config"
