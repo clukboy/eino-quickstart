@@ -21,8 +21,6 @@ const (
 	FieldTitle = "title"
 	// FieldMetadata holds the string denoting the metadata field in the database.
 	FieldMetadata = "metadata"
-	// FieldChecksum holds the string denoting the checksum field in the database.
-	FieldChecksum = "checksum"
 	// FieldOwnerSubject holds the string denoting the owner_subject field in the database.
 	FieldOwnerSubject = "owner_subject"
 	// FieldVisibility holds the string denoting the visibility field in the database.
@@ -37,28 +35,10 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
-	// EdgeKnowledgeBase holds the string denoting the knowledge_base edge name in mutations.
-	EdgeKnowledgeBase = "knowledge_base"
-	// EdgeFolder holds the string denoting the folder edge name in mutations.
-	EdgeFolder = "folder"
 	// EdgeChunks holds the string denoting the chunks edge name in mutations.
 	EdgeChunks = "chunks"
 	// Table holds the table name of the document in the database.
 	Table = "documents"
-	// KnowledgeBaseTable is the table that holds the knowledge_base relation/edge.
-	KnowledgeBaseTable = "documents"
-	// KnowledgeBaseInverseTable is the table name for the KnowledgeBase entity.
-	// It exists in this package in order to avoid circular dependency with the "knowledgebase" package.
-	KnowledgeBaseInverseTable = "knowledge_bases"
-	// KnowledgeBaseColumn is the table column denoting the knowledge_base relation/edge.
-	KnowledgeBaseColumn = "knowledge_base_id"
-	// FolderTable is the table that holds the folder relation/edge.
-	FolderTable = "documents"
-	// FolderInverseTable is the table name for the KnowledgeFolder entity.
-	// It exists in this package in order to avoid circular dependency with the "knowledgefolder" package.
-	FolderInverseTable = "knowledge_folders"
-	// FolderColumn is the table column denoting the folder relation/edge.
-	FolderColumn = "folder_id"
 	// ChunksTable is the table that holds the chunks relation/edge.
 	ChunksTable = "document_chunks"
 	// ChunksInverseTable is the table name for the DocumentChunk entity.
@@ -74,7 +54,6 @@ var Columns = []string{
 	FieldSource,
 	FieldTitle,
 	FieldMetadata,
-	FieldChecksum,
 	FieldOwnerSubject,
 	FieldVisibility,
 	FieldStatus,
@@ -84,10 +63,22 @@ var Columns = []string{
 	FieldUpdatedAt,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "documents"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"knowledge_base_documents",
+	"knowledge_folder_documents",
+}
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -97,6 +88,8 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultOwnerSubject holds the default value on creation for the "owner_subject" field.
 	DefaultOwnerSubject string
+	// DefaultKnowledgeBaseID holds the default value on creation for the "knowledge_base_id" field.
+	DefaultKnowledgeBaseID uint64
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -177,11 +170,6 @@ func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTitle, opts...).ToFunc()
 }
 
-// ByChecksum orders the results by the checksum field.
-func ByChecksum(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldChecksum, opts...).ToFunc()
-}
-
 // ByOwnerSubject orders the results by the owner_subject field.
 func ByOwnerSubject(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOwnerSubject, opts...).ToFunc()
@@ -217,20 +205,6 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
-// ByKnowledgeBaseField orders the results by knowledge_base field.
-func ByKnowledgeBaseField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newKnowledgeBaseStep(), sql.OrderByField(field, opts...))
-	}
-}
-
-// ByFolderField orders the results by folder field.
-func ByFolderField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newFolderStep(), sql.OrderByField(field, opts...))
-	}
-}
-
 // ByChunksCount orders the results by chunks count.
 func ByChunksCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -243,20 +217,6 @@ func ByChunks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newChunksStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
-}
-func newKnowledgeBaseStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(KnowledgeBaseInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, KnowledgeBaseTable, KnowledgeBaseColumn),
-	)
-}
-func newFolderStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(FolderInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, FolderTable, FolderColumn),
-	)
 }
 func newChunksStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

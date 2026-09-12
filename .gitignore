@@ -5,3 +5,5 @@ workspace/
 .idea/**
 ./maintenance
 ./server
+.workbuddy
+.vscode

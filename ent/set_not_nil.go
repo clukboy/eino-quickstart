@@ -855,30 +855,6 @@ func (_m *DocumentCreate) SetNotNilMetadata(value *map[string]interface{}) *Docu
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdate) SetNotNilChecksum(value *string) *DocumentUpdate {
-	if value != nil {
-		return _m.SetChecksum(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentUpdateOne) SetNotNilChecksum(value *string) *DocumentUpdateOne {
-	if value != nil {
-		return _m.SetChecksum(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentCreate) SetNotNilChecksum(value *string) *DocumentCreate {
-	if value != nil {
-		return _m.SetChecksum(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
 func (_m *DocumentUpdate) SetNotNilOwnerSubject(value *string) *DocumentUpdate {
 	if value != nil {
 		return _m.SetOwnerSubject(*value)
@@ -1090,102 +1066,6 @@ func (_m *DocumentChunkUpdateOne) SetNotNilMetadata(value *map[string]interface{
 func (_m *DocumentChunkCreate) SetNotNilMetadata(value *map[string]interface{}) *DocumentChunkCreate {
 	if value != nil {
 		return _m.SetMetadata(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdate) SetNotNilStartLine(value *int) *DocumentChunkUpdate {
-	if value != nil {
-		return _m.SetStartLine(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdateOne) SetNotNilStartLine(value *int) *DocumentChunkUpdateOne {
-	if value != nil {
-		return _m.SetStartLine(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkCreate) SetNotNilStartLine(value *int) *DocumentChunkCreate {
-	if value != nil {
-		return _m.SetStartLine(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdate) SetNotNilEndLine(value *int) *DocumentChunkUpdate {
-	if value != nil {
-		return _m.SetEndLine(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdateOne) SetNotNilEndLine(value *int) *DocumentChunkUpdateOne {
-	if value != nil {
-		return _m.SetEndLine(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkCreate) SetNotNilEndLine(value *int) *DocumentChunkCreate {
-	if value != nil {
-		return _m.SetEndLine(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdate) SetNotNilCharacterCount(value *int) *DocumentChunkUpdate {
-	if value != nil {
-		return _m.SetCharacterCount(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdateOne) SetNotNilCharacterCount(value *int) *DocumentChunkUpdateOne {
-	if value != nil {
-		return _m.SetCharacterCount(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkCreate) SetNotNilCharacterCount(value *int) *DocumentChunkCreate {
-	if value != nil {
-		return _m.SetCharacterCount(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdate) SetNotNilEmbeddingModel(value *string) *DocumentChunkUpdate {
-	if value != nil {
-		return _m.SetEmbeddingModel(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkUpdateOne) SetNotNilEmbeddingModel(value *string) *DocumentChunkUpdateOne {
-	if value != nil {
-		return _m.SetEmbeddingModel(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *DocumentChunkCreate) SetNotNilEmbeddingModel(value *string) *DocumentChunkCreate {
-	if value != nil {
-		return _m.SetEmbeddingModel(*value)
 	}
 	return _m
 }

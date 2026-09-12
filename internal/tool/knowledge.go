@@ -8,15 +8,11 @@ import (
 	"fmt"
 	"strings"
 
-	retrieval "eino-quickstart/internal/knowledge/retrieval"
-	"eino-quickstart/internal/platform/auth"
-
-	einotool "github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
 )
 
 type KnowledgeSearch struct {
-	Retriever    retrieval.Retriever
 	ActorSubject string
 	Bindings     KnowledgeBaseBindings
 
@@ -73,16 +69,16 @@ type knowledgeSearchInput struct {
 }
 
 // NewKnowledgeSearch creates the search_knowledge Eino tool.
-func NewKnowledgeSearch(retriever retrieval.Retriever, actorSubject string) (einotool.InvokableTool, error) {
+func NewKnowledgeSearch(actorSubject string) (tool.InvokableTool, error) {
 	return nil, errors.New(
 		"knowledge search requires an explicit knowledge base allowlist",
 	)
 }
 
-func NewKnowledgeSearchWithKnowledgeBases(retriever retrieval.Retriever, actorSubject string, knowledgeBaseIDs []uint64) (einotool.InvokableTool, error) {
-	if retriever == nil {
-		return nil, errors.New("knowledge retriever is required")
-	}
+func NewKnowledgeSearchWithKnowledgeBases(actorSubject string, knowledgeBaseIDs []uint64) (tool.InvokableTool, error) {
+	// if retriever == nil {
+	// 	return nil, errors.New("knowledge retriever is required")
+	// }
 	allowedKnowledgeBaseIDs := normalizeKnowledgeBaseIDs(knowledgeBaseIDs)
 	if len(allowedKnowledgeBaseIDs) == 0 {
 		return nil, errors.New(
@@ -91,7 +87,7 @@ func NewKnowledgeSearchWithKnowledgeBases(retriever retrieval.Retriever, actorSu
 	}
 
 	search := &KnowledgeSearch{
-		Retriever:               retriever,
+		// Retriever:               retriever,
 		ActorSubject:            strings.TrimSpace(actorSubject),
 		AllowedKnowledgeBaseIDs: allowedKnowledgeBaseIDs,
 	}
@@ -100,14 +96,10 @@ func NewKnowledgeSearchWithKnowledgeBases(retriever retrieval.Retriever, actorSu
 
 // NewKnowledgeSearchWithBindings creates a search tool whose KB whitelist is
 // resolved from the authenticated subject every time the tool is invoked.
-func NewKnowledgeSearchWithBindings(
-	retriever retrieval.Retriever,
-	actorSubject string,
-	bindings KnowledgeBaseBindings,
-) (einotool.InvokableTool, error) {
-	if retriever == nil {
-		return nil, errors.New("knowledge retriever is required")
-	}
+func NewKnowledgeSearchWithBindings(actorSubject string, bindings KnowledgeBaseBindings) (tool.InvokableTool, error) {
+	// if retriever == nil {
+	// 	return nil, errors.New("knowledge retriever is required")
+	// }
 	if bindings == nil {
 		return nil, errors.New("knowledge base bindings are required")
 	}
@@ -115,7 +107,6 @@ func NewKnowledgeSearchWithBindings(
 		"search_knowledge",
 		"Search authorized knowledge documents and return cited source excerpts.",
 		(&KnowledgeSearch{
-			Retriever:    retriever,
 			ActorSubject: strings.TrimSpace(actorSubject),
 			Bindings:     bindings,
 		}).run,
@@ -123,76 +114,77 @@ func NewKnowledgeSearchWithBindings(
 }
 
 // NewKnowledgeSearchTool is an alias for NewKnowledgeSearch.
-func NewKnowledgeSearchTool(retriever retrieval.Retriever, actorSubject string) (einotool.InvokableTool, error) {
-	return NewKnowledgeSearch(retriever, actorSubject)
+func NewKnowledgeSearchTool(actorSubject string) (tool.InvokableTool, error) {
+	return NewKnowledgeSearch(actorSubject)
 }
 
 func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (string, error) {
-	if s == nil || s.Retriever == nil {
-		return "", errors.New("knowledge retriever is required")
-	}
+	// if s == nil {
+	// 	return "", errors.New("knowledge search is not initialized")
+	// }
 
-	query := strings.TrimSpace(input.Query)
-	if query == "" {
-		return "", errors.New("knowledge query is required")
-	}
-	if input.TopK < 0 {
-		return "", errors.New("knowledge topK must not be negative")
-	}
+	// query := strings.TrimSpace(input.Query)
+	// if query == "" {
+	// 	return "", errors.New("knowledge query is required")
+	// }
+	// if input.TopK < 0 {
+	// 	return "", errors.New("knowledge topK must not be negative")
+	// }
 
-	actorSubject := s.ActorSubject
-	if identity, ok := auth.IdentityFromContext(ctx); ok {
-		actorSubject = identity.Subject
-	}
-	actorSubject = strings.TrimSpace(actorSubject)
-	if actorSubject == "" {
-		return "", errors.New("authenticated actor subject is required")
-	}
-	knowledgeBaseIDs := s.AllowedKnowledgeBaseIDs
-	if s.Bindings != nil {
-		resolvedIDs, err := s.Bindings.KnowledgeBaseIDs(ctx, actorSubject)
-		if err != nil {
-			return "", fmt.Errorf("resolve knowledge base bindings: %w", err)
-		}
-		knowledgeBaseIDs = resolvedIDs
-	}
+	// actorSubject := s.ActorSubject
+	// if identity, ok := auth.IdentityFromContext(ctx); ok {
+	// 	actorSubject = identity.Subject
+	// }
+	// actorSubject = strings.TrimSpace(actorSubject)
+	// if actorSubject == "" {
+	// 	return "", errors.New("authenticated actor subject is required")
+	// }
+	// knowledgeBaseIDs := s.AllowedKnowledgeBaseIDs
+	// if s.Bindings != nil {
+	// 	resolvedIDs, err := s.Bindings.KnowledgeBaseIDs(ctx, actorSubject)
+	// 	if err != nil {
+	// 		return "", fmt.Errorf("resolve knowledge base bindings: %w", err)
+	// 	}
+	// 	knowledgeBaseIDs = resolvedIDs
+	// }
 
-	results, err := s.Retriever.Search(ctx, retrieval.SearchRequest{
-		ActorSubject:     actorSubject,
-		Query:            query,
-		TopK:             input.TopK,
-		KnowledgeBaseIDs: knowledgeBaseIDs,
-	})
-	if err != nil {
-		return "", fmt.Errorf("search knowledge: %w", err)
-	}
-	if len(results) == 0 {
-		return "No authorized knowledge-base results found.", nil
-	}
+	// results, err := s.Retriever.Search(ctx, retrieval.SearchRequest{
+	// 	ActorSubject:     actorSubject,
+	// 	Query:            query,
+	// 	TopK:             input.TopK,
+	// 	KnowledgeBaseIDs: knowledgeBaseIDs,
+	// })
+	// if err != nil {
+	// 	return "", fmt.Errorf("search knowledge: %w", err)
+	// }
+	// if len(results) == 0 {
+	// 	return "No authorized knowledge-base results found.", nil
+	// }
 
-	var output strings.Builder
-	output.WriteString("Authorized knowledge search results:\n")
-	for _, result := range results {
-		citation := strings.TrimSpace(result.CitationID)
-		if citation == "" {
-			citation = fmt.Sprintf("%s#chunk-%d", result.Source, result.ChunkID)
-		}
+	// var output strings.Builder
+	// output.WriteString("Authorized knowledge search results:\n")
+	// for _, result := range results {
+	// 	citation := strings.TrimSpace(result.CitationID)
+	// 	if citation == "" {
+	// 		citation = fmt.Sprintf("%s#chunk-%d", result.Source, result.ChunkID)
+	// 	}
 
-		fmt.Fprintf(&output, "\n[%s]\n", citation)
-		fmt.Fprintf(&output, "Source: %s\n", result.Source)
-		if result.Title != "" {
-			fmt.Fprintf(&output, "Title: %s\n", result.Title)
-		}
-		if result.HeadingPath != "" {
-			fmt.Fprintf(&output, "Section: %s\n", result.HeadingPath)
-		}
-		if result.StartLine > 0 || result.EndLine > 0 {
-			fmt.Fprintf(&output, "Lines: %d-%d\n", result.StartLine, result.EndLine)
-		}
-		fmt.Fprintf(&output, "Excerpt: %s\n", result.Content)
-	}
+	// 	fmt.Fprintf(&output, "\n[%s]\n", citation)
+	// 	fmt.Fprintf(&output, "Source: %s\n", result.Source)
+	// 	if result.Title != "" {
+	// 		fmt.Fprintf(&output, "Title: %s\n", result.Title)
+	// 	}
+	// 	if result.HeadingPath != "" {
+	// 		fmt.Fprintf(&output, "Section: %s\n", result.HeadingPath)
+	// 	}
+	// 	if result.StartLine > 0 || result.EndLine > 0 {
+	// 		fmt.Fprintf(&output, "Lines: %d-%d\n", result.StartLine, result.EndLine)
+	// 	}
+	// 	fmt.Fprintf(&output, "Excerpt: %s\n", result.Content)
+	// }
 
-	return output.String(), nil
+	// return output.String(), nil
+	return "", nil
 }
 
 func normalizeKnowledgeBaseIDs(knowledgeBaseIDs []uint64) []uint64 {

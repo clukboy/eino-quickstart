@@ -195,14 +195,15 @@ var (
 		{Name: "source", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
-		{Name: "checksum", Type: field.TypeString},
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
 		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ready", "indexing", "failed", "deleted"}, Default: "indexing"},
+		{Name: "knowledge_base_id", Type: field.TypeUint64, Default: 0},
+		{Name: "folder_id", Type: field.TypeUint64, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "knowledge_base_id", Type: field.TypeUint64},
-		{Name: "folder_id", Type: field.TypeUint64, Nullable: true},
+		{Name: "knowledge_base_documents", Type: field.TypeUint64, Nullable: true},
+		{Name: "knowledge_folder_documents", Type: field.TypeUint64, Nullable: true},
 	}
 	// DocumentsTable holds the schema information for the "documents" table.
 	DocumentsTable = &schema.Table{
@@ -212,32 +213,22 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "documents_knowledge_bases_documents",
-				Columns:    []*schema.Column{DocumentsColumns[10]},
+				Columns:    []*schema.Column{DocumentsColumns[11]},
 				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "documents_knowledge_folders_documents",
-				Columns:    []*schema.Column{DocumentsColumns[11]},
+				Columns:    []*schema.Column{DocumentsColumns[12]},
 				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "document_knowledge_base_id_source",
-				Unique:  true,
-				Columns: []*schema.Column{DocumentsColumns[10], DocumentsColumns[1]},
-			},
-			{
 				Name:    "document_owner_subject_visibility",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentsColumns[5], DocumentsColumns[6]},
-			},
-			{
-				Name:    "document_checksum",
-				Unique:  false,
-				Columns: []*schema.Column{DocumentsColumns[4]},
+				Columns: []*schema.Column{DocumentsColumns[4], DocumentsColumns[5]},
 			},
 		},
 	}
@@ -245,14 +236,9 @@ var (
 	DocumentChunksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "chunk_index", Type: field.TypeInt},
-		{Name: "citation_id", Type: field.TypeString, Unique: true},
 		{Name: "content", Type: field.TypeString, Size: 2147483647},
 		{Name: "heading_path", Type: field.TypeString, Nullable: true},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
-		{Name: "start_line", Type: field.TypeInt},
-		{Name: "end_line", Type: field.TypeInt},
-		{Name: "character_count", Type: field.TypeInt},
-		{Name: "embedding_model", Type: field.TypeString},
 		{Name: "vector_status", Type: field.TypeEnum, Enums: []string{"pending", "indexed", "failed", "deleting"}, Default: "pending"},
 		{Name: "indexed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -266,7 +252,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "document_chunks_documents_chunks",
-				Columns:    []*schema.Column{DocumentChunksColumns[13]},
+				Columns:    []*schema.Column{DocumentChunksColumns[8]},
 				RefColumns: []*schema.Column{DocumentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -275,17 +261,17 @@ var (
 			{
 				Name:    "documentchunk_chunk_index_document_chunks",
 				Unique:  true,
-				Columns: []*schema.Column{DocumentChunksColumns[1], DocumentChunksColumns[13]},
+				Columns: []*schema.Column{DocumentChunksColumns[1], DocumentChunksColumns[8]},
 			},
 			{
 				Name:    "documentchunk_vector_status",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentChunksColumns[10]},
+				Columns: []*schema.Column{DocumentChunksColumns[5]},
 			},
 			{
 				Name:    "documentchunk_metadata",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentChunksColumns[5]},
+				Columns: []*schema.Column{DocumentChunksColumns[4]},
 				Annotation: &entsql.IndexAnnotation{
 					Types: map[string]string{
 						"postgres": "GIN",

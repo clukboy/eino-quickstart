@@ -1238,38 +1238,6 @@ func (c *DocumentClient) GetX(ctx context.Context, id uint64) *Document {
 	return obj
 }
 
-// QueryKnowledgeBase queries the knowledge_base edge of a Document.
-func (c *DocumentClient) QueryKnowledgeBase(_m *Document) *KnowledgeBaseQuery {
-	query := (&KnowledgeBaseClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(document.Table, document.FieldID, id),
-			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, document.KnowledgeBaseTable, document.KnowledgeBaseColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryFolder queries the folder edge of a Document.
-func (c *DocumentClient) QueryFolder(_m *Document) *KnowledgeFolderQuery {
-	query := (&KnowledgeFolderClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(document.Table, document.FieldID, id),
-			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, document.FolderTable, document.FolderColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryChunks queries the chunks edge of a Document.
 func (c *DocumentClient) QueryChunks(_m *Document) *DocumentChunkQuery {
 	query := (&DocumentChunkClient{config: c.config}).Query()

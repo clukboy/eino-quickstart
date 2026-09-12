@@ -59,7 +59,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "document" package.
 	DocumentsInverseTable = "documents"
 	// DocumentsColumn is the table column denoting the documents relation/edge.
-	DocumentsColumn = "folder_id"
+	DocumentsColumn = "knowledge_folder_documents"
 )
 
 // Columns holds all SQL columns for knowledgefolder fields.

@@ -3,18 +3,15 @@ package server
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"eino-quickstart/ent"
 	"eino-quickstart/ent/agentknowledgebase"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/knowledgebase"
-	"eino-quickstart/internal/knowledge"
 	"eino-quickstart/internal/platform/auth"
 
 	"github.com/goccy/go-json"
@@ -128,87 +125,87 @@ func (s *Server) getKnowledgeBase(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) uploadKnowledgeDocument(w http.ResponseWriter, r *http.Request) {
-	client, ok := s.knowledgeClient(w)
-	if !ok {
-		return
-	}
-	if s.KnowledgeIngestor == nil || s.KnowledgeMaxDocumentBytes <= 0 {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "knowledge ingestion is unavailable"})
-		return
-	}
-	knowledgeBaseID, ok := knowledgeBaseIDFromPath(w, r)
-	if !ok {
-		return
-	}
-	base, err := client.KnowledgeBase.Get(r.Context(), knowledgeBaseID)
-	if ent.IsNotFound(err) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "knowledge base not found"})
-		return
-	}
-	if err != nil {
-		writeKnowledgeError(w, err)
-		return
-	}
-	if base.Status != knowledgebase.StatusACTIVE {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "knowledge base is disabled"})
-		return
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "multipart field file is required"})
-		return
-	}
-	defer file.Close()
-	content, err := io.ReadAll(io.LimitReader(file, int64(s.KnowledgeMaxDocumentBytes)+1))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "read uploaded file: " + err.Error()})
-		return
-	}
-	source, err := uploadSource(header.Filename)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	if len(content) == 0 || len(content) > s.KnowledgeMaxDocumentBytes {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("document size must be between 1 and %d bytes", s.KnowledgeMaxDocumentBytes)})
-		return
-	}
-	if !utf8.Valid(content) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "knowledge document must be valid UTF-8"})
-		return
-	}
-	metadata, err := uploadMetadata(r.FormValue("metadata"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	title := strings.TrimSpace(r.FormValue("title"))
-	if title == "" {
-		title = strings.TrimSuffix(source, filepath.Ext(source))
-	}
-	if err := s.KnowledgeIngestor.Ingest(r.Context(), knowledge.IngestRequest{
-		Source: source, Title: title, Content: string(content),
-		Target: knowledge.IngestTarget{
-			KnowledgeBaseID: knowledgeBaseID, Metadata: metadata,
-			OwnerSubject: base.OwnerSubject, Visibility: string(base.Visibility),
-		},
-	}); err != nil {
-		writeKnowledgeError(w, err)
-		return
-	}
-	doc, err := client.Document.Query().
-		Where(document.KnowledgeBaseIDEQ(knowledgeBaseID), document.SourceEQ(source)).
-		Only(r.Context())
-	if err != nil {
-		writeKnowledgeError(w, err)
-		return
-	}
-	response, err := documentDTO(r, doc)
-	if err != nil {
-		writeKnowledgeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusAccepted, response)
+	// client, ok := s.knowledgeClient(w)
+	// if !ok {
+	// 	return
+	// }
+	// if s.KnowledgeIngestor == nil || s.KnowledgeMaxDocumentBytes <= 0 {
+	// 	writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "knowledge ingestion is unavailable"})
+	// 	return
+	// }
+	// knowledgeBaseID, ok := knowledgeBaseIDFromPath(w, r)
+	// if !ok {
+	// 	return
+	// }
+	// base, err := client.KnowledgeBase.Get(r.Context(), knowledgeBaseID)
+	// if ent.IsNotFound(err) {
+	// 	writeJSON(w, http.StatusNotFound, map[string]string{"error": "knowledge base not found"})
+	// 	return
+	// }
+	// if err != nil {
+	// 	writeKnowledgeError(w, err)
+	// 	return
+	// }
+	// if base.Status != knowledgebase.StatusACTIVE {
+	// 	writeJSON(w, http.StatusConflict, map[string]string{"error": "knowledge base is disabled"})
+	// 	return
+	// }
+	// file, header, err := r.FormFile("file")
+	// if err != nil {
+	// 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": "multipart field file is required"})
+	// 	return
+	// }
+	// defer file.Close()
+	// content, err := io.ReadAll(io.LimitReader(file, int64(s.KnowledgeMaxDocumentBytes)+1))
+	// if err != nil {
+	// 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": "read uploaded file: " + err.Error()})
+	// 	return
+	// }
+	// source, err := uploadSource(header.Filename)
+	// if err != nil {
+	// 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+	// 	return
+	// }
+	// if len(content) == 0 || len(content) > s.KnowledgeMaxDocumentBytes {
+	// 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("document size must be between 1 and %d bytes", s.KnowledgeMaxDocumentBytes)})
+	// 	return
+	// }
+	// if !utf8.Valid(content) {
+	// 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": "knowledge document must be valid UTF-8"})
+	// 	return
+	// }
+	// metadata, err := uploadMetadata(r.FormValue("metadata"))
+	// if err != nil {
+	// 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+	// 	return
+	// }
+	// title := strings.TrimSpace(r.FormValue("title"))
+	// if title == "" {
+	// 	title = strings.TrimSuffix(source, filepath.Ext(source))
+	// }
+	// if err := s.KnowledgeIngestor.Ingest(r.Context(), knowledge.IngestRequest{
+	// 	Source: source, Title: title, Content: string(content),
+	// 	Target: knowledge.IngestTarget{
+	// 		KnowledgeBaseID: knowledgeBaseID, Metadata: metadata,
+	// 		OwnerSubject: base.OwnerSubject, Visibility: string(base.Visibility),
+	// 	},
+	// }); err != nil {
+	// 	writeKnowledgeError(w, err)
+	// 	return
+	// }
+	// doc, err := client.Document.Query().
+	// 	Where(document.KnowledgeBaseIDEQ(knowledgeBaseID), document.SourceEQ(source)).
+	// 	Only(r.Context())
+	// if err != nil {
+	// 	writeKnowledgeError(w, err)
+	// 	return
+	// }
+	// response, err := documentDTO(r, doc)
+	// if err != nil {
+	// 	writeKnowledgeError(w, err)
+	// 	return
+	// }
+	writeJSON(w, http.StatusAccepted, nil)
 }
 
 func (s *Server) listKnowledgeDocuments(w http.ResponseWriter, r *http.Request) {
@@ -377,16 +374,16 @@ func agentSubjectFromPath(w http.ResponseWriter, r *http.Request) (string, bool)
 	return subject, true
 }
 
-func uploadMetadata(raw string) (knowledge.Metadata, error) {
-	if strings.TrimSpace(raw) == "" {
-		return knowledge.NewMetadata(nil), nil
-	}
-	var values map[string]any
-	if err := json.Unmarshal([]byte(raw), &values); err != nil || values == nil {
-		return knowledge.Metadata{}, errors.New("metadata must be a JSON object")
-	}
-	return knowledge.NewMetadata(values), nil
-}
+// func uploadMetadata(raw string) (knowledge.Metadata, error) {
+// 	if strings.TrimSpace(raw) == "" {
+// 		return knowledge.NewMetadata(nil), nil
+// 	}
+// 	var values map[string]any
+// 	if err := json.Unmarshal([]byte(raw), &values); err != nil || values == nil {
+// 		return knowledge.Metadata{}, errors.New("metadata must be a JSON object")
+// 	}
+// 	return knowledge.NewMetadata(values), nil
+// }
 
 func uploadSource(filename string) (string, error) {
 	filename = strings.TrimSpace(filename)

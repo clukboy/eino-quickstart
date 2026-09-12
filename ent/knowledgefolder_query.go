@@ -635,9 +635,7 @@ func (_q *KnowledgeFolderQuery) loadDocuments(ctx context.Context, query *Docume
 			init(nodes[i])
 		}
 	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(document.FieldFolderID)
-	}
+	query.withFKs = true
 	query.Where(predicate.Document(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(knowledgefolder.DocumentsColumn), fks...))
 	}))
@@ -646,13 +644,13 @@ func (_q *KnowledgeFolderQuery) loadDocuments(ctx context.Context, query *Docume
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.FolderID
+		fk := n.knowledge_folder_documents
 		if fk == nil {
-			return fmt.Errorf(`foreign-key "folder_id" is nil for node %v`, n.ID)
+			return fmt.Errorf(`foreign-key "knowledge_folder_documents" is nil for node %v`, n.ID)
 		}
 		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "folder_id" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "knowledge_folder_documents" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

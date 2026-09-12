@@ -7,8 +7,6 @@ import (
 	"database/sql/driver"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
-	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/predicate"
 	"fmt"
 	"math"
@@ -22,13 +20,12 @@ import (
 // DocumentQuery is the builder for querying Document entities.
 type DocumentQuery struct {
 	config
-	ctx               *QueryContext
-	order             []document.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.Document
-	withKnowledgeBase *KnowledgeBaseQuery
-	withFolder        *KnowledgeFolderQuery
-	withChunks        *DocumentChunkQuery
+	ctx        *QueryContext
+	order      []document.OrderOption
+	inters     []Interceptor
+	predicates []predicate.Document
+	withChunks *DocumentChunkQuery
+	withFKs    bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -63,50 +60,6 @@ func (_q *DocumentQuery) Unique(unique bool) *DocumentQuery {
 func (_q *DocumentQuery) Order(o ...document.OrderOption) *DocumentQuery {
 	_q.order = append(_q.order, o...)
 	return _q
-}
-
-// QueryKnowledgeBase chains the current query on the "knowledge_base" edge.
-func (_q *DocumentQuery) QueryKnowledgeBase() *KnowledgeBaseQuery {
-	query := (&KnowledgeBaseClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(document.Table, document.FieldID, selector),
-			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, document.KnowledgeBaseTable, document.KnowledgeBaseColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryFolder chains the current query on the "folder" edge.
-func (_q *DocumentQuery) QueryFolder() *KnowledgeFolderQuery {
-	query := (&KnowledgeFolderClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(document.Table, document.FieldID, selector),
-			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, document.FolderTable, document.FolderColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
 }
 
 // QueryChunks chains the current query on the "chunks" edge.
@@ -318,40 +271,16 @@ func (_q *DocumentQuery) Clone() *DocumentQuery {
 		return nil
 	}
 	return &DocumentQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]document.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.Document{}, _q.predicates...),
-		withKnowledgeBase: _q.withKnowledgeBase.Clone(),
-		withFolder:        _q.withFolder.Clone(),
-		withChunks:        _q.withChunks.Clone(),
+		config:     _q.config,
+		ctx:        _q.ctx.Clone(),
+		order:      append([]document.OrderOption{}, _q.order...),
+		inters:     append([]Interceptor{}, _q.inters...),
+		predicates: append([]predicate.Document{}, _q.predicates...),
+		withChunks: _q.withChunks.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
-}
-
-// WithKnowledgeBase tells the query-builder to eager-load the nodes that are connected to
-// the "knowledge_base" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *DocumentQuery) WithKnowledgeBase(opts ...func(*KnowledgeBaseQuery)) *DocumentQuery {
-	query := (&KnowledgeBaseClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withKnowledgeBase = query
-	return _q
-}
-
-// WithFolder tells the query-builder to eager-load the nodes that are connected to
-// the "folder" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *DocumentQuery) WithFolder(opts ...func(*KnowledgeFolderQuery)) *DocumentQuery {
-	query := (&KnowledgeFolderClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withFolder = query
-	return _q
 }
 
 // WithChunks tells the query-builder to eager-load the nodes that are connected to
@@ -442,13 +371,15 @@ func (_q *DocumentQuery) prepareQuery(ctx context.Context) error {
 func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Document, error) {
 	var (
 		nodes       = []*Document{}
+		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
-			_q.withKnowledgeBase != nil,
-			_q.withFolder != nil,
+		loadedTypes = [1]bool{
 			_q.withChunks != nil,
 		}
 	)
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, document.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Document).scanValues(nil, columns)
 	}
@@ -467,18 +398,6 @@ func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Doc
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withKnowledgeBase; query != nil {
-		if err := _q.loadKnowledgeBase(ctx, query, nodes, nil,
-			func(n *Document, e *KnowledgeBase) { n.Edges.KnowledgeBase = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withFolder; query != nil {
-		if err := _q.loadFolder(ctx, query, nodes, nil,
-			func(n *Document, e *KnowledgeFolder) { n.Edges.Folder = e }); err != nil {
-			return nil, err
-		}
-	}
 	if query := _q.withChunks; query != nil {
 		if err := _q.loadChunks(ctx, query, nodes,
 			func(n *Document) { n.Edges.Chunks = []*DocumentChunk{} },
@@ -489,67 +408,6 @@ func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Doc
 	return nodes, nil
 }
 
-func (_q *DocumentQuery) loadKnowledgeBase(ctx context.Context, query *KnowledgeBaseQuery, nodes []*Document, init func(*Document), assign func(*Document, *KnowledgeBase)) error {
-	ids := make([]uint64, 0, len(nodes))
-	nodeids := make(map[uint64][]*Document)
-	for i := range nodes {
-		fk := nodes[i].KnowledgeBaseID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(knowledgebase.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "knowledge_base_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-func (_q *DocumentQuery) loadFolder(ctx context.Context, query *KnowledgeFolderQuery, nodes []*Document, init func(*Document), assign func(*Document, *KnowledgeFolder)) error {
-	ids := make([]uint64, 0, len(nodes))
-	nodeids := make(map[uint64][]*Document)
-	for i := range nodes {
-		if nodes[i].FolderID == nil {
-			continue
-		}
-		fk := *nodes[i].FolderID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(knowledgefolder.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "folder_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
 func (_q *DocumentQuery) loadChunks(ctx context.Context, query *DocumentChunkQuery, nodes []*Document, init func(*Document), assign func(*Document, *DocumentChunk)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[uint64]*Document)
@@ -606,12 +464,6 @@ func (_q *DocumentQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != document.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
-		}
-		if _q.withKnowledgeBase != nil {
-			_spec.Node.AddColumnOnce(document.FieldKnowledgeBaseID)
-		}
-		if _q.withFolder != nil {
-			_spec.Node.AddColumnOnce(document.FieldFolderID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

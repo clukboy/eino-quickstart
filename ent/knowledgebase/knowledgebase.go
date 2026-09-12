@@ -50,7 +50,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "document" package.
 	DocumentsInverseTable = "documents"
 	// DocumentsColumn is the table column denoting the documents relation/edge.
-	DocumentsColumn = "knowledge_base_id"
+	DocumentsColumn = "knowledge_base_documents"
 	// AgentKnowledgeBindingsTable is the table that holds the agent_knowledge_bindings relation/edge.
 	AgentKnowledgeBindingsTable = "agent_knowledge_bases"
 	// AgentKnowledgeBindingsInverseTable is the table name for the AgentKnowledgeBase entity.

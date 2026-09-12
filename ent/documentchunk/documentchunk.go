@@ -17,22 +17,12 @@ const (
 	FieldID = "id"
 	// FieldChunkIndex holds the string denoting the chunk_index field in the database.
 	FieldChunkIndex = "chunk_index"
-	// FieldCitationID holds the string denoting the citation_id field in the database.
-	FieldCitationID = "citation_id"
 	// FieldContent holds the string denoting the content field in the database.
 	FieldContent = "content"
 	// FieldHeadingPath holds the string denoting the heading_path field in the database.
 	FieldHeadingPath = "heading_path"
 	// FieldMetadata holds the string denoting the metadata field in the database.
 	FieldMetadata = "metadata"
-	// FieldStartLine holds the string denoting the start_line field in the database.
-	FieldStartLine = "start_line"
-	// FieldEndLine holds the string denoting the end_line field in the database.
-	FieldEndLine = "end_line"
-	// FieldCharacterCount holds the string denoting the character_count field in the database.
-	FieldCharacterCount = "character_count"
-	// FieldEmbeddingModel holds the string denoting the embedding_model field in the database.
-	FieldEmbeddingModel = "embedding_model"
 	// FieldVectorStatus holds the string denoting the vector_status field in the database.
 	FieldVectorStatus = "vector_status"
 	// FieldIndexedAt holds the string denoting the indexed_at field in the database.
@@ -56,14 +46,9 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldChunkIndex,
-	FieldCitationID,
 	FieldContent,
 	FieldHeadingPath,
 	FieldMetadata,
-	FieldStartLine,
-	FieldEndLine,
-	FieldCharacterCount,
-	FieldEmbeddingModel,
 	FieldVectorStatus,
 	FieldIndexedAt,
 	FieldCreatedAt,
@@ -136,11 +121,6 @@ func ByChunkIndex(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldChunkIndex, opts...).ToFunc()
 }
 
-// ByCitationID orders the results by the citation_id field.
-func ByCitationID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCitationID, opts...).ToFunc()
-}
-
 // ByContent orders the results by the content field.
 func ByContent(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldContent, opts...).ToFunc()
@@ -149,26 +129,6 @@ func ByContent(opts ...sql.OrderTermOption) OrderOption {
 // ByHeadingPath orders the results by the heading_path field.
 func ByHeadingPath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldHeadingPath, opts...).ToFunc()
-}
-
-// ByStartLine orders the results by the start_line field.
-func ByStartLine(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldStartLine, opts...).ToFunc()
-}
-
-// ByEndLine orders the results by the end_line field.
-func ByEndLine(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldEndLine, opts...).ToFunc()
-}
-
-// ByCharacterCount orders the results by the character_count field.
-func ByCharacterCount(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCharacterCount, opts...).ToFunc()
-}
-
-// ByEmbeddingModel orders the results by the embedding_model field.
-func ByEmbeddingModel(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldEmbeddingModel, opts...).ToFunc()
 }
 
 // ByVectorStatus orders the results by the vector_status field.

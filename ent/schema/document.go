@@ -20,14 +20,14 @@ func (Document) Fields() []ent.Field {
 		field.String("source"),
 		field.String("title"),
 		field.JSON("metadata", map[string]any{}).Optional(),
-		field.String("checksum"),
+		//field.String("checksum"),
 		field.String("owner_subject").Default("system"),
 		field.Enum("visibility").
 			Values("system", "private").
 			Default("system"),
 		field.Enum("status").Values("ready", "indexing", "failed", "deleted").Default("indexing"),
 
-		field.Uint64("knowledge_base_id"),
+		field.Uint64("knowledge_base_id").Default(0),
 		field.Uint64("folder_id").Optional().Nillable(),
 
 		field.Time("created_at").Default(time.Now).Immutable(),
@@ -38,16 +38,16 @@ func (Document) Fields() []ent.Field {
 // Edges of the Document.
 func (Document) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("knowledge_base", KnowledgeBase.Type).
-			Ref("documents").
-			Field("knowledge_base_id").
-			Unique().
-			Required(),
-
-		edge.From("folder", KnowledgeFolder.Type).
-			Ref("documents").
-			Field("folder_id").
-			Unique(),
+		//edge.From("knowledge_base", KnowledgeBase.Type).
+		//	Ref("documents").
+		//	Field("knowledge_base_id").
+		//	Unique().
+		//	Required(),
+		//
+		//edge.From("folder", KnowledgeFolder.Type).
+		//	Ref("documents").
+		//	Field("folder_id").
+		//	Unique(),
 
 		edge.To("chunks", DocumentChunk.Type),
 	}
@@ -55,8 +55,8 @@ func (Document) Edges() []ent.Edge {
 
 func (Document) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("knowledge_base_id", "source").Unique(),
+		//index.Fields("knowledge_base_id", "source").Unique(),
 		index.Fields("owner_subject", "visibility"),
-		index.Fields("checksum"),
+		//index.Fields("checksum"),
 	}
 }

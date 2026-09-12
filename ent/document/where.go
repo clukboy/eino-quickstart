@@ -65,11 +65,6 @@ func Title(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldTitle, v))
 }
 
-// Checksum applies equality check predicate on the "checksum" field. It's identical to ChecksumEQ.
-func Checksum(v string) predicate.Document {
-	return predicate.Document(sql.FieldEQ(FieldChecksum, v))
-}
-
 // OwnerSubject applies equality check predicate on the "owner_subject" field. It's identical to OwnerSubjectEQ.
 func OwnerSubject(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldOwnerSubject, v))
@@ -235,71 +230,6 @@ func MetadataNotNil() predicate.Document {
 	return predicate.Document(sql.FieldNotNull(FieldMetadata))
 }
 
-// ChecksumEQ applies the EQ predicate on the "checksum" field.
-func ChecksumEQ(v string) predicate.Document {
-	return predicate.Document(sql.FieldEQ(FieldChecksum, v))
-}
-
-// ChecksumNEQ applies the NEQ predicate on the "checksum" field.
-func ChecksumNEQ(v string) predicate.Document {
-	return predicate.Document(sql.FieldNEQ(FieldChecksum, v))
-}
-
-// ChecksumIn applies the In predicate on the "checksum" field.
-func ChecksumIn(vs ...string) predicate.Document {
-	return predicate.Document(sql.FieldIn(FieldChecksum, vs...))
-}
-
-// ChecksumNotIn applies the NotIn predicate on the "checksum" field.
-func ChecksumNotIn(vs ...string) predicate.Document {
-	return predicate.Document(sql.FieldNotIn(FieldChecksum, vs...))
-}
-
-// ChecksumGT applies the GT predicate on the "checksum" field.
-func ChecksumGT(v string) predicate.Document {
-	return predicate.Document(sql.FieldGT(FieldChecksum, v))
-}
-
-// ChecksumGTE applies the GTE predicate on the "checksum" field.
-func ChecksumGTE(v string) predicate.Document {
-	return predicate.Document(sql.FieldGTE(FieldChecksum, v))
-}
-
-// ChecksumLT applies the LT predicate on the "checksum" field.
-func ChecksumLT(v string) predicate.Document {
-	return predicate.Document(sql.FieldLT(FieldChecksum, v))
-}
-
-// ChecksumLTE applies the LTE predicate on the "checksum" field.
-func ChecksumLTE(v string) predicate.Document {
-	return predicate.Document(sql.FieldLTE(FieldChecksum, v))
-}
-
-// ChecksumContains applies the Contains predicate on the "checksum" field.
-func ChecksumContains(v string) predicate.Document {
-	return predicate.Document(sql.FieldContains(FieldChecksum, v))
-}
-
-// ChecksumHasPrefix applies the HasPrefix predicate on the "checksum" field.
-func ChecksumHasPrefix(v string) predicate.Document {
-	return predicate.Document(sql.FieldHasPrefix(FieldChecksum, v))
-}
-
-// ChecksumHasSuffix applies the HasSuffix predicate on the "checksum" field.
-func ChecksumHasSuffix(v string) predicate.Document {
-	return predicate.Document(sql.FieldHasSuffix(FieldChecksum, v))
-}
-
-// ChecksumEqualFold applies the EqualFold predicate on the "checksum" field.
-func ChecksumEqualFold(v string) predicate.Document {
-	return predicate.Document(sql.FieldEqualFold(FieldChecksum, v))
-}
-
-// ChecksumContainsFold applies the ContainsFold predicate on the "checksum" field.
-func ChecksumContainsFold(v string) predicate.Document {
-	return predicate.Document(sql.FieldContainsFold(FieldChecksum, v))
-}
-
 // OwnerSubjectEQ applies the EQ predicate on the "owner_subject" field.
 func OwnerSubjectEQ(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldOwnerSubject, v))
@@ -425,6 +355,26 @@ func KnowledgeBaseIDNotIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
 }
 
+// KnowledgeBaseIDGT applies the GT predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDGT(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldGT(FieldKnowledgeBaseID, v))
+}
+
+// KnowledgeBaseIDGTE applies the GTE predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDGTE(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldGTE(FieldKnowledgeBaseID, v))
+}
+
+// KnowledgeBaseIDLT applies the LT predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDLT(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldLT(FieldKnowledgeBaseID, v))
+}
+
+// KnowledgeBaseIDLTE applies the LTE predicate on the "knowledge_base_id" field.
+func KnowledgeBaseIDLTE(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldLTE(FieldKnowledgeBaseID, v))
+}
+
 // FolderIDEQ applies the EQ predicate on the "folder_id" field.
 func FolderIDEQ(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldFolderID, v))
@@ -443,6 +393,26 @@ func FolderIDIn(vs ...uint64) predicate.Document {
 // FolderIDNotIn applies the NotIn predicate on the "folder_id" field.
 func FolderIDNotIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldFolderID, vs...))
+}
+
+// FolderIDGT applies the GT predicate on the "folder_id" field.
+func FolderIDGT(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldGT(FieldFolderID, v))
+}
+
+// FolderIDGTE applies the GTE predicate on the "folder_id" field.
+func FolderIDGTE(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldGTE(FieldFolderID, v))
+}
+
+// FolderIDLT applies the LT predicate on the "folder_id" field.
+func FolderIDLT(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldLT(FieldFolderID, v))
+}
+
+// FolderIDLTE applies the LTE predicate on the "folder_id" field.
+func FolderIDLTE(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldLTE(FieldFolderID, v))
 }
 
 // FolderIDIsNil applies the IsNil predicate on the "folder_id" field.
@@ -533,52 +503,6 @@ func UpdatedAtLT(v time.Time) predicate.Document {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.Document {
 	return predicate.Document(sql.FieldLTE(FieldUpdatedAt, v))
-}
-
-// HasKnowledgeBase applies the HasEdge predicate on the "knowledge_base" edge.
-func HasKnowledgeBase() predicate.Document {
-	return predicate.Document(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, KnowledgeBaseTable, KnowledgeBaseColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasKnowledgeBaseWith applies the HasEdge predicate on the "knowledge_base" edge with a given conditions (other predicates).
-func HasKnowledgeBaseWith(preds ...predicate.KnowledgeBase) predicate.Document {
-	return predicate.Document(func(s *sql.Selector) {
-		step := newKnowledgeBaseStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasFolder applies the HasEdge predicate on the "folder" edge.
-func HasFolder() predicate.Document {
-	return predicate.Document(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, FolderTable, FolderColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasFolderWith applies the HasEdge predicate on the "folder" edge with a given conditions (other predicates).
-func HasFolderWith(preds ...predicate.KnowledgeFolder) predicate.Document {
-	return predicate.Document(func(s *sql.Selector) {
-		step := newFolderStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
 }
 
 // HasChunks applies the HasEdge predicate on the "chunks" edge.

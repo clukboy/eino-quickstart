@@ -190,6 +190,12 @@ type IndexerConfig struct {
 	InitialRetryDelaySeconds int  `yaml:"initialRetryDelaySeconds"`
 	MaxRetryDelaySeconds     int  `yaml:"maxRetryDelaySeconds"`
 }
+type ESConfig struct {
+	Address    []string `yaml:"address"`
+	CaCertPath string   `yaml:"caCertPath"`
+	Username   string   `yaml:"username"`
+	Password   string   `yaml:"password"`
+}
 
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)

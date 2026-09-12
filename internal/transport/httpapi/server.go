@@ -5,7 +5,6 @@ import (
 	"eino-quickstart/ent"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/middleware"
-	"eino-quickstart/internal/knowledge"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/approval"
@@ -35,7 +34,6 @@ type Server struct {
 	Logger                    *slog.Logger
 	Metrics                   *observability.Metrics
 	KnowledgeClient           *ent.Client
-	KnowledgeIngestor         *knowledge.Service
 	KnowledgeMaxDocumentBytes int
 	MaxRequestBody            int64
 }

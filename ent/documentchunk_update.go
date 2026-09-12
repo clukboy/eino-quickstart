@@ -75,83 +75,6 @@ func (_u *DocumentChunkUpdate) ClearMetadata() *DocumentChunkUpdate {
 	return _u
 }
 
-// SetStartLine sets the "start_line" field.
-func (_u *DocumentChunkUpdate) SetStartLine(v int) *DocumentChunkUpdate {
-	_u.mutation.ResetStartLine()
-	_u.mutation.SetStartLine(v)
-	return _u
-}
-
-// SetNillableStartLine sets the "start_line" field if the given value is not nil.
-func (_u *DocumentChunkUpdate) SetNillableStartLine(v *int) *DocumentChunkUpdate {
-	if v != nil {
-		_u.SetStartLine(*v)
-	}
-	return _u
-}
-
-// AddStartLine adds value to the "start_line" field.
-func (_u *DocumentChunkUpdate) AddStartLine(v int) *DocumentChunkUpdate {
-	_u.mutation.AddStartLine(v)
-	return _u
-}
-
-// SetEndLine sets the "end_line" field.
-func (_u *DocumentChunkUpdate) SetEndLine(v int) *DocumentChunkUpdate {
-	_u.mutation.ResetEndLine()
-	_u.mutation.SetEndLine(v)
-	return _u
-}
-
-// SetNillableEndLine sets the "end_line" field if the given value is not nil.
-func (_u *DocumentChunkUpdate) SetNillableEndLine(v *int) *DocumentChunkUpdate {
-	if v != nil {
-		_u.SetEndLine(*v)
-	}
-	return _u
-}
-
-// AddEndLine adds value to the "end_line" field.
-func (_u *DocumentChunkUpdate) AddEndLine(v int) *DocumentChunkUpdate {
-	_u.mutation.AddEndLine(v)
-	return _u
-}
-
-// SetCharacterCount sets the "character_count" field.
-func (_u *DocumentChunkUpdate) SetCharacterCount(v int) *DocumentChunkUpdate {
-	_u.mutation.ResetCharacterCount()
-	_u.mutation.SetCharacterCount(v)
-	return _u
-}
-
-// SetNillableCharacterCount sets the "character_count" field if the given value is not nil.
-func (_u *DocumentChunkUpdate) SetNillableCharacterCount(v *int) *DocumentChunkUpdate {
-	if v != nil {
-		_u.SetCharacterCount(*v)
-	}
-	return _u
-}
-
-// AddCharacterCount adds value to the "character_count" field.
-func (_u *DocumentChunkUpdate) AddCharacterCount(v int) *DocumentChunkUpdate {
-	_u.mutation.AddCharacterCount(v)
-	return _u
-}
-
-// SetEmbeddingModel sets the "embedding_model" field.
-func (_u *DocumentChunkUpdate) SetEmbeddingModel(v string) *DocumentChunkUpdate {
-	_u.mutation.SetEmbeddingModel(v)
-	return _u
-}
-
-// SetNillableEmbeddingModel sets the "embedding_model" field if the given value is not nil.
-func (_u *DocumentChunkUpdate) SetNillableEmbeddingModel(v *string) *DocumentChunkUpdate {
-	if v != nil {
-		_u.SetEmbeddingModel(*v)
-	}
-	return _u
-}
-
 // SetVectorStatus sets the "vector_status" field.
 func (_u *DocumentChunkUpdate) SetVectorStatus(v documentchunk.VectorStatus) *DocumentChunkUpdate {
 	_u.mutation.SetVectorStatus(v)
@@ -275,27 +198,6 @@ func (_u *DocumentChunkUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if _u.mutation.MetadataCleared() {
 		_spec.ClearField(documentchunk.FieldMetadata, field.TypeJSON)
 	}
-	if value, ok := _u.mutation.StartLine(); ok {
-		_spec.SetField(documentchunk.FieldStartLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedStartLine(); ok {
-		_spec.AddField(documentchunk.FieldStartLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.EndLine(); ok {
-		_spec.SetField(documentchunk.FieldEndLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedEndLine(); ok {
-		_spec.AddField(documentchunk.FieldEndLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.CharacterCount(); ok {
-		_spec.SetField(documentchunk.FieldCharacterCount, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedCharacterCount(); ok {
-		_spec.AddField(documentchunk.FieldCharacterCount, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.EmbeddingModel(); ok {
-		_spec.SetField(documentchunk.FieldEmbeddingModel, field.TypeString, value)
-	}
 	if value, ok := _u.mutation.VectorStatus(); ok {
 		_spec.SetField(documentchunk.FieldVectorStatus, field.TypeEnum, value)
 	}
@@ -397,83 +299,6 @@ func (_u *DocumentChunkUpdateOne) SetMetadata(v map[string]interface{}) *Documen
 // ClearMetadata clears the value of the "metadata" field.
 func (_u *DocumentChunkUpdateOne) ClearMetadata() *DocumentChunkUpdateOne {
 	_u.mutation.ClearMetadata()
-	return _u
-}
-
-// SetStartLine sets the "start_line" field.
-func (_u *DocumentChunkUpdateOne) SetStartLine(v int) *DocumentChunkUpdateOne {
-	_u.mutation.ResetStartLine()
-	_u.mutation.SetStartLine(v)
-	return _u
-}
-
-// SetNillableStartLine sets the "start_line" field if the given value is not nil.
-func (_u *DocumentChunkUpdateOne) SetNillableStartLine(v *int) *DocumentChunkUpdateOne {
-	if v != nil {
-		_u.SetStartLine(*v)
-	}
-	return _u
-}
-
-// AddStartLine adds value to the "start_line" field.
-func (_u *DocumentChunkUpdateOne) AddStartLine(v int) *DocumentChunkUpdateOne {
-	_u.mutation.AddStartLine(v)
-	return _u
-}
-
-// SetEndLine sets the "end_line" field.
-func (_u *DocumentChunkUpdateOne) SetEndLine(v int) *DocumentChunkUpdateOne {
-	_u.mutation.ResetEndLine()
-	_u.mutation.SetEndLine(v)
-	return _u
-}
-
-// SetNillableEndLine sets the "end_line" field if the given value is not nil.
-func (_u *DocumentChunkUpdateOne) SetNillableEndLine(v *int) *DocumentChunkUpdateOne {
-	if v != nil {
-		_u.SetEndLine(*v)
-	}
-	return _u
-}
-
-// AddEndLine adds value to the "end_line" field.
-func (_u *DocumentChunkUpdateOne) AddEndLine(v int) *DocumentChunkUpdateOne {
-	_u.mutation.AddEndLine(v)
-	return _u
-}
-
-// SetCharacterCount sets the "character_count" field.
-func (_u *DocumentChunkUpdateOne) SetCharacterCount(v int) *DocumentChunkUpdateOne {
-	_u.mutation.ResetCharacterCount()
-	_u.mutation.SetCharacterCount(v)
-	return _u
-}
-
-// SetNillableCharacterCount sets the "character_count" field if the given value is not nil.
-func (_u *DocumentChunkUpdateOne) SetNillableCharacterCount(v *int) *DocumentChunkUpdateOne {
-	if v != nil {
-		_u.SetCharacterCount(*v)
-	}
-	return _u
-}
-
-// AddCharacterCount adds value to the "character_count" field.
-func (_u *DocumentChunkUpdateOne) AddCharacterCount(v int) *DocumentChunkUpdateOne {
-	_u.mutation.AddCharacterCount(v)
-	return _u
-}
-
-// SetEmbeddingModel sets the "embedding_model" field.
-func (_u *DocumentChunkUpdateOne) SetEmbeddingModel(v string) *DocumentChunkUpdateOne {
-	_u.mutation.SetEmbeddingModel(v)
-	return _u
-}
-
-// SetNillableEmbeddingModel sets the "embedding_model" field if the given value is not nil.
-func (_u *DocumentChunkUpdateOne) SetNillableEmbeddingModel(v *string) *DocumentChunkUpdateOne {
-	if v != nil {
-		_u.SetEmbeddingModel(*v)
-	}
 	return _u
 }
 
@@ -629,27 +454,6 @@ func (_u *DocumentChunkUpdateOne) sqlSave(ctx context.Context) (_node *DocumentC
 	}
 	if _u.mutation.MetadataCleared() {
 		_spec.ClearField(documentchunk.FieldMetadata, field.TypeJSON)
-	}
-	if value, ok := _u.mutation.StartLine(); ok {
-		_spec.SetField(documentchunk.FieldStartLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedStartLine(); ok {
-		_spec.AddField(documentchunk.FieldStartLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.EndLine(); ok {
-		_spec.SetField(documentchunk.FieldEndLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedEndLine(); ok {
-		_spec.AddField(documentchunk.FieldEndLine, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.CharacterCount(); ok {
-		_spec.SetField(documentchunk.FieldCharacterCount, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedCharacterCount(); ok {
-		_spec.AddField(documentchunk.FieldCharacterCount, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.EmbeddingModel(); ok {
-		_spec.SetField(documentchunk.FieldEmbeddingModel, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.VectorStatus(); ok {
 		_spec.SetField(documentchunk.FieldVectorStatus, field.TypeEnum, value)

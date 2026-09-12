@@ -76,15 +76,19 @@ func init() {
 	documentFields := schema.Document{}.Fields()
 	_ = documentFields
 	// documentDescOwnerSubject is the schema descriptor for owner_subject field.
-	documentDescOwnerSubject := documentFields[4].Descriptor()
+	documentDescOwnerSubject := documentFields[3].Descriptor()
 	// document.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
 	document.DefaultOwnerSubject = documentDescOwnerSubject.Default.(string)
+	// documentDescKnowledgeBaseID is the schema descriptor for knowledge_base_id field.
+	documentDescKnowledgeBaseID := documentFields[6].Descriptor()
+	// document.DefaultKnowledgeBaseID holds the default value on creation for the knowledge_base_id field.
+	document.DefaultKnowledgeBaseID = documentDescKnowledgeBaseID.Default.(uint64)
 	// documentDescCreatedAt is the schema descriptor for created_at field.
-	documentDescCreatedAt := documentFields[9].Descriptor()
+	documentDescCreatedAt := documentFields[8].Descriptor()
 	// document.DefaultCreatedAt holds the default value on creation for the created_at field.
 	document.DefaultCreatedAt = documentDescCreatedAt.Default.(func() time.Time)
 	// documentDescUpdatedAt is the schema descriptor for updated_at field.
-	documentDescUpdatedAt := documentFields[10].Descriptor()
+	documentDescUpdatedAt := documentFields[9].Descriptor()
 	// document.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	document.DefaultUpdatedAt = documentDescUpdatedAt.Default.(func() time.Time)
 	// document.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -92,7 +96,7 @@ func init() {
 	documentchunkFields := schema.DocumentChunk{}.Fields()
 	_ = documentchunkFields
 	// documentchunkDescCreatedAt is the schema descriptor for created_at field.
-	documentchunkDescCreatedAt := documentchunkFields[11].Descriptor()
+	documentchunkDescCreatedAt := documentchunkFields[6].Descriptor()
 	// documentchunk.DefaultCreatedAt holds the default value on creation for the created_at field.
 	documentchunk.DefaultCreatedAt = documentchunkDescCreatedAt.Default.(func() time.Time)
 	knowledgebaseFields := schema.KnowledgeBase{}.Fields()

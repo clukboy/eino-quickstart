@@ -4,8 +4,6 @@ package ent
 
 import (
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgebase"
-	"eino-quickstart/ent/knowledgefolder"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,8 +24,6 @@ type Document struct {
 	Title string `json:"title,omitempty"`
 	// Metadata holds the value of the "metadata" field.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
-	// Checksum holds the value of the "checksum" field.
-	Checksum string `json:"checksum,omitempty"`
 	// OwnerSubject holds the value of the "owner_subject" field.
 	OwnerSubject string `json:"owner_subject,omitempty"`
 	// Visibility holds the value of the "visibility" field.
@@ -44,49 +40,25 @@ type Document struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the DocumentQuery when eager-loading is set.
-	Edges        DocumentEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges                      DocumentEdges `json:"edges"`
+	knowledge_base_documents   *uint64
+	knowledge_folder_documents *uint64
+	selectValues               sql.SelectValues
 }
 
 // DocumentEdges holds the relations/edges for other nodes in the graph.
 type DocumentEdges struct {
-	// KnowledgeBase holds the value of the knowledge_base edge.
-	KnowledgeBase *KnowledgeBase `json:"knowledge_base,omitempty"`
-	// Folder holds the value of the folder edge.
-	Folder *KnowledgeFolder `json:"folder,omitempty"`
 	// Chunks holds the value of the chunks edge.
 	Chunks []*DocumentChunk `json:"chunks,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
-}
-
-// KnowledgeBaseOrErr returns the KnowledgeBase value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e DocumentEdges) KnowledgeBaseOrErr() (*KnowledgeBase, error) {
-	if e.KnowledgeBase != nil {
-		return e.KnowledgeBase, nil
-	} else if e.loadedTypes[0] {
-		return nil, &NotFoundError{label: knowledgebase.Label}
-	}
-	return nil, &NotLoadedError{edge: "knowledge_base"}
-}
-
-// FolderOrErr returns the Folder value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e DocumentEdges) FolderOrErr() (*KnowledgeFolder, error) {
-	if e.Folder != nil {
-		return e.Folder, nil
-	} else if e.loadedTypes[1] {
-		return nil, &NotFoundError{label: knowledgefolder.Label}
-	}
-	return nil, &NotLoadedError{edge: "folder"}
+	loadedTypes [1]bool
 }
 
 // ChunksOrErr returns the Chunks value or an error if the edge
 // was not loaded in eager-loading.
 func (e DocumentEdges) ChunksOrErr() ([]*DocumentChunk, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[0] {
 		return e.Chunks, nil
 	}
 	return nil, &NotLoadedError{edge: "chunks"}
@@ -101,10 +73,14 @@ func (*Document) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case document.FieldID, document.FieldKnowledgeBaseID, document.FieldFolderID:
 			values[i] = new(sql.NullInt64)
-		case document.FieldSource, document.FieldTitle, document.FieldChecksum, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
+		case document.FieldSource, document.FieldTitle, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
 			values[i] = new(sql.NullString)
 		case document.FieldCreatedAt, document.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
+		case document.ForeignKeys[0]: // knowledge_base_documents
+			values[i] = new(sql.NullInt64)
+		case document.ForeignKeys[1]: // knowledge_folder_documents
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -145,12 +121,6 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
 					return fmt.Errorf("unmarshal field metadata: %w", err)
 				}
-			}
-		case document.FieldChecksum:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field checksum", values[i])
-			} else if value.Valid {
-				_m.Checksum = value.String
 			}
 		case document.FieldOwnerSubject:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -195,6 +165,20 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
 			}
+		case document.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field knowledge_base_documents", value)
+			} else if value.Valid {
+				_m.knowledge_base_documents = new(uint64)
+				*_m.knowledge_base_documents = uint64(value.Int64)
+			}
+		case document.ForeignKeys[1]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field knowledge_folder_documents", value)
+			} else if value.Valid {
+				_m.knowledge_folder_documents = new(uint64)
+				*_m.knowledge_folder_documents = uint64(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -206,16 +190,6 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Document) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
-}
-
-// QueryKnowledgeBase queries the "knowledge_base" edge of the Document entity.
-func (_m *Document) QueryKnowledgeBase() *KnowledgeBaseQuery {
-	return NewDocumentClient(_m.config).QueryKnowledgeBase(_m)
-}
-
-// QueryFolder queries the "folder" edge of the Document entity.
-func (_m *Document) QueryFolder() *KnowledgeFolderQuery {
-	return NewDocumentClient(_m.config).QueryFolder(_m)
 }
 
 // QueryChunks queries the "chunks" edge of the Document entity.
@@ -254,9 +228,6 @@ func (_m *Document) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("metadata=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
-	builder.WriteString(", ")
-	builder.WriteString("checksum=")
-	builder.WriteString(_m.Checksum)
 	builder.WriteString(", ")
 	builder.WriteString("owner_subject=")
 	builder.WriteString(_m.OwnerSubject)

@@ -21,22 +21,12 @@ type DocumentChunk struct {
 	ID uint64 `json:"id,omitempty"`
 	// ChunkIndex holds the value of the "chunk_index" field.
 	ChunkIndex int `json:"chunk_index,omitempty"`
-	// CitationID holds the value of the "citation_id" field.
-	CitationID string `json:"citation_id,omitempty"`
 	// Content holds the value of the "content" field.
 	Content string `json:"content,omitempty"`
 	// HeadingPath holds the value of the "heading_path" field.
 	HeadingPath *string `json:"heading_path,omitempty"`
 	// Metadata holds the value of the "metadata" field.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
-	// StartLine holds the value of the "start_line" field.
-	StartLine int `json:"start_line,omitempty"`
-	// EndLine holds the value of the "end_line" field.
-	EndLine int `json:"end_line,omitempty"`
-	// CharacterCount holds the value of the "character_count" field.
-	CharacterCount int `json:"character_count,omitempty"`
-	// EmbeddingModel holds the value of the "embedding_model" field.
-	EmbeddingModel string `json:"embedding_model,omitempty"`
 	// VectorStatus holds the value of the "vector_status" field.
 	VectorStatus documentchunk.VectorStatus `json:"vector_status,omitempty"`
 	// IndexedAt holds the value of the "indexed_at" field.
@@ -77,9 +67,9 @@ func (*DocumentChunk) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case documentchunk.FieldMetadata:
 			values[i] = new([]byte)
-		case documentchunk.FieldID, documentchunk.FieldChunkIndex, documentchunk.FieldStartLine, documentchunk.FieldEndLine, documentchunk.FieldCharacterCount:
+		case documentchunk.FieldID, documentchunk.FieldChunkIndex:
 			values[i] = new(sql.NullInt64)
-		case documentchunk.FieldCitationID, documentchunk.FieldContent, documentchunk.FieldHeadingPath, documentchunk.FieldEmbeddingModel, documentchunk.FieldVectorStatus:
+		case documentchunk.FieldContent, documentchunk.FieldHeadingPath, documentchunk.FieldVectorStatus:
 			values[i] = new(sql.NullString)
 		case documentchunk.FieldIndexedAt, documentchunk.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -112,12 +102,6 @@ func (_m *DocumentChunk) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ChunkIndex = int(value.Int64)
 			}
-		case documentchunk.FieldCitationID:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field citation_id", values[i])
-			} else if value.Valid {
-				_m.CitationID = value.String
-			}
 		case documentchunk.FieldContent:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field content", values[i])
@@ -138,30 +122,6 @@ func (_m *DocumentChunk) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
 					return fmt.Errorf("unmarshal field metadata: %w", err)
 				}
-			}
-		case documentchunk.FieldStartLine:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field start_line", values[i])
-			} else if value.Valid {
-				_m.StartLine = int(value.Int64)
-			}
-		case documentchunk.FieldEndLine:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field end_line", values[i])
-			} else if value.Valid {
-				_m.EndLine = int(value.Int64)
-			}
-		case documentchunk.FieldCharacterCount:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field character_count", values[i])
-			} else if value.Valid {
-				_m.CharacterCount = int(value.Int64)
-			}
-		case documentchunk.FieldEmbeddingModel:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field embedding_model", values[i])
-			} else if value.Valid {
-				_m.EmbeddingModel = value.String
 			}
 		case documentchunk.FieldVectorStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -233,9 +193,6 @@ func (_m *DocumentChunk) String() string {
 	builder.WriteString("chunk_index=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ChunkIndex))
 	builder.WriteString(", ")
-	builder.WriteString("citation_id=")
-	builder.WriteString(_m.CitationID)
-	builder.WriteString(", ")
 	builder.WriteString("content=")
 	builder.WriteString(_m.Content)
 	builder.WriteString(", ")
@@ -246,18 +203,6 @@ func (_m *DocumentChunk) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("metadata=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
-	builder.WriteString(", ")
-	builder.WriteString("start_line=")
-	builder.WriteString(fmt.Sprintf("%v", _m.StartLine))
-	builder.WriteString(", ")
-	builder.WriteString("end_line=")
-	builder.WriteString(fmt.Sprintf("%v", _m.EndLine))
-	builder.WriteString(", ")
-	builder.WriteString("character_count=")
-	builder.WriteString(fmt.Sprintf("%v", _m.CharacterCount))
-	builder.WriteString(", ")
-	builder.WriteString("embedding_model=")
-	builder.WriteString(_m.EmbeddingModel)
 	builder.WriteString(", ")
 	builder.WriteString("vector_status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.VectorStatus))

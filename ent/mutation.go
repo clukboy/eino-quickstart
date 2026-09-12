@@ -5113,29 +5113,28 @@ func (m *CheckpointMutation) ResetEdge(name string) error {
 // DocumentMutation represents an operation that mutates the Document nodes in the graph.
 type DocumentMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *uint64
-	source                *string
-	title                 *string
-	metadata              *map[string]interface{}
-	checksum              *string
-	owner_subject         *string
-	visibility            *document.Visibility
-	status                *document.Status
-	created_at            *time.Time
-	updated_at            *time.Time
-	clearedFields         map[string]struct{}
-	knowledge_base        *uint64
-	clearedknowledge_base bool
-	folder                *uint64
-	clearedfolder         bool
-	chunks                map[uint64]struct{}
-	removedchunks         map[uint64]struct{}
-	clearedchunks         bool
-	done                  bool
-	oldValue              func(context.Context) (*Document, error)
-	predicates            []predicate.Document
+	op                   Op
+	typ                  string
+	id                   *uint64
+	source               *string
+	title                *string
+	metadata             *map[string]interface{}
+	owner_subject        *string
+	visibility           *document.Visibility
+	status               *document.Status
+	knowledge_base_id    *uint64
+	addknowledge_base_id *int64
+	folder_id            *uint64
+	addfolder_id         *int64
+	created_at           *time.Time
+	updated_at           *time.Time
+	clearedFields        map[string]struct{}
+	chunks               map[uint64]struct{}
+	removedchunks        map[uint64]struct{}
+	clearedchunks        bool
+	done                 bool
+	oldValue             func(context.Context) (*Document, error)
+	predicates           []predicate.Document
 }
 
 var _ ent.Mutation = (*DocumentMutation)(nil)
@@ -5357,42 +5356,6 @@ func (m *DocumentMutation) ResetMetadata() {
 	delete(m.clearedFields, document.FieldMetadata)
 }
 
-// SetChecksum sets the "checksum" field.
-func (m *DocumentMutation) SetChecksum(s string) {
-	m.checksum = &s
-}
-
-// Checksum returns the value of the "checksum" field in the mutation.
-func (m *DocumentMutation) Checksum() (r string, exists bool) {
-	v := m.checksum
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldChecksum returns the old "checksum" field's value of the Document entity.
-// If the Document object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DocumentMutation) OldChecksum(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldChecksum is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldChecksum requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldChecksum: %w", err)
-	}
-	return oldValue.Checksum, nil
-}
-
-// ResetChecksum resets all changes to the "checksum" field.
-func (m *DocumentMutation) ResetChecksum() {
-	m.checksum = nil
-}
-
 // SetOwnerSubject sets the "owner_subject" field.
 func (m *DocumentMutation) SetOwnerSubject(s string) {
 	m.owner_subject = &s
@@ -5503,12 +5466,13 @@ func (m *DocumentMutation) ResetStatus() {
 
 // SetKnowledgeBaseID sets the "knowledge_base_id" field.
 func (m *DocumentMutation) SetKnowledgeBaseID(u uint64) {
-	m.knowledge_base = &u
+	m.knowledge_base_id = &u
+	m.addknowledge_base_id = nil
 }
 
 // KnowledgeBaseID returns the value of the "knowledge_base_id" field in the mutation.
 func (m *DocumentMutation) KnowledgeBaseID() (r uint64, exists bool) {
-	v := m.knowledge_base
+	v := m.knowledge_base_id
 	if v == nil {
 		return
 	}
@@ -5532,19 +5496,39 @@ func (m *DocumentMutation) OldKnowledgeBaseID(ctx context.Context) (v uint64, er
 	return oldValue.KnowledgeBaseID, nil
 }
 
+// AddKnowledgeBaseID adds u to the "knowledge_base_id" field.
+func (m *DocumentMutation) AddKnowledgeBaseID(u int64) {
+	if m.addknowledge_base_id != nil {
+		*m.addknowledge_base_id += u
+	} else {
+		m.addknowledge_base_id = &u
+	}
+}
+
+// AddedKnowledgeBaseID returns the value that was added to the "knowledge_base_id" field in this mutation.
+func (m *DocumentMutation) AddedKnowledgeBaseID() (r int64, exists bool) {
+	v := m.addknowledge_base_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
 // ResetKnowledgeBaseID resets all changes to the "knowledge_base_id" field.
 func (m *DocumentMutation) ResetKnowledgeBaseID() {
-	m.knowledge_base = nil
+	m.knowledge_base_id = nil
+	m.addknowledge_base_id = nil
 }
 
 // SetFolderID sets the "folder_id" field.
 func (m *DocumentMutation) SetFolderID(u uint64) {
-	m.folder = &u
+	m.folder_id = &u
+	m.addfolder_id = nil
 }
 
 // FolderID returns the value of the "folder_id" field in the mutation.
 func (m *DocumentMutation) FolderID() (r uint64, exists bool) {
-	v := m.folder
+	v := m.folder_id
 	if v == nil {
 		return
 	}
@@ -5568,9 +5552,28 @@ func (m *DocumentMutation) OldFolderID(ctx context.Context) (v *uint64, err erro
 	return oldValue.FolderID, nil
 }
 
+// AddFolderID adds u to the "folder_id" field.
+func (m *DocumentMutation) AddFolderID(u int64) {
+	if m.addfolder_id != nil {
+		*m.addfolder_id += u
+	} else {
+		m.addfolder_id = &u
+	}
+}
+
+// AddedFolderID returns the value that was added to the "folder_id" field in this mutation.
+func (m *DocumentMutation) AddedFolderID() (r int64, exists bool) {
+	v := m.addfolder_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
 // ClearFolderID clears the value of the "folder_id" field.
 func (m *DocumentMutation) ClearFolderID() {
-	m.folder = nil
+	m.folder_id = nil
+	m.addfolder_id = nil
 	m.clearedFields[document.FieldFolderID] = struct{}{}
 }
 
@@ -5582,7 +5585,8 @@ func (m *DocumentMutation) FolderIDCleared() bool {
 
 // ResetFolderID resets all changes to the "folder_id" field.
 func (m *DocumentMutation) ResetFolderID() {
-	m.folder = nil
+	m.folder_id = nil
+	m.addfolder_id = nil
 	delete(m.clearedFields, document.FieldFolderID)
 }
 
@@ -5656,60 +5660,6 @@ func (m *DocumentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err e
 // ResetUpdatedAt resets all changes to the "updated_at" field.
 func (m *DocumentMutation) ResetUpdatedAt() {
 	m.updated_at = nil
-}
-
-// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
-func (m *DocumentMutation) ClearKnowledgeBase() {
-	m.clearedknowledge_base = true
-	m.clearedFields[document.FieldKnowledgeBaseID] = struct{}{}
-}
-
-// KnowledgeBaseCleared reports if the "knowledge_base" edge to the KnowledgeBase entity was cleared.
-func (m *DocumentMutation) KnowledgeBaseCleared() bool {
-	return m.clearedknowledge_base
-}
-
-// KnowledgeBaseIDs returns the "knowledge_base" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// KnowledgeBaseID instead. It exists only for internal usage by the builders.
-func (m *DocumentMutation) KnowledgeBaseIDs() (ids []uint64) {
-	if id := m.knowledge_base; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetKnowledgeBase resets all changes to the "knowledge_base" edge.
-func (m *DocumentMutation) ResetKnowledgeBase() {
-	m.knowledge_base = nil
-	m.clearedknowledge_base = false
-}
-
-// ClearFolder clears the "folder" edge to the KnowledgeFolder entity.
-func (m *DocumentMutation) ClearFolder() {
-	m.clearedfolder = true
-	m.clearedFields[document.FieldFolderID] = struct{}{}
-}
-
-// FolderCleared reports if the "folder" edge to the KnowledgeFolder entity was cleared.
-func (m *DocumentMutation) FolderCleared() bool {
-	return m.FolderIDCleared() || m.clearedfolder
-}
-
-// FolderIDs returns the "folder" edge IDs in the mutation.
-// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// FolderID instead. It exists only for internal usage by the builders.
-func (m *DocumentMutation) FolderIDs() (ids []uint64) {
-	if id := m.folder; id != nil {
-		ids = append(ids, *id)
-	}
-	return
-}
-
-// ResetFolder resets all changes to the "folder" edge.
-func (m *DocumentMutation) ResetFolder() {
-	m.folder = nil
-	m.clearedfolder = false
 }
 
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by ids.
@@ -5800,7 +5750,7 @@ func (m *DocumentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DocumentMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 10)
 	if m.source != nil {
 		fields = append(fields, document.FieldSource)
 	}
@@ -5809,9 +5759,6 @@ func (m *DocumentMutation) Fields() []string {
 	}
 	if m.metadata != nil {
 		fields = append(fields, document.FieldMetadata)
-	}
-	if m.checksum != nil {
-		fields = append(fields, document.FieldChecksum)
 	}
 	if m.owner_subject != nil {
 		fields = append(fields, document.FieldOwnerSubject)
@@ -5822,10 +5769,10 @@ func (m *DocumentMutation) Fields() []string {
 	if m.status != nil {
 		fields = append(fields, document.FieldStatus)
 	}
-	if m.knowledge_base != nil {
+	if m.knowledge_base_id != nil {
 		fields = append(fields, document.FieldKnowledgeBaseID)
 	}
-	if m.folder != nil {
+	if m.folder_id != nil {
 		fields = append(fields, document.FieldFolderID)
 	}
 	if m.created_at != nil {
@@ -5848,8 +5795,6 @@ func (m *DocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.Title()
 	case document.FieldMetadata:
 		return m.Metadata()
-	case document.FieldChecksum:
-		return m.Checksum()
 	case document.FieldOwnerSubject:
 		return m.OwnerSubject()
 	case document.FieldVisibility:
@@ -5879,8 +5824,6 @@ func (m *DocumentMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldTitle(ctx)
 	case document.FieldMetadata:
 		return m.OldMetadata(ctx)
-	case document.FieldChecksum:
-		return m.OldChecksum(ctx)
 	case document.FieldOwnerSubject:
 		return m.OldOwnerSubject(ctx)
 	case document.FieldVisibility:
@@ -5924,13 +5867,6 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetMetadata(v)
-		return nil
-	case document.FieldChecksum:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetChecksum(v)
 		return nil
 	case document.FieldOwnerSubject:
 		v, ok := value.(string)
@@ -5989,6 +5925,12 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *DocumentMutation) AddedFields() []string {
 	var fields []string
+	if m.addknowledge_base_id != nil {
+		fields = append(fields, document.FieldKnowledgeBaseID)
+	}
+	if m.addfolder_id != nil {
+		fields = append(fields, document.FieldFolderID)
+	}
 	return fields
 }
 
@@ -5997,6 +5939,10 @@ func (m *DocumentMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DocumentMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case document.FieldKnowledgeBaseID:
+		return m.AddedKnowledgeBaseID()
+	case document.FieldFolderID:
+		return m.AddedFolderID()
 	}
 	return nil, false
 }
@@ -6006,6 +5952,20 @@ func (m *DocumentMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DocumentMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case document.FieldKnowledgeBaseID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddKnowledgeBaseID(v)
+		return nil
+	case document.FieldFolderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFolderID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Document numeric field %s", name)
 }
@@ -6057,9 +6017,6 @@ func (m *DocumentMutation) ResetField(name string) error {
 	case document.FieldMetadata:
 		m.ResetMetadata()
 		return nil
-	case document.FieldChecksum:
-		m.ResetChecksum()
-		return nil
 	case document.FieldOwnerSubject:
 		m.ResetOwnerSubject()
 		return nil
@@ -6087,13 +6044,7 @@ func (m *DocumentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *DocumentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
-	if m.knowledge_base != nil {
-		edges = append(edges, document.EdgeKnowledgeBase)
-	}
-	if m.folder != nil {
-		edges = append(edges, document.EdgeFolder)
-	}
+	edges := make([]string, 0, 1)
 	if m.chunks != nil {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -6104,14 +6055,6 @@ func (m *DocumentMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *DocumentMutation) AddedIDs(name string) []ent.Value {
 	switch name {
-	case document.EdgeKnowledgeBase:
-		if id := m.knowledge_base; id != nil {
-			return []ent.Value{*id}
-		}
-	case document.EdgeFolder:
-		if id := m.folder; id != nil {
-			return []ent.Value{*id}
-		}
 	case document.EdgeChunks:
 		ids := make([]ent.Value, 0, len(m.chunks))
 		for id := range m.chunks {
@@ -6124,7 +6067,7 @@ func (m *DocumentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *DocumentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 1)
 	if m.removedchunks != nil {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -6147,13 +6090,7 @@ func (m *DocumentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *DocumentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
-	if m.clearedknowledge_base {
-		edges = append(edges, document.EdgeKnowledgeBase)
-	}
-	if m.clearedfolder {
-		edges = append(edges, document.EdgeFolder)
-	}
+	edges := make([]string, 0, 1)
 	if m.clearedchunks {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -6164,10 +6101,6 @@ func (m *DocumentMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *DocumentMutation) EdgeCleared(name string) bool {
 	switch name {
-	case document.EdgeKnowledgeBase:
-		return m.clearedknowledge_base
-	case document.EdgeFolder:
-		return m.clearedfolder
 	case document.EdgeChunks:
 		return m.clearedchunks
 	}
@@ -6178,12 +6111,6 @@ func (m *DocumentMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *DocumentMutation) ClearEdge(name string) error {
 	switch name {
-	case document.EdgeKnowledgeBase:
-		m.ClearKnowledgeBase()
-		return nil
-	case document.EdgeFolder:
-		m.ClearFolder()
-		return nil
 	}
 	return fmt.Errorf("unknown Document unique edge %s", name)
 }
@@ -6192,12 +6119,6 @@ func (m *DocumentMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *DocumentMutation) ResetEdge(name string) error {
 	switch name {
-	case document.EdgeKnowledgeBase:
-		m.ResetKnowledgeBase()
-		return nil
-	case document.EdgeFolder:
-		m.ResetFolder()
-		return nil
 	case document.EdgeChunks:
 		m.ResetChunks()
 		return nil
@@ -6208,31 +6129,23 @@ func (m *DocumentMutation) ResetEdge(name string) error {
 // DocumentChunkMutation represents an operation that mutates the DocumentChunk nodes in the graph.
 type DocumentChunkMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uint64
-	chunk_index        *int
-	addchunk_index     *int
-	citation_id        *string
-	content            *string
-	heading_path       *string
-	metadata           *map[string]interface{}
-	start_line         *int
-	addstart_line      *int
-	end_line           *int
-	addend_line        *int
-	character_count    *int
-	addcharacter_count *int
-	embedding_model    *string
-	vector_status      *documentchunk.VectorStatus
-	indexed_at         *time.Time
-	created_at         *time.Time
-	clearedFields      map[string]struct{}
-	document           *uint64
-	cleareddocument    bool
-	done               bool
-	oldValue           func(context.Context) (*DocumentChunk, error)
-	predicates         []predicate.DocumentChunk
+	op              Op
+	typ             string
+	id              *uint64
+	chunk_index     *int
+	addchunk_index  *int
+	content         *string
+	heading_path    *string
+	metadata        *map[string]interface{}
+	vector_status   *documentchunk.VectorStatus
+	indexed_at      *time.Time
+	created_at      *time.Time
+	clearedFields   map[string]struct{}
+	document        *uint64
+	cleareddocument bool
+	done            bool
+	oldValue        func(context.Context) (*DocumentChunk, error)
+	predicates      []predicate.DocumentChunk
 }
 
 var _ ent.Mutation = (*DocumentChunkMutation)(nil)
@@ -6389,42 +6302,6 @@ func (m *DocumentChunkMutation) ResetChunkIndex() {
 	m.addchunk_index = nil
 }
 
-// SetCitationID sets the "citation_id" field.
-func (m *DocumentChunkMutation) SetCitationID(s string) {
-	m.citation_id = &s
-}
-
-// CitationID returns the value of the "citation_id" field in the mutation.
-func (m *DocumentChunkMutation) CitationID() (r string, exists bool) {
-	v := m.citation_id
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCitationID returns the old "citation_id" field's value of the DocumentChunk entity.
-// If the DocumentChunk object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DocumentChunkMutation) OldCitationID(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCitationID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCitationID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCitationID: %w", err)
-	}
-	return oldValue.CitationID, nil
-}
-
-// ResetCitationID resets all changes to the "citation_id" field.
-func (m *DocumentChunkMutation) ResetCitationID() {
-	m.citation_id = nil
-}
-
 // SetContent sets the "content" field.
 func (m *DocumentChunkMutation) SetContent(s string) {
 	m.content = &s
@@ -6557,210 +6434,6 @@ func (m *DocumentChunkMutation) MetadataCleared() bool {
 func (m *DocumentChunkMutation) ResetMetadata() {
 	m.metadata = nil
 	delete(m.clearedFields, documentchunk.FieldMetadata)
-}
-
-// SetStartLine sets the "start_line" field.
-func (m *DocumentChunkMutation) SetStartLine(i int) {
-	m.start_line = &i
-	m.addstart_line = nil
-}
-
-// StartLine returns the value of the "start_line" field in the mutation.
-func (m *DocumentChunkMutation) StartLine() (r int, exists bool) {
-	v := m.start_line
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldStartLine returns the old "start_line" field's value of the DocumentChunk entity.
-// If the DocumentChunk object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DocumentChunkMutation) OldStartLine(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldStartLine is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldStartLine requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldStartLine: %w", err)
-	}
-	return oldValue.StartLine, nil
-}
-
-// AddStartLine adds i to the "start_line" field.
-func (m *DocumentChunkMutation) AddStartLine(i int) {
-	if m.addstart_line != nil {
-		*m.addstart_line += i
-	} else {
-		m.addstart_line = &i
-	}
-}
-
-// AddedStartLine returns the value that was added to the "start_line" field in this mutation.
-func (m *DocumentChunkMutation) AddedStartLine() (r int, exists bool) {
-	v := m.addstart_line
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetStartLine resets all changes to the "start_line" field.
-func (m *DocumentChunkMutation) ResetStartLine() {
-	m.start_line = nil
-	m.addstart_line = nil
-}
-
-// SetEndLine sets the "end_line" field.
-func (m *DocumentChunkMutation) SetEndLine(i int) {
-	m.end_line = &i
-	m.addend_line = nil
-}
-
-// EndLine returns the value of the "end_line" field in the mutation.
-func (m *DocumentChunkMutation) EndLine() (r int, exists bool) {
-	v := m.end_line
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldEndLine returns the old "end_line" field's value of the DocumentChunk entity.
-// If the DocumentChunk object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DocumentChunkMutation) OldEndLine(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldEndLine is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldEndLine requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldEndLine: %w", err)
-	}
-	return oldValue.EndLine, nil
-}
-
-// AddEndLine adds i to the "end_line" field.
-func (m *DocumentChunkMutation) AddEndLine(i int) {
-	if m.addend_line != nil {
-		*m.addend_line += i
-	} else {
-		m.addend_line = &i
-	}
-}
-
-// AddedEndLine returns the value that was added to the "end_line" field in this mutation.
-func (m *DocumentChunkMutation) AddedEndLine() (r int, exists bool) {
-	v := m.addend_line
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetEndLine resets all changes to the "end_line" field.
-func (m *DocumentChunkMutation) ResetEndLine() {
-	m.end_line = nil
-	m.addend_line = nil
-}
-
-// SetCharacterCount sets the "character_count" field.
-func (m *DocumentChunkMutation) SetCharacterCount(i int) {
-	m.character_count = &i
-	m.addcharacter_count = nil
-}
-
-// CharacterCount returns the value of the "character_count" field in the mutation.
-func (m *DocumentChunkMutation) CharacterCount() (r int, exists bool) {
-	v := m.character_count
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldCharacterCount returns the old "character_count" field's value of the DocumentChunk entity.
-// If the DocumentChunk object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DocumentChunkMutation) OldCharacterCount(ctx context.Context) (v int, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldCharacterCount is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldCharacterCount requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldCharacterCount: %w", err)
-	}
-	return oldValue.CharacterCount, nil
-}
-
-// AddCharacterCount adds i to the "character_count" field.
-func (m *DocumentChunkMutation) AddCharacterCount(i int) {
-	if m.addcharacter_count != nil {
-		*m.addcharacter_count += i
-	} else {
-		m.addcharacter_count = &i
-	}
-}
-
-// AddedCharacterCount returns the value that was added to the "character_count" field in this mutation.
-func (m *DocumentChunkMutation) AddedCharacterCount() (r int, exists bool) {
-	v := m.addcharacter_count
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetCharacterCount resets all changes to the "character_count" field.
-func (m *DocumentChunkMutation) ResetCharacterCount() {
-	m.character_count = nil
-	m.addcharacter_count = nil
-}
-
-// SetEmbeddingModel sets the "embedding_model" field.
-func (m *DocumentChunkMutation) SetEmbeddingModel(s string) {
-	m.embedding_model = &s
-}
-
-// EmbeddingModel returns the value of the "embedding_model" field in the mutation.
-func (m *DocumentChunkMutation) EmbeddingModel() (r string, exists bool) {
-	v := m.embedding_model
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldEmbeddingModel returns the old "embedding_model" field's value of the DocumentChunk entity.
-// If the DocumentChunk object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DocumentChunkMutation) OldEmbeddingModel(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldEmbeddingModel is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldEmbeddingModel requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldEmbeddingModel: %w", err)
-	}
-	return oldValue.EmbeddingModel, nil
-}
-
-// ResetEmbeddingModel resets all changes to the "embedding_model" field.
-func (m *DocumentChunkMutation) ResetEmbeddingModel() {
-	m.embedding_model = nil
 }
 
 // SetVectorStatus sets the "vector_status" field.
@@ -6957,12 +6630,9 @@ func (m *DocumentChunkMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DocumentChunkMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 7)
 	if m.chunk_index != nil {
 		fields = append(fields, documentchunk.FieldChunkIndex)
-	}
-	if m.citation_id != nil {
-		fields = append(fields, documentchunk.FieldCitationID)
 	}
 	if m.content != nil {
 		fields = append(fields, documentchunk.FieldContent)
@@ -6972,18 +6642,6 @@ func (m *DocumentChunkMutation) Fields() []string {
 	}
 	if m.metadata != nil {
 		fields = append(fields, documentchunk.FieldMetadata)
-	}
-	if m.start_line != nil {
-		fields = append(fields, documentchunk.FieldStartLine)
-	}
-	if m.end_line != nil {
-		fields = append(fields, documentchunk.FieldEndLine)
-	}
-	if m.character_count != nil {
-		fields = append(fields, documentchunk.FieldCharacterCount)
-	}
-	if m.embedding_model != nil {
-		fields = append(fields, documentchunk.FieldEmbeddingModel)
 	}
 	if m.vector_status != nil {
 		fields = append(fields, documentchunk.FieldVectorStatus)
@@ -7004,22 +6662,12 @@ func (m *DocumentChunkMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case documentchunk.FieldChunkIndex:
 		return m.ChunkIndex()
-	case documentchunk.FieldCitationID:
-		return m.CitationID()
 	case documentchunk.FieldContent:
 		return m.Content()
 	case documentchunk.FieldHeadingPath:
 		return m.HeadingPath()
 	case documentchunk.FieldMetadata:
 		return m.Metadata()
-	case documentchunk.FieldStartLine:
-		return m.StartLine()
-	case documentchunk.FieldEndLine:
-		return m.EndLine()
-	case documentchunk.FieldCharacterCount:
-		return m.CharacterCount()
-	case documentchunk.FieldEmbeddingModel:
-		return m.EmbeddingModel()
 	case documentchunk.FieldVectorStatus:
 		return m.VectorStatus()
 	case documentchunk.FieldIndexedAt:
@@ -7037,22 +6685,12 @@ func (m *DocumentChunkMutation) OldField(ctx context.Context, name string) (ent.
 	switch name {
 	case documentchunk.FieldChunkIndex:
 		return m.OldChunkIndex(ctx)
-	case documentchunk.FieldCitationID:
-		return m.OldCitationID(ctx)
 	case documentchunk.FieldContent:
 		return m.OldContent(ctx)
 	case documentchunk.FieldHeadingPath:
 		return m.OldHeadingPath(ctx)
 	case documentchunk.FieldMetadata:
 		return m.OldMetadata(ctx)
-	case documentchunk.FieldStartLine:
-		return m.OldStartLine(ctx)
-	case documentchunk.FieldEndLine:
-		return m.OldEndLine(ctx)
-	case documentchunk.FieldCharacterCount:
-		return m.OldCharacterCount(ctx)
-	case documentchunk.FieldEmbeddingModel:
-		return m.OldEmbeddingModel(ctx)
 	case documentchunk.FieldVectorStatus:
 		return m.OldVectorStatus(ctx)
 	case documentchunk.FieldIndexedAt:
@@ -7075,13 +6713,6 @@ func (m *DocumentChunkMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetChunkIndex(v)
 		return nil
-	case documentchunk.FieldCitationID:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCitationID(v)
-		return nil
 	case documentchunk.FieldContent:
 		v, ok := value.(string)
 		if !ok {
@@ -7102,34 +6733,6 @@ func (m *DocumentChunkMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetMetadata(v)
-		return nil
-	case documentchunk.FieldStartLine:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetStartLine(v)
-		return nil
-	case documentchunk.FieldEndLine:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetEndLine(v)
-		return nil
-	case documentchunk.FieldCharacterCount:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetCharacterCount(v)
-		return nil
-	case documentchunk.FieldEmbeddingModel:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetEmbeddingModel(v)
 		return nil
 	case documentchunk.FieldVectorStatus:
 		v, ok := value.(documentchunk.VectorStatus)
@@ -7163,15 +6766,6 @@ func (m *DocumentChunkMutation) AddedFields() []string {
 	if m.addchunk_index != nil {
 		fields = append(fields, documentchunk.FieldChunkIndex)
 	}
-	if m.addstart_line != nil {
-		fields = append(fields, documentchunk.FieldStartLine)
-	}
-	if m.addend_line != nil {
-		fields = append(fields, documentchunk.FieldEndLine)
-	}
-	if m.addcharacter_count != nil {
-		fields = append(fields, documentchunk.FieldCharacterCount)
-	}
 	return fields
 }
 
@@ -7182,12 +6776,6 @@ func (m *DocumentChunkMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case documentchunk.FieldChunkIndex:
 		return m.AddedChunkIndex()
-	case documentchunk.FieldStartLine:
-		return m.AddedStartLine()
-	case documentchunk.FieldEndLine:
-		return m.AddedEndLine()
-	case documentchunk.FieldCharacterCount:
-		return m.AddedCharacterCount()
 	}
 	return nil, false
 }
@@ -7203,27 +6791,6 @@ func (m *DocumentChunkMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddChunkIndex(v)
-		return nil
-	case documentchunk.FieldStartLine:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddStartLine(v)
-		return nil
-	case documentchunk.FieldEndLine:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddEndLine(v)
-		return nil
-	case documentchunk.FieldCharacterCount:
-		v, ok := value.(int)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddCharacterCount(v)
 		return nil
 	}
 	return fmt.Errorf("unknown DocumentChunk numeric field %s", name)
@@ -7276,9 +6843,6 @@ func (m *DocumentChunkMutation) ResetField(name string) error {
 	case documentchunk.FieldChunkIndex:
 		m.ResetChunkIndex()
 		return nil
-	case documentchunk.FieldCitationID:
-		m.ResetCitationID()
-		return nil
 	case documentchunk.FieldContent:
 		m.ResetContent()
 		return nil
@@ -7287,18 +6851,6 @@ func (m *DocumentChunkMutation) ResetField(name string) error {
 		return nil
 	case documentchunk.FieldMetadata:
 		m.ResetMetadata()
-		return nil
-	case documentchunk.FieldStartLine:
-		m.ResetStartLine()
-		return nil
-	case documentchunk.FieldEndLine:
-		m.ResetEndLine()
-		return nil
-	case documentchunk.FieldCharacterCount:
-		m.ResetCharacterCount()
-		return nil
-	case documentchunk.FieldEmbeddingModel:
-		m.ResetEmbeddingModel()
 		return nil
 	case documentchunk.FieldVectorStatus:
 		m.ResetVectorStatus()

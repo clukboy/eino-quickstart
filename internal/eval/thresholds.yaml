@@ -1,4 +1,0 @@
-minPassRate: 0.95
-minRecallAtK: 0.80
-maxACLLeakCount: 0
-maxP95LatencyMS: 3000

@@ -27,12 +27,6 @@ func (_c *DocumentChunkCreate) SetChunkIndex(v int) *DocumentChunkCreate {
 	return _c
 }
 
-// SetCitationID sets the "citation_id" field.
-func (_c *DocumentChunkCreate) SetCitationID(v string) *DocumentChunkCreate {
-	_c.mutation.SetCitationID(v)
-	return _c
-}
-
 // SetContent sets the "content" field.
 func (_c *DocumentChunkCreate) SetContent(v string) *DocumentChunkCreate {
 	_c.mutation.SetContent(v)
@@ -56,30 +50,6 @@ func (_c *DocumentChunkCreate) SetNillableHeadingPath(v *string) *DocumentChunkC
 // SetMetadata sets the "metadata" field.
 func (_c *DocumentChunkCreate) SetMetadata(v map[string]interface{}) *DocumentChunkCreate {
 	_c.mutation.SetMetadata(v)
-	return _c
-}
-
-// SetStartLine sets the "start_line" field.
-func (_c *DocumentChunkCreate) SetStartLine(v int) *DocumentChunkCreate {
-	_c.mutation.SetStartLine(v)
-	return _c
-}
-
-// SetEndLine sets the "end_line" field.
-func (_c *DocumentChunkCreate) SetEndLine(v int) *DocumentChunkCreate {
-	_c.mutation.SetEndLine(v)
-	return _c
-}
-
-// SetCharacterCount sets the "character_count" field.
-func (_c *DocumentChunkCreate) SetCharacterCount(v int) *DocumentChunkCreate {
-	_c.mutation.SetCharacterCount(v)
-	return _c
-}
-
-// SetEmbeddingModel sets the "embedding_model" field.
-func (_c *DocumentChunkCreate) SetEmbeddingModel(v string) *DocumentChunkCreate {
-	_c.mutation.SetEmbeddingModel(v)
 	return _c
 }
 
@@ -186,23 +156,8 @@ func (_c *DocumentChunkCreate) check() error {
 	if _, ok := _c.mutation.ChunkIndex(); !ok {
 		return &ValidationError{Name: "chunk_index", err: errors.New(`ent: missing required field "DocumentChunk.chunk_index"`)}
 	}
-	if _, ok := _c.mutation.CitationID(); !ok {
-		return &ValidationError{Name: "citation_id", err: errors.New(`ent: missing required field "DocumentChunk.citation_id"`)}
-	}
 	if _, ok := _c.mutation.Content(); !ok {
 		return &ValidationError{Name: "content", err: errors.New(`ent: missing required field "DocumentChunk.content"`)}
-	}
-	if _, ok := _c.mutation.StartLine(); !ok {
-		return &ValidationError{Name: "start_line", err: errors.New(`ent: missing required field "DocumentChunk.start_line"`)}
-	}
-	if _, ok := _c.mutation.EndLine(); !ok {
-		return &ValidationError{Name: "end_line", err: errors.New(`ent: missing required field "DocumentChunk.end_line"`)}
-	}
-	if _, ok := _c.mutation.CharacterCount(); !ok {
-		return &ValidationError{Name: "character_count", err: errors.New(`ent: missing required field "DocumentChunk.character_count"`)}
-	}
-	if _, ok := _c.mutation.EmbeddingModel(); !ok {
-		return &ValidationError{Name: "embedding_model", err: errors.New(`ent: missing required field "DocumentChunk.embedding_model"`)}
 	}
 	if _, ok := _c.mutation.VectorStatus(); !ok {
 		return &ValidationError{Name: "vector_status", err: errors.New(`ent: missing required field "DocumentChunk.vector_status"`)}
@@ -248,10 +203,6 @@ func (_c *DocumentChunkCreate) createSpec() (*DocumentChunk, *sqlgraph.CreateSpe
 		_spec.SetField(documentchunk.FieldChunkIndex, field.TypeInt, value)
 		_node.ChunkIndex = value
 	}
-	if value, ok := _c.mutation.CitationID(); ok {
-		_spec.SetField(documentchunk.FieldCitationID, field.TypeString, value)
-		_node.CitationID = value
-	}
 	if value, ok := _c.mutation.Content(); ok {
 		_spec.SetField(documentchunk.FieldContent, field.TypeString, value)
 		_node.Content = value
@@ -263,22 +214,6 @@ func (_c *DocumentChunkCreate) createSpec() (*DocumentChunk, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.Metadata(); ok {
 		_spec.SetField(documentchunk.FieldMetadata, field.TypeJSON, value)
 		_node.Metadata = value
-	}
-	if value, ok := _c.mutation.StartLine(); ok {
-		_spec.SetField(documentchunk.FieldStartLine, field.TypeInt, value)
-		_node.StartLine = value
-	}
-	if value, ok := _c.mutation.EndLine(); ok {
-		_spec.SetField(documentchunk.FieldEndLine, field.TypeInt, value)
-		_node.EndLine = value
-	}
-	if value, ok := _c.mutation.CharacterCount(); ok {
-		_spec.SetField(documentchunk.FieldCharacterCount, field.TypeInt, value)
-		_node.CharacterCount = value
-	}
-	if value, ok := _c.mutation.EmbeddingModel(); ok {
-		_spec.SetField(documentchunk.FieldEmbeddingModel, field.TypeString, value)
-		_node.EmbeddingModel = value
 	}
 	if value, ok := _c.mutation.VectorStatus(); ok {
 		_spec.SetField(documentchunk.FieldVectorStatus, field.TypeEnum, value)

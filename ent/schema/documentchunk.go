@@ -20,14 +20,9 @@ type DocumentChunk struct {
 func (DocumentChunk) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("chunk_index").Immutable(),
-		field.String("citation_id").Unique().Immutable(),
 		field.Text("content"),
 		field.String("heading_path").Optional().Nillable(),
 		field.JSON("metadata", map[string]any{}).Optional(),
-		field.Int("start_line"),
-		field.Int("end_line"),
-		field.Int("character_count"),
-		field.String("embedding_model"),
 		field.Enum("vector_status").
 			Values("pending", "indexed", "failed", "deleting").
 			Default("pending"),

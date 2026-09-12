@@ -533,9 +533,7 @@ func (_q *KnowledgeBaseQuery) loadDocuments(ctx context.Context, query *Document
 			init(nodes[i])
 		}
 	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(document.FieldKnowledgeBaseID)
-	}
+	query.withFKs = true
 	query.Where(predicate.Document(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(knowledgebase.DocumentsColumn), fks...))
 	}))
@@ -544,10 +542,13 @@ func (_q *KnowledgeBaseQuery) loadDocuments(ctx context.Context, query *Document
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.KnowledgeBaseID
-		node, ok := nodeids[fk]
+		fk := n.knowledge_base_documents
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "knowledge_base_documents" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "knowledge_base_id" returned %v for node %v`, fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "knowledge_base_documents" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}
