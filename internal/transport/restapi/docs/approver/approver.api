@@ -1,0 +1,47 @@
+syntax = "v1"
+
+// 审批的读取与决策。
+//
+// 本组只含读取（GET /approvals/:id）与决策（POST /approvals/:id/decision）。
+// 决策后恢复执行流的 POST /api/v1/approvals/:id/resume 是 SSE 路由，
+// 见入口 restapi.api 说明，在 restapi.go 注册。
+
+// ApprovalResp 镜像 internal/platform/persistence/approval.Request 的 JSON 形态
+// （camelCase）。修改那边时需同步这里，并由 logic 中的转换函数承接。
+type ApprovalResp {
+	ID               string `json:"id"`
+	SessionID        string `json:"sessionId"`
+	Tool             string `json:"tool"`
+	DisplayArguments string `json:"displayArguments,omitempty"`
+	Status           string `json:"status"`
+	RequestedBy      string `json:"requestedBy"`
+	DecidedBy        string `json:"decidedBy,omitempty"`
+	CheckpointID     string `json:"checkpointId,omitempty"`
+	InterruptID      string `json:"interruptId,omitempty"`
+	CreatedAt        string `json:"createdAt"`
+	ExpiresAt        string `json:"expiresAt,omitempty"`
+}
+
+type ApprovalPathReq {
+	ID string `path:"id"`
+}
+
+type ApprovalDecisionReq {
+	ID       string `path:"id"`
+	Approved bool   `json:"approved"`
+}
+
+// 审批读取与决策需要 approver 角色。
+// 返回的 StatusResp 是跨组共享类型，定义在 common/types.api。
+@server (
+	prefix:     /api/v1
+	group:      approver
+	middleware: RoleApprover
+)
+service restapi {
+	@handler GetApproval
+	get /approvals/:id (ApprovalPathReq) returns (ApprovalResp)
+
+	@handler DecideApproval
+	post /approvals/:id/decision (ApprovalDecisionReq) returns (StatusResp)
+}

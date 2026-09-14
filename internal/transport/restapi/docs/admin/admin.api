@@ -1,0 +1,48 @@
+syntax = "v1"
+
+// 知识库管理。
+//
+// 本组 8 条路由全部需要 admin 角色，统一挂 RoleAdmin 中间件：
+//   /dataset*                     知识库与文档
+//   /agents/:subject/dataset*     给 agent 授权 / 撤销授权
+//
+// 其中上传文档与授权/撤销返回 StatusResp，该类型定义在 common/types.api。
+type DocumentResp {
+	ID              uint64 `json:"id"`
+	KnowledgeBaseID uint64 `json:"knowledge_base_id"`
+	Source          string `json:"source"`
+	Title           string `json:"title"`
+	Status          string `json:"status"`
+	ChunkCount      int    `json:"chunk_count"`
+}
+
+type DocumentListResp {
+	Data []*DocumentResp `json:"data"`
+}
+
+type AgentKnowledgeBaseReq {
+	Subject string `path:"subject"`
+	ID      uint64 `path:"id"`
+}
+
+type AgentSubjectReq {
+	Subject string `path:"subject"`
+}
+
+// 知识库管理全部需要 admin 角色。
+@server (
+	prefix:     /api/v1
+	group:      admin
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListAgentKnowledgeBases
+	get /agents/:subject/dataset (AgentSubjectReq) returns (DatasetListResp)
+
+	@handler GrantAgentKnowledgeBase
+	put /agents/:subject/dataset/:id (AgentKnowledgeBaseReq) returns (StatusResp)
+
+	@handler RevokeAgentKnowledgeBase
+	delete /agents/:subject/dataset/:id (AgentKnowledgeBaseReq) returns (StatusResp)
+}
+

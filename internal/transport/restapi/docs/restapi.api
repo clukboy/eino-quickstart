@@ -1,0 +1,64 @@
+syntax = "v1"
+
+// eino-quickstart go-zero REST 传输层 —— 契约入口。
+//
+// 本文件是 HTTP 接口契约的唯一来源，`goctl api go` 由它生成
+// internal/{config,handler,logic,svc,types}。
+//
+// 契约按功能拆分到子目录，本文件只做聚合，不含任何类型或路由：
+//
+//   common/types.api        跨功能组共享的类型（StatusResp）
+//   health/health.api       健康检查        GET /health、/ready
+//   agent/agent.api         会话            POST /sessions
+//   approver/approver.api   审批读取与决策   /approvals/:id*
+//   admin/admin.api         知识库管理       /knowledge-bases*、/agents/:subject/knowledge-bases*
+//
+// import 路径相对于本文件所在目录。新增接口只改对应子文件即可。
+//
+// 约定：一个子文件 = 一个功能组。@server 里的 group 决定生成目录
+// （internal/handler/<group>/、internal/logic/<group>/）与挂载的角色中间件，
+// 所以路由必须按组归位，不要图省事塞进别人的文件。
+//
+// ⚠️ goctl 不会覆盖已存在的文件。改完 .api 后若 handler 仍是旧签名（例如给路由
+//    加了 path 参数或 returns），先删掉要重生成的文件再执行 `make gen-api`，
+//    否则会编译报「参数不匹配 / 返回值个数不符」。
+//
+// ────────────────────────────────────────────────────────────────
+// 为什么有 3 条路由不在这里声明
+//
+// 1) POST /api/v1/chat
+// 2) POST /api/v1/approvals/:id/resume
+//    这两条是 SSE 流式路由。goctl 1.9.2 的 SSE 代码生成（sse_handler.tpl）有两处
+//    与客户端契约不符：
+//      a. 帧只写未命名事件：
+//           fmt.Fprintf(w, "data: %s\n\n", string(output))
+//         没有 `event:` 行。而客户端用 addEventListener(eventType, ...) 消费，
+//         依赖命名事件：
+//           event: message|error|done|approval_required
+//           data: {"type":"...","session_id":"...",...}
+//      b. 生成的 logic 签名是通道推送模型
+//           Call(req, client chan ResponseType) error
+//         响应体必须是一个可 json.Marshal 的类型，无法表达本项目
+//         「同一流里混发多种事件」的负载。
+//    因此这两条路由在 restapi.go 中用裸 http.HandlerFunc + rest.WithSSE() 注册，
+//    由 stream.go 逐字节保持既有帧格式。
+//
+// 3) GET /metrics
+//    返回 Prometheus 文本（text/plain），不是 JSON，无法用 logic 的
+//    (resp, err) 签名表达。同样在 restapi.go 中以裸 handler 注册。
+//
+// 除上述 3 条外，其余 13 条路由全部由本文件驱动生成。
+// ────────────────────────────────────────────────────────────────
+//
+// 唯一的契约差异：PUT/DELETE /api/v1/agents/:subject/knowledge-bases/:id
+// 原先返回 204 No Content，go-zero 生成的 handler 在无响应体时统一走
+// httpx.Ok(w)（200）。这里让它们返回 `{"status":"ok"}` 与
+// POST /approvals/:id/decision 保持一致。若客户端依赖 204，改回的方式见
+// restapi.go 顶部说明。
+// ────────────────────────────────────────────────────────────────
+import "common/types.api"
+import "health/health.api"
+import "agent/agent.api"
+import "approver/approver.api"
+import "admin/admin.api"
+import "dataset/dataset.api"

@@ -1,0 +1,22 @@
+syntax = "v1"
+
+// 会话。
+//
+// 本组只有 POST /sessions 一条由 goctl 生成。真正的对话入口
+// POST /api/v1/chat 是 SSE 流式路由，客户端依赖命名事件，
+// goctl 的 SSE 模板表达不了，见入口 restapi.api 说明，在 restapi.go 注册。
+
+type CreateSessionResp {
+	SessionID string `json:"session_id"`
+}
+
+// 对话框需要 agent 角色。
+@server (
+	prefix:     /api/v1
+	group:      agent
+	middleware: RoleAgent
+)
+service restapi {
+	@handler CreateSession
+	post /sessions returns (CreateSessionResp)
+}

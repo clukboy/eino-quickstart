@@ -1,0 +1,38 @@
+# go-zero 传输层配置（rest.RestConf）。业务配置在 configs/config.yaml，
+# 由 cmd/restapi 用项目的 config.Load 读取，两者各管一层。
+#
+# 用 goctl 生成/更新代码时不要覆盖本文件：
+#   goctl api go --api internal/transport/restapi/restapi.api \
+#                --dir internal/transport/restapi --style gozero
+
+Name: eino-quickstart-restapi
+
+Host: 0.0.0.0
+
+# 与 cmd/server 的 8080 区分开，避免两个传输层同时跑时端口冲突。
+Port: 8090
+
+# 单请求体上限，与 configs/config.yaml 的 runtime.maxRequestBodyBytes 一致。
+MaxBytes: 5242880
+
+# 毫秒，与 runtime.readTimeoutSeconds=15 对齐。SSE 路由用 rest.WithSSE() 标记，
+# go-zero 会清掉写超时，且带 Accept: text/event-stream 的请求跳过 Timeout 中间件。
+Timeout: 15000
+
+# logx 的输出去向由 restapi.BridgeLogx 接管，统一写进项目的 slog（JSON 文件）。
+Log:
+  Mode: console
+  Level: info
+
+# go-zero 自带的中间件默认全开。下面这几项与 internal/platform/observability
+# 的能力重叠，关掉以免每个请求被处理两遍（重复的 trace span、访问日志、
+# recover 日志、指标）。链路由 restapi.go 的 server.Use(...) 提供。
+#
+# 保留的（纯传输层韧性，项目里没有对应实现）：
+#   MaxConns / Breaker / Shedding / Timeout / MaxBytes / Gunzip
+Middlewares:
+  Trace: false       # 用 observability.HTTPTrace（项目自己的 otel span）
+  Log: false         # 用 observability.AccessLog
+  Prometheus: false  # 用 observability.Metrics（私有 registry + GET /metrics）
+  Recover: false     # 用 observability.Recover
+  Metrics: false     # 用 observability.Metrics

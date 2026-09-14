@@ -1,0 +1,26 @@
+syntax = "v1"
+
+// 健康检查。
+//
+// 这两个接口不挂 middleware、不带 /api/v1 前缀，供 k8s / 负载均衡探针直接访问。
+// @server 里只写 group 时，生成的 routes.go 也不会包 WithPrefix。
+
+type HealthResp {
+	Status string `json:"status"`
+}
+
+type ReadyResp {
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+@server (
+	group: health
+)
+service restapi {
+	@handler Health
+	get /health returns (HealthResp)
+
+	@handler Ready
+	get /ready returns (ReadyResp)
+}

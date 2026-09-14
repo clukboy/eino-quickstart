@@ -1,0 +1,16 @@
+syntax = "v1"
+
+// 跨功能组共享的类型。
+//
+// StatusResp 同时被 approver 组（DecideApproval）与 admin 组
+// （UploadKnowledgeDocument、GrantAgentKnowledgeBase、RevokeAgentKnowledgeBase）
+// 返回，因此必须定义在此处 —— 放进任一组，另一组引用时 goctl 会报未定义；
+// 两边各定义一份，又会报类型重名。
+//
+// 判断标准：只有被两个及以上功能组引用的类型才放这里。
+// 单一功能组专用的类型一律放该组自己的 .api，不要图省事堆到 common，
+// 否则这个文件会退化成新的「大杂烩」。
+
+type StatusResp {
+	Status string `json:"status"`
+}

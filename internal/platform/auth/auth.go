@@ -70,6 +70,17 @@ func IdentityFromContext(ctx context.Context) (Identity, bool) {
 	return identity, ok
 }
 
+// WithIdentity returns a context carrying identity, using the same private key
+// IdentityFromContext reads.
+//
+// Authenticate uses it internally, and transports that need their own
+// rejection contract (for example a transport whose error envelope carries a
+// stable code) use it to attach an identity they verified themselves via
+// IdentityFor.
+func WithIdentity(ctx context.Context, identity Identity) context.Context {
+	return context.WithValue(ctx, identityContextKey{}, identity)
+}
+
 func (a *Authenticator) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
@@ -90,11 +101,7 @@ func (a *Authenticator) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(
-			r.Context(),
-			identityContextKey{},
-			identity,
-		)
+		ctx := WithIdentity(r.Context(), identity)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

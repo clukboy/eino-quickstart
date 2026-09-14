@@ -1,0 +1,66 @@
+syntax = "v1"
+
+// 知识库管理。
+//
+// 本组 8 条路由全部需要 admin 角色，统一挂 RoleAdmin 中间件：
+//   /dataset*                     知识库与文档
+//   /agents/:subject/dataset*     给 agent 授权 / 撤销授权
+//
+// 其中上传文档与授权/撤销返回 StatusResp，该类型定义在 common/types.api。
+type CreateDatasetReq {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Visibility  string `json:"visibility"`
+}
+
+type DatasetResp {
+	ID           uint64 `json:"id"`
+	Name         string `json:"name"`
+	Description  string `json:"description,omitempty"`
+	OwnerSubject string `json:"owner_subject"`
+	Visibility   string `json:"visibility"`
+	Status       string `json:"status"`
+}
+
+type ListDatasetsReq {}
+
+type DatasetListResp {
+	Data []*DatasetResp `json:"data"`
+}
+
+type DatasetIDReq {
+	ID uint64 `path:"id"`
+}
+
+// 知识库管理全部需要 admin 角色。
+@server (
+	prefix:     /api/v1
+	group:      dataset
+	middleware: RoleAdmin
+)
+service restapi {
+	@doc "创建知识库"
+	@handler CreateDataset
+	post /dataset (CreateDatasetReq) returns (DatasetResp)
+
+	@doc "列出知识库"
+	@handler ListDatasets
+	get /dataset (ListDatasetsReq) returns (DatasetListResp)
+
+	@doc "获取知识库详情"
+	@handler GetDataset
+	get /dataset/:id (DatasetIDReq) returns (DatasetResp)
+
+	@doc "删除知识库"
+	@handler DeleteDataset
+	delete /dataset/:id (DatasetIDReq) returns (StatusResp)
+
+	@doc "上传知识文档"
+	@handler UploadKnowledgeDocument
+	post /dataset/:id/documents (DatasetIDReq) returns (StatusResp)
+
+	@doc "列出知识文档"
+	@handler ListKnowledgeDocuments
+	get /dataset/:id/documents (DatasetIDReq) returns (DocumentListResp)
+}
+
