@@ -24,17 +24,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/agents/:subject/dataset",
-					Handler: admin.ListAgentKnowledgeBasesHandler(serverCtx),
+					Handler: admin.ListAgentDatasetsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/agents/:subject/dataset/:id",
-					Handler: admin.GrantAgentKnowledgeBaseHandler(serverCtx),
+					Handler: admin.GrantAgentDatasetHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/agents/:subject/dataset/:id",
-					Handler: admin.RevokeAgentKnowledgeBaseHandler(serverCtx),
+					Handler: admin.RevokeAgentDatasetHandler(serverCtx),
 				},
 			}...,
 		),
@@ -79,40 +79,76 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.RoleAdmin},
 			[]rest.Route{
 				{
-					// 创建知识库
+					// 创建数据集
 					Method:  http.MethodPost,
 					Path:    "/dataset",
 					Handler: dataset.CreateDatasetHandler(serverCtx),
 				},
 				{
-					// 列出知识库
+					// 列出数据集
 					Method:  http.MethodGet,
 					Path:    "/dataset",
 					Handler: dataset.ListDatasetsHandler(serverCtx),
 				},
 				{
-					// 获取知识库详情
+					// 获取数据集详情
 					Method:  http.MethodGet,
 					Path:    "/dataset/:id",
 					Handler: dataset.GetDatasetHandler(serverCtx),
 				},
 				{
-					// 删除知识库
+					// 删除数据集
 					Method:  http.MethodDelete,
 					Path:    "/dataset/:id",
 					Handler: dataset.DeleteDatasetHandler(serverCtx),
 				},
 				{
-					// 上传知识文档
+					// 创建文档
 					Method:  http.MethodPost,
 					Path:    "/dataset/:id/documents",
-					Handler: dataset.UploadKnowledgeDocumentHandler(serverCtx),
+					Handler: dataset.CreateDocumentHandler(serverCtx),
 				},
 				{
-					// 列出知识文档
+					// 列出数据集文档
 					Method:  http.MethodGet,
 					Path:    "/dataset/:id/documents",
-					Handler: dataset.ListKnowledgeDocumentsHandler(serverCtx),
+					Handler: dataset.ListDocumentsHandler(serverCtx),
+				},
+				{
+					// 获取文档详情
+					Method:  http.MethodGet,
+					Path:    "/dataset/:id/documents/:docId",
+					Handler: dataset.GetDocumentHandler(serverCtx),
+				},
+				{
+					// 更新文档
+					Method:  http.MethodPut,
+					Path:    "/dataset/:id/documents/:docId",
+					Handler: dataset.UpdateDocumentHandler(serverCtx),
+				},
+				{
+					// 删除文档
+					Method:  http.MethodDelete,
+					Path:    "/dataset/:id/documents/:docId",
+					Handler: dataset.DeleteDocumentHandler(serverCtx),
+				},
+				{
+					// 重建文档索引
+					Method:  http.MethodPost,
+					Path:    "/dataset/:id/documents/:docId/reindex",
+					Handler: dataset.ReindexDocumentHandler(serverCtx),
+				},
+				{
+					// 上传文档
+					Method:  http.MethodPost,
+					Path:    "/dataset/:id/documents/upload",
+					Handler: dataset.UploadDocumentHandler(serverCtx),
+				},
+				{
+					// 重建数据集全部文档索引
+					Method:  http.MethodPost,
+					Path:    "/dataset/:id/reindex",
+					Handler: dataset.ReindexDatasetHandler(serverCtx),
 				},
 			}...,
 		),

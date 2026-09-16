@@ -14,8 +14,8 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
-	// AgentKnowledgeBase is the client for interacting with the AgentKnowledgeBase builders.
-	AgentKnowledgeBase *AgentKnowledgeBaseClient
+	// AgentDataset is the client for interacting with the AgentDataset builders.
+	AgentDataset *AgentDatasetClient
 	// AgentRun is the client for interacting with the AgentRun builders.
 	AgentRun *AgentRunClient
 	// Approval is the client for interacting with the Approval builders.
@@ -26,12 +26,12 @@ type Tx struct {
 	ChatTurn *ChatTurnClient
 	// Checkpoint is the client for interacting with the Checkpoint builders.
 	Checkpoint *CheckpointClient
+	// Dataset is the client for interacting with the Dataset builders.
+	Dataset *DatasetClient
 	// Document is the client for interacting with the Document builders.
 	Document *DocumentClient
 	// DocumentChunk is the client for interacting with the DocumentChunk builders.
 	DocumentChunk *DocumentChunkClient
-	// KnowledgeBase is the client for interacting with the KnowledgeBase builders.
-	KnowledgeBase *KnowledgeBaseClient
 	// KnowledgeFolder is the client for interacting with the KnowledgeFolder builders.
 	KnowledgeFolder *KnowledgeFolderClient
 	// KnowledgeIndex is the client for interacting with the KnowledgeIndex builders.
@@ -40,8 +40,6 @@ type Tx struct {
 	Session *SessionClient
 	// SessionMessage is the client for interacting with the SessionMessage builders.
 	SessionMessage *SessionMessageClient
-	// VectorOutbox is the client for interacting with the VectorOutbox builders.
-	VectorOutbox *VectorOutboxClient
 
 	// lazily loaded.
 	client     *Client
@@ -173,20 +171,19 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
-	tx.AgentKnowledgeBase = NewAgentKnowledgeBaseClient(tx.config)
+	tx.AgentDataset = NewAgentDatasetClient(tx.config)
 	tx.AgentRun = NewAgentRunClient(tx.config)
 	tx.Approval = NewApprovalClient(tx.config)
 	tx.AuditEvent = NewAuditEventClient(tx.config)
 	tx.ChatTurn = NewChatTurnClient(tx.config)
 	tx.Checkpoint = NewCheckpointClient(tx.config)
+	tx.Dataset = NewDatasetClient(tx.config)
 	tx.Document = NewDocumentClient(tx.config)
 	tx.DocumentChunk = NewDocumentChunkClient(tx.config)
-	tx.KnowledgeBase = NewKnowledgeBaseClient(tx.config)
 	tx.KnowledgeFolder = NewKnowledgeFolderClient(tx.config)
 	tx.KnowledgeIndex = NewKnowledgeIndexClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.SessionMessage = NewSessionMessageClient(tx.config)
-	tx.VectorOutbox = NewVectorOutboxClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.
@@ -196,7 +193,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: AgentKnowledgeBase.QueryXXX(), the query will be executed
+// applies a query, for example: AgentDataset.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

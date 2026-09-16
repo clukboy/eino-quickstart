@@ -27,8 +27,8 @@ const (
 	FieldVisibility = "visibility"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
-	// FieldKnowledgeBaseID holds the string denoting the knowledge_base_id field in the database.
-	FieldKnowledgeBaseID = "knowledge_base_id"
+	// FieldDatasetID holds the string denoting the dataset_id field in the database.
+	FieldDatasetID = "dataset_id"
 	// FieldFolderID holds the string denoting the folder_id field in the database.
 	FieldFolderID = "folder_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -57,7 +57,7 @@ var Columns = []string{
 	FieldOwnerSubject,
 	FieldVisibility,
 	FieldStatus,
-	FieldKnowledgeBaseID,
+	FieldDatasetID,
 	FieldFolderID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -66,7 +66,7 @@ var Columns = []string{
 // ForeignKeys holds the SQL foreign-keys that are owned by the "documents"
 // table and are not defined as standalone fields in the schema.
 var ForeignKeys = []string{
-	"knowledge_base_documents",
+	"dataset_documents",
 	"knowledge_folder_documents",
 }
 
@@ -88,8 +88,8 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultOwnerSubject holds the default value on creation for the "owner_subject" field.
 	DefaultOwnerSubject string
-	// DefaultKnowledgeBaseID holds the default value on creation for the "knowledge_base_id" field.
-	DefaultKnowledgeBaseID uint64
+	// DefaultDatasetID holds the default value on creation for the "dataset_id" field.
+	DefaultDatasetID uint64
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -185,9 +185,9 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
-// ByKnowledgeBaseID orders the results by the knowledge_base_id field.
-func ByKnowledgeBaseID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldKnowledgeBaseID, opts...).ToFunc()
+// ByDatasetID orders the results by the dataset_id field.
+func ByDatasetID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDatasetID, opts...).ToFunc()
 }
 
 // ByFolderID orders the results by the folder_id field.

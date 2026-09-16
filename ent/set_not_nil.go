@@ -6,34 +6,33 @@ import (
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/chatturn"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgeindex"
-	"eino-quickstart/ent/vectoroutbox"
 	"time"
 )
 
 // set field if value's pointer is not nil.
-func (_m *AgentKnowledgeBaseUpdate) SetNotNilKnowledgeBaseID(value *uint64) *AgentKnowledgeBaseUpdate {
+func (_m *AgentDatasetUpdate) SetNotNilDatasetID(value *uint64) *AgentDatasetUpdate {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
 
 // set field if value's pointer is not nil.
-func (_m *AgentKnowledgeBaseUpdateOne) SetNotNilKnowledgeBaseID(value *uint64) *AgentKnowledgeBaseUpdateOne {
+func (_m *AgentDatasetUpdateOne) SetNotNilDatasetID(value *uint64) *AgentDatasetUpdateOne {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
 
 // set field if value's pointer is not nil.
-func (_m *AgentKnowledgeBaseCreate) SetNotNilKnowledgeBaseID(value *uint64) *AgentKnowledgeBaseCreate {
+func (_m *AgentDatasetCreate) SetNotNilDatasetID(value *uint64) *AgentDatasetCreate {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
@@ -783,6 +782,174 @@ func (_m *CheckpointCreate) SetNotNilExpiresAt(value *time.Time) *CheckpointCrea
 }
 
 // set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilName(value *string) *DatasetUpdate {
+	if value != nil {
+		return _m.SetName(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilName(value *string) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetName(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilName(value *string) *DatasetCreate {
+	if value != nil {
+		return _m.SetName(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilDescription(value *string) *DatasetUpdate {
+	if value != nil {
+		return _m.SetDescription(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilDescription(value *string) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetDescription(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilDescription(value *string) *DatasetCreate {
+	if value != nil {
+		return _m.SetDescription(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilOwnerSubject(value *string) *DatasetUpdate {
+	if value != nil {
+		return _m.SetOwnerSubject(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilOwnerSubject(value *string) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetOwnerSubject(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilOwnerSubject(value *string) *DatasetCreate {
+	if value != nil {
+		return _m.SetOwnerSubject(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilVisibility(value *dataset.Visibility) *DatasetUpdate {
+	if value != nil {
+		return _m.SetVisibility(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilVisibility(value *dataset.Visibility) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetVisibility(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilVisibility(value *dataset.Visibility) *DatasetCreate {
+	if value != nil {
+		return _m.SetVisibility(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilStatus(value *dataset.Status) *DatasetUpdate {
+	if value != nil {
+		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilStatus(value *dataset.Status) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilStatus(value *dataset.Status) *DatasetCreate {
+	if value != nil {
+		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilType(value *string) *DatasetUpdate {
+	if value != nil {
+		return _m.SetType(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilType(value *string) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetType(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilType(value *string) *DatasetCreate {
+	if value != nil {
+		return _m.SetType(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdate) SetNotNilUpdatedAt(value *time.Time) *DatasetUpdate {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetUpdateOne) SetNotNilUpdatedAt(value *time.Time) *DatasetUpdateOne {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DatasetCreate) SetNotNilUpdatedAt(value *time.Time) *DatasetCreate {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
 func (_m *DocumentUpdate) SetNotNilSource(value *string) *DocumentUpdate {
 	if value != nil {
 		return _m.SetSource(*value)
@@ -927,25 +1094,25 @@ func (_m *DocumentCreate) SetNotNilStatus(value *document.Status) *DocumentCreat
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdate) SetNotNilKnowledgeBaseID(value *uint64) *DocumentUpdate {
+func (_m *DocumentUpdate) SetNotNilDatasetID(value *uint64) *DocumentUpdate {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentUpdateOne) SetNotNilKnowledgeBaseID(value *uint64) *DocumentUpdateOne {
+func (_m *DocumentUpdateOne) SetNotNilDatasetID(value *uint64) *DocumentUpdateOne {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
 
 // set field if value's pointer is not nil.
-func (_m *DocumentCreate) SetNotNilKnowledgeBaseID(value *uint64) *DocumentCreate {
+func (_m *DocumentCreate) SetNotNilDatasetID(value *uint64) *DocumentCreate {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
@@ -1119,150 +1286,6 @@ func (_m *DocumentChunkCreate) SetNotNilIndexedAt(value *time.Time) *DocumentChu
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdate) SetNotNilName(value *string) *KnowledgeBaseUpdate {
-	if value != nil {
-		return _m.SetName(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdateOne) SetNotNilName(value *string) *KnowledgeBaseUpdateOne {
-	if value != nil {
-		return _m.SetName(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseCreate) SetNotNilName(value *string) *KnowledgeBaseCreate {
-	if value != nil {
-		return _m.SetName(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdate) SetNotNilDescription(value *string) *KnowledgeBaseUpdate {
-	if value != nil {
-		return _m.SetDescription(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdateOne) SetNotNilDescription(value *string) *KnowledgeBaseUpdateOne {
-	if value != nil {
-		return _m.SetDescription(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseCreate) SetNotNilDescription(value *string) *KnowledgeBaseCreate {
-	if value != nil {
-		return _m.SetDescription(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdate) SetNotNilOwnerSubject(value *string) *KnowledgeBaseUpdate {
-	if value != nil {
-		return _m.SetOwnerSubject(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdateOne) SetNotNilOwnerSubject(value *string) *KnowledgeBaseUpdateOne {
-	if value != nil {
-		return _m.SetOwnerSubject(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseCreate) SetNotNilOwnerSubject(value *string) *KnowledgeBaseCreate {
-	if value != nil {
-		return _m.SetOwnerSubject(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdate) SetNotNilVisibility(value *knowledgebase.Visibility) *KnowledgeBaseUpdate {
-	if value != nil {
-		return _m.SetVisibility(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdateOne) SetNotNilVisibility(value *knowledgebase.Visibility) *KnowledgeBaseUpdateOne {
-	if value != nil {
-		return _m.SetVisibility(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseCreate) SetNotNilVisibility(value *knowledgebase.Visibility) *KnowledgeBaseCreate {
-	if value != nil {
-		return _m.SetVisibility(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdate) SetNotNilStatus(value *knowledgebase.Status) *KnowledgeBaseUpdate {
-	if value != nil {
-		return _m.SetStatus(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdateOne) SetNotNilStatus(value *knowledgebase.Status) *KnowledgeBaseUpdateOne {
-	if value != nil {
-		return _m.SetStatus(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseCreate) SetNotNilStatus(value *knowledgebase.Status) *KnowledgeBaseCreate {
-	if value != nil {
-		return _m.SetStatus(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdate) SetNotNilUpdatedAt(value *time.Time) *KnowledgeBaseUpdate {
-	if value != nil {
-		return _m.SetUpdatedAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseUpdateOne) SetNotNilUpdatedAt(value *time.Time) *KnowledgeBaseUpdateOne {
-	if value != nil {
-		return _m.SetUpdatedAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *KnowledgeBaseCreate) SetNotNilUpdatedAt(value *time.Time) *KnowledgeBaseCreate {
-	if value != nil {
-		return _m.SetUpdatedAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
 func (_m *KnowledgeFolderUpdate) SetNotNilName(value *string) *KnowledgeFolderUpdate {
 	if value != nil {
 		return _m.SetName(*value)
@@ -1335,25 +1358,25 @@ func (_m *KnowledgeFolderCreate) SetNotNilSort(value *int) *KnowledgeFolderCreat
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeFolderUpdate) SetNotNilKnowledgeBaseID(value *uint64) *KnowledgeFolderUpdate {
+func (_m *KnowledgeFolderUpdate) SetNotNilDatasetID(value *uint64) *KnowledgeFolderUpdate {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeFolderUpdateOne) SetNotNilKnowledgeBaseID(value *uint64) *KnowledgeFolderUpdateOne {
+func (_m *KnowledgeFolderUpdateOne) SetNotNilDatasetID(value *uint64) *KnowledgeFolderUpdateOne {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
 
 // set field if value's pointer is not nil.
-func (_m *KnowledgeFolderCreate) SetNotNilKnowledgeBaseID(value *uint64) *KnowledgeFolderCreate {
+func (_m *KnowledgeFolderCreate) SetNotNilDatasetID(value *uint64) *KnowledgeFolderCreate {
 	if value != nil {
-		return _m.SetKnowledgeBaseID(*value)
+		return _m.SetDatasetID(*value)
 	}
 	return _m
 }
@@ -1570,198 +1593,6 @@ func (_m *SessionMessageUpdateOne) SetNotNilContent(value *string) *SessionMessa
 func (_m *SessionMessageCreate) SetNotNilContent(value *string) *SessionMessageCreate {
 	if value != nil {
 		return _m.SetContent(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilChunkID(value *uint64) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetChunkID(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilChunkID(value *uint64) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetChunkID(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilChunkID(value *uint64) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetChunkID(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilOperation(value *vectoroutbox.Operation) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetOperation(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilOperation(value *vectoroutbox.Operation) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetOperation(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilOperation(value *vectoroutbox.Operation) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetOperation(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilStatus(value *vectoroutbox.Status) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetStatus(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilStatus(value *vectoroutbox.Status) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetStatus(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilStatus(value *vectoroutbox.Status) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetStatus(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilAttempts(value *int) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetAttempts(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilAttempts(value *int) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetAttempts(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilAttempts(value *int) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetAttempts(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilAvailableAt(value *time.Time) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetAvailableAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilAvailableAt(value *time.Time) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetAvailableAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilAvailableAt(value *time.Time) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetAvailableAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilLockedUntil(value *time.Time) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetLockedUntil(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilLockedUntil(value *time.Time) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetLockedUntil(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilLockedUntil(value *time.Time) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetLockedUntil(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilLastError(value *string) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetLastError(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilLastError(value *string) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetLastError(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilLastError(value *string) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetLastError(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdate) SetNotNilUpdatedAt(value *time.Time) *VectorOutboxUpdate {
-	if value != nil {
-		return _m.SetUpdatedAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxUpdateOne) SetNotNilUpdatedAt(value *time.Time) *VectorOutboxUpdateOne {
-	if value != nil {
-		return _m.SetUpdatedAt(*value)
-	}
-	return _m
-}
-
-// set field if value's pointer is not nil.
-func (_m *VectorOutboxCreate) SetNotNilUpdatedAt(value *time.Time) *VectorOutboxCreate {
-	if value != nil {
-		return _m.SetUpdatedAt(*value)
 	}
 	return _m
 }

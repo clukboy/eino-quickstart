@@ -30,8 +30,8 @@ type Document struct {
 	Visibility document.Visibility `json:"visibility,omitempty"`
 	// Status holds the value of the "status" field.
 	Status document.Status `json:"status,omitempty"`
-	// KnowledgeBaseID holds the value of the "knowledge_base_id" field.
-	KnowledgeBaseID uint64 `json:"knowledge_base_id,omitempty"`
+	// DatasetID holds the value of the "dataset_id" field.
+	DatasetID uint64 `json:"dataset_id,omitempty"`
 	// FolderID holds the value of the "folder_id" field.
 	FolderID *uint64 `json:"folder_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -41,7 +41,7 @@ type Document struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the DocumentQuery when eager-loading is set.
 	Edges                      DocumentEdges `json:"edges"`
-	knowledge_base_documents   *uint64
+	dataset_documents          *uint64
 	knowledge_folder_documents *uint64
 	selectValues               sql.SelectValues
 }
@@ -71,13 +71,13 @@ func (*Document) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case document.FieldMetadata:
 			values[i] = new([]byte)
-		case document.FieldID, document.FieldKnowledgeBaseID, document.FieldFolderID:
+		case document.FieldID, document.FieldDatasetID, document.FieldFolderID:
 			values[i] = new(sql.NullInt64)
 		case document.FieldSource, document.FieldTitle, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
 			values[i] = new(sql.NullString)
 		case document.FieldCreatedAt, document.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case document.ForeignKeys[0]: // knowledge_base_documents
+		case document.ForeignKeys[0]: // dataset_documents
 			values[i] = new(sql.NullInt64)
 		case document.ForeignKeys[1]: // knowledge_folder_documents
 			values[i] = new(sql.NullInt64)
@@ -140,11 +140,11 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Status = document.Status(value.String)
 			}
-		case document.FieldKnowledgeBaseID:
+		case document.FieldDatasetID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field knowledge_base_id", values[i])
+				return fmt.Errorf("unexpected type %T for field dataset_id", values[i])
 			} else if value.Valid {
-				_m.KnowledgeBaseID = uint64(value.Int64)
+				_m.DatasetID = uint64(value.Int64)
 			}
 		case document.FieldFolderID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -167,10 +167,10 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			}
 		case document.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for edge-field knowledge_base_documents", value)
+				return fmt.Errorf("unexpected type %T for edge-field dataset_documents", value)
 			} else if value.Valid {
-				_m.knowledge_base_documents = new(uint64)
-				*_m.knowledge_base_documents = uint64(value.Int64)
+				_m.dataset_documents = new(uint64)
+				*_m.dataset_documents = uint64(value.Int64)
 			}
 		case document.ForeignKeys[1]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -238,8 +238,8 @@ func (_m *Document) String() string {
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
 	builder.WriteString(", ")
-	builder.WriteString("knowledge_base_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.KnowledgeBaseID))
+	builder.WriteString("dataset_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DatasetID))
 	builder.WriteString(", ")
 	if v := _m.FolderID; v != nil {
 		builder.WriteString("folder_id=")

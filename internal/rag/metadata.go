@@ -6,8 +6,6 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-
-
 func MetaString(d *schema.Document, key string) string {
 	if d == nil || d.MetaData == nil {
 		return ""

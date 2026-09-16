@@ -28,7 +28,7 @@ func NewGetDatasetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetDat
 }
 
 func (l *GetDatasetLogic) GetDataset(req *types.DatasetIDReq) (resp *types.DatasetResp, err error) {
-	base, err := l.svcCtx.EntClient.KnowledgeBase.Get(l.ctx, req.ID)
+	base, err := l.svcCtx.EntClient.Dataset.Get(l.ctx, req.ID)
 	if err != nil {
 		return nil, fail(err)
 	}

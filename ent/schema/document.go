@@ -27,7 +27,7 @@ func (Document) Fields() []ent.Field {
 			Default("system"),
 		field.Enum("status").Values("ready", "indexing", "failed", "deleted").Default("indexing"),
 
-		field.Uint64("knowledge_base_id").Default(0),
+		field.Uint64("dataset_id").Default(0),
 		field.Uint64("folder_id").Optional().Nillable(),
 
 		field.Time("created_at").Default(time.Now).Immutable(),
@@ -38,9 +38,9 @@ func (Document) Fields() []ent.Field {
 // Edges of the Document.
 func (Document) Edges() []ent.Edge {
 	return []ent.Edge{
-		//edge.From("knowledge_base", KnowledgeBase.Type).
+		//edge.From("dataset", Dataset.Type).
 		//	Ref("documents").
-		//	Field("knowledge_base_id").
+		//	Field("dataset_id").
 		//	Unique().
 		//	Required(),
 		//
@@ -55,7 +55,7 @@ func (Document) Edges() []ent.Edge {
 
 func (Document) Indexes() []ent.Index {
 	return []ent.Index{
-		//index.Fields("knowledge_base_id", "source").Unique(),
+		//index.Fields("dataset_id", "source").Unique(),
 		index.Fields("owner_subject", "visibility"),
 		//index.Fields("checksum"),
 	}

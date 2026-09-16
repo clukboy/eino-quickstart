@@ -60,7 +60,6 @@ func NewPipeline(ctx context.Context, cfg Config, entClient *ent.Client) (*Pipel
 	// ---- ingest chain: uri -> load -> chunk -> index ----
 	ingestChain := compose.NewChain[document.Source, []*schema.Document]().
 		AppendLoader(loader).
-		AppendLambda(compose.InvokableLambda(cfg.Store.PgStore.CreateDocument)).
 		AppendDocumentTransformer(chunker).
 		AppendLambda(compose.InvokableLambda(indexer.Index))
 

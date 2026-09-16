@@ -70,9 +70,9 @@ func OwnerSubject(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldOwnerSubject, v))
 }
 
-// KnowledgeBaseID applies equality check predicate on the "knowledge_base_id" field. It's identical to KnowledgeBaseIDEQ.
-func KnowledgeBaseID(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldEQ(FieldKnowledgeBaseID, v))
+// DatasetID applies equality check predicate on the "dataset_id" field. It's identical to DatasetIDEQ.
+func DatasetID(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldDatasetID, v))
 }
 
 // FolderID applies equality check predicate on the "folder_id" field. It's identical to FolderIDEQ.
@@ -335,44 +335,44 @@ func StatusNotIn(vs ...Status) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldStatus, vs...))
 }
 
-// KnowledgeBaseIDEQ applies the EQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDEQ(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldEQ(FieldKnowledgeBaseID, v))
+// DatasetIDEQ applies the EQ predicate on the "dataset_id" field.
+func DatasetIDEQ(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDNEQ applies the NEQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNEQ(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldNEQ(FieldKnowledgeBaseID, v))
+// DatasetIDNEQ applies the NEQ predicate on the "dataset_id" field.
+func DatasetIDNEQ(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldNEQ(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDIn applies the In predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDIn(vs ...uint64) predicate.Document {
-	return predicate.Document(sql.FieldIn(FieldKnowledgeBaseID, vs...))
+// DatasetIDIn applies the In predicate on the "dataset_id" field.
+func DatasetIDIn(vs ...uint64) predicate.Document {
+	return predicate.Document(sql.FieldIn(FieldDatasetID, vs...))
 }
 
-// KnowledgeBaseIDNotIn applies the NotIn predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNotIn(vs ...uint64) predicate.Document {
-	return predicate.Document(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
+// DatasetIDNotIn applies the NotIn predicate on the "dataset_id" field.
+func DatasetIDNotIn(vs ...uint64) predicate.Document {
+	return predicate.Document(sql.FieldNotIn(FieldDatasetID, vs...))
 }
 
-// KnowledgeBaseIDGT applies the GT predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDGT(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldGT(FieldKnowledgeBaseID, v))
+// DatasetIDGT applies the GT predicate on the "dataset_id" field.
+func DatasetIDGT(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldGT(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDGTE applies the GTE predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDGTE(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldGTE(FieldKnowledgeBaseID, v))
+// DatasetIDGTE applies the GTE predicate on the "dataset_id" field.
+func DatasetIDGTE(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldGTE(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDLT applies the LT predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDLT(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldLT(FieldKnowledgeBaseID, v))
+// DatasetIDLT applies the LT predicate on the "dataset_id" field.
+func DatasetIDLT(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldLT(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDLTE applies the LTE predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDLTE(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldLTE(FieldKnowledgeBaseID, v))
+// DatasetIDLTE applies the LTE predicate on the "dataset_id" field.
+func DatasetIDLTE(v uint64) predicate.Document {
+	return predicate.Document(sql.FieldLTE(FieldDatasetID, v))
 }
 
 // FolderIDEQ applies the EQ predicate on the "folder_id" field.

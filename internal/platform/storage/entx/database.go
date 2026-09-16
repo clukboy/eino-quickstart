@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"eino-quickstart/ent"
+	"eino-quickstart/ent/schema/hook"
 	"eino-quickstart/internal/platform/config"
 
 	"entgo.io/ent/dialect/sql/schema"
@@ -26,6 +27,9 @@ func Open(ctx context.Context, c config.Storage) (*ent.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open postgres: %w", err)
 	}
+
+	// entgo 添加 trace hook 实现链路追踪
+	client.Use(hook.TraceAuditHook())
 
 	// 学习阶段自动建表；生产阶段改用 Ent/Atlas 版本化迁移。
 	if err := client.Schema.Create(ctx, schema.WithDropColumn(true), schema.WithDropIndex(true), schema.WithForeignKeys(false)); err != nil {

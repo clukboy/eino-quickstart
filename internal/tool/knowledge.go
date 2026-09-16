@@ -2,11 +2,12 @@ package tool
 
 import (
 	"context"
-	"eino-quickstart/ent"
-	"eino-quickstart/ent/agentknowledgebase"
 	"errors"
 	"fmt"
 	"strings"
+
+	"eino-quickstart/ent"
+	"eino-quickstart/ent/agentdataset"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
@@ -14,53 +15,53 @@ import (
 
 type KnowledgeSearch struct {
 	ActorSubject string
-	Bindings     KnowledgeBaseBindings
+	Bindings     DatasetBindings
 
-	// AllowedKnowledgeBaseIDs supports fixed bindings for callers that do not
-	// have an authenticated subject-to-knowledge-base resolver.
+	// AllowedDatasetIDs supports fixed bindings for callers that do not
+	// have an authenticated subject-to-dataset resolver.
 	//
-	// LLM 不应该能够通过 tool 参数自行指定 KB。
-	AllowedKnowledgeBaseIDs []uint64
+	// LLM 不应该能够通过 tool 参数自行指定 dataset。
+	AllowedDatasetIDs []uint64
 }
 
-type KnowledgeBaseBindings interface {
-	KnowledgeBaseIDs(ctx context.Context, subject string) ([]uint64, error)
+type DatasetBindings interface {
+	DatasetIDs(ctx context.Context, subject string) ([]uint64, error)
 }
 
-type EntKnowledgeBaseBindings struct {
+type EntDatasetBindings struct {
 	client *ent.Client
 }
 
-func NewEntKnowledgeBaseBindings(client *ent.Client) (*EntKnowledgeBaseBindings, error) {
+func NewEntDatasetBindings(client *ent.Client) (*EntDatasetBindings, error) {
 	if client == nil {
-		return nil, errors.New("knowledge binding database client is required")
+		return nil, errors.New("dataset binding database client is required")
 	}
-	return &EntKnowledgeBaseBindings{client: client}, nil
+	return &EntDatasetBindings{client: client}, nil
 }
 
-func (b *EntKnowledgeBaseBindings) KnowledgeBaseIDs(
+func (b *EntDatasetBindings) DatasetIDs(
 	ctx context.Context,
 	subject string,
 ) ([]uint64, error) {
 	if b == nil || b.client == nil {
-		return nil, errors.New("knowledge binding database client is required")
+		return nil, errors.New("dataset binding database client is required")
 	}
 	subject = strings.TrimSpace(subject)
 	if subject == "" {
 		return nil, errors.New("authenticated actor subject is required")
 	}
-	bindings, err := b.client.AgentKnowledgeBase.Query().
-		Where(agentknowledgebase.SubjectEQ(subject)).
-		Order(agentknowledgebase.ByKnowledgeBaseID()).
+	bindings, err := b.client.AgentDataset.Query().
+		Where(agentdataset.SubjectEQ(subject)).
+		Order(agentdataset.ByDatasetID()).
 		All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("query knowledge base bindings: %w", err)
+		return nil, fmt.Errorf("query dataset bindings: %w", err)
 	}
 	ids := make([]uint64, 0, len(bindings))
 	for _, binding := range bindings {
-		ids = append(ids, binding.KnowledgeBaseID)
+		ids = append(ids, binding.DatasetID)
 	}
-	return normalizeKnowledgeBaseIDs(ids), nil
+	return normalizeDatasetIDs(ids), nil
 }
 
 type knowledgeSearchInput struct {
@@ -71,37 +72,37 @@ type knowledgeSearchInput struct {
 // NewKnowledgeSearch creates the search_knowledge Eino tool.
 func NewKnowledgeSearch(actorSubject string) (tool.InvokableTool, error) {
 	return nil, errors.New(
-		"knowledge search requires an explicit knowledge base allowlist",
+		"knowledge search requires an explicit dataset allowlist",
 	)
 }
 
-func NewKnowledgeSearchWithKnowledgeBases(actorSubject string, knowledgeBaseIDs []uint64) (tool.InvokableTool, error) {
+func NewKnowledgeSearchWithDatasets(actorSubject string, datasetIDs []uint64) (tool.InvokableTool, error) {
 	// if retriever == nil {
 	// 	return nil, errors.New("knowledge retriever is required")
 	// }
-	allowedKnowledgeBaseIDs := normalizeKnowledgeBaseIDs(knowledgeBaseIDs)
-	if len(allowedKnowledgeBaseIDs) == 0 {
+	allowedDatasetIDs := normalizeDatasetIDs(datasetIDs)
+	if len(allowedDatasetIDs) == 0 {
 		return nil, errors.New(
-			"knowledge search requires at least one allowed knowledge base",
+			"knowledge search requires at least one allowed dataset",
 		)
 	}
 
 	search := &KnowledgeSearch{
-		// Retriever:               retriever,
-		ActorSubject:            strings.TrimSpace(actorSubject),
-		AllowedKnowledgeBaseIDs: allowedKnowledgeBaseIDs,
+		// Retriever:        retriever,
+		ActorSubject:      strings.TrimSpace(actorSubject),
+		AllowedDatasetIDs: allowedDatasetIDs,
 	}
 	return utils.InferTool("search_knowledge", "Search authorized knowledge documents and return cited source excerpts.", search.run)
 }
 
-// NewKnowledgeSearchWithBindings creates a search tool whose KB whitelist is
-// resolved from the authenticated subject every time the tool is invoked.
-func NewKnowledgeSearchWithBindings(actorSubject string, bindings KnowledgeBaseBindings) (tool.InvokableTool, error) {
+// NewKnowledgeSearchWithBindings creates a search tool whose dataset whitelist
+// is resolved from the authenticated subject every time the tool is invoked.
+func NewKnowledgeSearchWithBindings(actorSubject string, bindings DatasetBindings) (tool.InvokableTool, error) {
 	// if retriever == nil {
 	// 	return nil, errors.New("knowledge retriever is required")
 	// }
 	if bindings == nil {
-		return nil, errors.New("knowledge base bindings are required")
+		return nil, errors.New("dataset bindings are required")
 	}
 	return utils.InferTool(
 		"search_knowledge",
@@ -139,20 +140,20 @@ func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (
 	// if actorSubject == "" {
 	// 	return "", errors.New("authenticated actor subject is required")
 	// }
-	// knowledgeBaseIDs := s.AllowedKnowledgeBaseIDs
+	// datasetIDs := s.AllowedDatasetIDs
 	// if s.Bindings != nil {
-	// 	resolvedIDs, err := s.Bindings.KnowledgeBaseIDs(ctx, actorSubject)
+	// 	resolvedIDs, err := s.Bindings.DatasetIDs(ctx, actorSubject)
 	// 	if err != nil {
-	// 		return "", fmt.Errorf("resolve knowledge base bindings: %w", err)
+	// 		return "", fmt.Errorf("resolve dataset bindings: %w", err)
 	// 	}
-	// 	knowledgeBaseIDs = resolvedIDs
+	// 	datasetIDs = resolvedIDs
 	// }
 
 	// results, err := s.Retriever.Search(ctx, retrieval.SearchRequest{
-	// 	ActorSubject:     actorSubject,
-	// 	Query:            query,
-	// 	TopK:             input.TopK,
-	// 	KnowledgeBaseIDs: knowledgeBaseIDs,
+	// 	ActorSubject: actorSubject,
+	// 	Query:        query,
+	// 	TopK:         input.TopK,
+	// 	DatasetIDs:   datasetIDs,
 	// })
 	// if err != nil {
 	// 	return "", fmt.Errorf("search knowledge: %w", err)
@@ -187,13 +188,13 @@ func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (
 	return "", nil
 }
 
-func normalizeKnowledgeBaseIDs(knowledgeBaseIDs []uint64) []uint64 {
-	if len(knowledgeBaseIDs) == 0 {
+func normalizeDatasetIDs(datasetIDs []uint64) []uint64 {
+	if len(datasetIDs) == 0 {
 		return nil
 	}
-	result := make([]uint64, 0, len(knowledgeBaseIDs))
-	seen := make(map[uint64]struct{}, len(knowledgeBaseIDs))
-	for _, id := range knowledgeBaseIDs {
+	result := make([]uint64, 0, len(datasetIDs))
+	seen := make(map[uint64]struct{}, len(datasetIDs))
+	for _, id := range datasetIDs {
 		if id <= 0 {
 			continue
 		}

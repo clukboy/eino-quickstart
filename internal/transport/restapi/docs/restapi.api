@@ -11,7 +11,8 @@ syntax = "v1"
 //   health/health.api       健康检查        GET /health、/ready
 //   agent/agent.api         会话            POST /sessions
 //   approver/approver.api   审批读取与决策   /approvals/:id*
-//   admin/admin.api         知识库管理       /knowledge-bases*、/agents/:subject/knowledge-bases*
+//   admin/admin.api         agent 数据集授权 /agents/:subject/dataset*
+//   dataset/dataset.api     数据集与文档     /dataset*（含文档 CRUD 与重建索引）
 //
 // import 路径相对于本文件所在目录。新增接口只改对应子文件即可。
 //
@@ -24,7 +25,7 @@ syntax = "v1"
 //    否则会编译报「参数不匹配 / 返回值个数不符」。
 //
 // ────────────────────────────────────────────────────────────────
-// 为什么有 3 条路由不在这里声明
+// 为什么有 2 条路由不在这里声明
 //
 // 1) POST /api/v1/chat
 // 2) POST /api/v1/approvals/:id/resume
@@ -43,18 +44,30 @@ syntax = "v1"
 //    因此这两条路由在 restapi.go 中用裸 http.HandlerFunc + rest.WithSSE() 注册，
 //    由 stream.go 逐字节保持既有帧格式。
 //
-// 3) GET /metrics
-//    返回 Prometheus 文本（text/plain），不是 JSON，无法用 logic 的
-//    (resp, err) 签名表达。同样在 restapi.go 中以裸 handler 注册。
+// 除上述 2 条外，其余路由全部由本文件驱动生成。
 //
-// 除上述 3 条外，其余 13 条路由全部由本文件驱动生成。
+// GET /metrics 曾是第 3 条手写路由，现已移除：指标改由 go-zero 自带的
+// Prometheus agent 在独立端口暴露（见 etc/restapi.yaml 的 Prometheus 段），
+// 不再需要 .api 之外的裸 handler。
 // ────────────────────────────────────────────────────────────────
 //
-// 唯一的契约差异：PUT/DELETE /api/v1/agents/:subject/knowledge-bases/:id
-// 原先返回 204 No Content，go-zero 生成的 handler 在无响应体时统一走
-// httpx.Ok(w)（200）。这里让它们返回 `{"status":"ok"}` 与
-// POST /approvals/:id/decision 保持一致。若客户端依赖 204，改回的方式见
-// restapi.go 顶部说明。
+// 契约上需要说明的地方：声明了 returns (StatusResp) 的路由，成功时的状态码
+// 并不完全统一，客户端要按下面这张表处理（都是当前实现的实际行为）：
+//
+//   DELETE /api/v1/dataset/:id                      200 {"status":"deleted"}
+//   DELETE /api/v1/dataset/:id/documents/:docId     200 {"status":"deleted"}
+//   PUT    /api/v1/agents/:subject/dataset/:id      204 无体（重复授权也是 204）
+//   DELETE /api/v1/agents/:subject/dataset/:id      204 无体
+//
+// 204 是「裸状态码 + 空体」：go-zero 生成的 handler 只有 (resp, err) 两个出口，
+// 无法直接写状态码，所以状态经由一个只带 Status 的 typed error 传递
+// （httpx.New(http.StatusNoContent, "", "").Empty()，见 internal/httpx）。
+//
+// 文档接口另有一条时间维度的约定：写操作**不同步等索引**。创建、更新正文、
+// 重建索引返回的 DocumentResp.status 是 indexing，此时 chunk_count 已经是
+// 最终值（切块在请求内完成），indexed_chunk_count 会由后台 worker 逐渐追上。
+// 因此客户端不要用 status != ready 判定失败，只有 failed 才需要处理。
+// 详情见 dataset.api 的说明与 docs/known-gaps.md。
 // ────────────────────────────────────────────────────────────────
 import "common/types.api"
 import "health/health.api"

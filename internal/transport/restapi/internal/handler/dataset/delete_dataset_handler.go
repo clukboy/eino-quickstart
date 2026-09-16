@@ -12,7 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 删除知识库
+// 删除数据集
 func DeleteDatasetHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.DatasetIDReq

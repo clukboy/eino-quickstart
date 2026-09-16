@@ -12,7 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 创建知识库
+// 创建数据集
 func CreateDatasetHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.CreateDatasetReq

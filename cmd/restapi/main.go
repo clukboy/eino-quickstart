@@ -36,12 +36,16 @@ import (
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
 	"eino-quickstart/internal/platform/privacy"
+	"eino-quickstart/internal/platform/queue/asynq"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/skill"
 	"eino-quickstart/internal/tool"
 	"eino-quickstart/internal/tool/builtin"
 	"eino-quickstart/internal/tool/registry"
 	"eino-quickstart/internal/transport/restapi"
+
+	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/service"
 )
 
 const (
@@ -128,7 +132,7 @@ func runServer() error {
 	// pipeline still lives behind the in-progress RAG refactor — so the
 	// bindings-backed tool stands in and answers with the authorized knowledge
 	// bases it can see.
-	bindings, err := tool.NewEntKnowledgeBaseBindings(entClient)
+	bindings, err := tool.NewEntDatasetBindings(entClient)
 	if err != nil {
 		return err
 	}
@@ -179,11 +183,6 @@ func runServer() error {
 		return err
 	}
 
-	var metrics *observability.Metrics
-	if cfg.Observability.MetricsEnabled {
-		metrics = observability.NewMetrics()
-	}
-
 	apiKeys := make([]auth.APIKey, 0, len(cfg.Auth.APIKeys))
 	for _, configuredKey := range cfg.Auth.APIKeys {
 		apiKeys = append(apiKeys, auth.APIKey{
@@ -199,25 +198,49 @@ func runServer() error {
 		return err
 	}
 
-	// Route go-zero's own logging into the project logger before the server
-	// starts, so nothing escapes to a second sink.
-	restapi.BridgeLogx(logger)
+	asynqWorker := asynq.NewAsynqClient(&asynq.AsynqConf{
+		Addr:         cfg.QueueConfig.Addr,
+		Username:     cfg.QueueConfig.Username,
+		Pass:         cfg.QueueConfig.Pass,
+		DB:           cfg.QueueConfig.DB,
+		Concurrency:  cfg.QueueConfig.Concurrency,
+		SyncInterval: cfg.QueueConfig.SyncInterval,
+		Enable:       cfg.QueueConfig.Enable,
+	})
 
 	server, err := restapi.New(restapi.Options{
-		ConfigFile:      transportConfigPath,
-		Agent:           harness,
-		Sessions:        session.NewStore(entClient),
-		Approvals:       approvals,
-		Runs:            run.NewStore(entClient),
-		Turns:           turn.NewStore(entClient),
-		Auth:            authenticator,
-		Logger:          logger,
-		Metrics:         metrics,
-		KnowledgeClient: entClient,
+		ConfigFile: transportConfigPath,
+		Agent:      harness,
+		Sessions:   session.NewStore(entClient),
+		Approvals:  approvals,
+		Runs:       run.NewStore(entClient),
+		Turns:      turn.NewStore(entClient),
+		Auth:       authenticator,
+		Logger:     logger,
+		EntClient:  entClient,
+		Queue:      asynqWorker,
 	})
 	if err != nil {
 		return err
 	}
+	logx.DisableStat()
+
+	// HTTP 与索引 worker 交给同一个 ServiceGroup。Add 是前插、Stop 逆序执行，
+	// 所以下面这个顺序会让 worker 先停：先掐掉消费，再收起 HTTP 监听，避免
+	// 端口已经关了而任务还在被领走。
+	group := service.NewServiceGroup()
+	if cfg.QueueConfig.Enable {
+		group.Add(asynqWorker)
+	}
+
+	group.Add(server)
+
+	// 信号触发优雅关闭。ServiceGroup.Stop 幂等，go-zero 的 proc 关闭链也会走
+	// 同一条路，两者相遇无副作用。
+	go func() {
+		<-ctx.Done()
+		group.Stop()
+	}()
 
 	logger.Info(
 		"eino harness restapi started",
@@ -226,7 +249,12 @@ func runServer() error {
 		slog.String("workspace", cfg.Workspace.Root),
 	)
 
-	return server.Run(ctx)
+	// 阻塞到全部服务停下：HTTP 监听由 go-zero 的 proc 关闭链收起，asynq worker
+	// 由 ServiceGroup.Stop 排空。两者都返回后这里才继续，main 随之退出。
+	group.Start()
+
+	logger.Info("eino harness restapi stopped")
+	return nil
 }
 
 // newRunner builds the tool executor. Mirrors cmd/server so the two transports

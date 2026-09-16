@@ -7,7 +7,7 @@ import (
 	"context"
 	"strings"
 
-	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
@@ -44,19 +44,20 @@ func (l *CreateDatasetLogic) CreateDataset(req *types.CreateDatasetReq) (resp *t
 		return nil, httpx.BadRequest("knowledge base name is required")
 	}
 	if visibility == "" {
-		visibility = string(knowledgebase.VisibilityPrivate)
+		visibility = string(dataset.VisibilityPrivate)
 	}
-	if visibility != string(knowledgebase.VisibilityPrivate) &&
-		visibility != string(knowledgebase.VisibilitySystem) {
+	if visibility != string(dataset.VisibilityPrivate) &&
+		visibility != string(dataset.VisibilitySystem) {
 		return nil, httpx.BadRequest("knowledge base visibility is invalid")
 	}
 
-	base, err := l.svcCtx.EntClient.KnowledgeBase.Create().
+	base, err := l.svcCtx.EntClient.Dataset.Create().
 		SetName(name).
 		SetDescription(strings.TrimSpace(req.Description)).
 		SetOwnerSubject(identity.Subject).
-		SetVisibility(knowledgebase.Visibility(visibility)).
-		SetStatus(knowledgebase.DefaultStatus).
+		SetVisibility(dataset.Visibility(visibility)).
+		SetStatus(dataset.DefaultStatus).
+		SetType(strings.TrimSpace(req.Type)).
 		Save(l.ctx)
 	if err != nil {
 		return nil, fail(err)

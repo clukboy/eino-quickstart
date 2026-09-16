@@ -9,32 +9,32 @@ import (
 )
 
 var (
-	// AgentKnowledgeBasesColumns holds the columns for the "agent_knowledge_bases" table.
-	AgentKnowledgeBasesColumns = []*schema.Column{
+	// AgentDatasetsColumns holds the columns for the "agent_datasets" table.
+	AgentDatasetsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "subject", Type: field.TypeString},
 		{Name: "created_by", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "knowledge_base_id", Type: field.TypeUint64},
+		{Name: "dataset_id", Type: field.TypeUint64},
 	}
-	// AgentKnowledgeBasesTable holds the schema information for the "agent_knowledge_bases" table.
-	AgentKnowledgeBasesTable = &schema.Table{
-		Name:       "agent_knowledge_bases",
-		Columns:    AgentKnowledgeBasesColumns,
-		PrimaryKey: []*schema.Column{AgentKnowledgeBasesColumns[0]},
+	// AgentDatasetsTable holds the schema information for the "agent_datasets" table.
+	AgentDatasetsTable = &schema.Table{
+		Name:       "agent_datasets",
+		Columns:    AgentDatasetsColumns,
+		PrimaryKey: []*schema.Column{AgentDatasetsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "agent_knowledge_bases_knowledge_bases_agent_knowledge_bindings",
-				Columns:    []*schema.Column{AgentKnowledgeBasesColumns[4]},
-				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
+				Symbol:     "agent_datasets_datasets_agent_datasets",
+				Columns:    []*schema.Column{AgentDatasetsColumns[4]},
+				RefColumns: []*schema.Column{DatasetsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "agentknowledgebase_subject_knowledge_base_id",
+				Name:    "agentdataset_subject_dataset_id",
 				Unique:  true,
-				Columns: []*schema.Column{AgentKnowledgeBasesColumns[1], AgentKnowledgeBasesColumns[4]},
+				Columns: []*schema.Column{AgentDatasetsColumns[1], AgentDatasetsColumns[4]},
 			},
 		},
 	}
@@ -189,6 +189,24 @@ var (
 		Columns:    CheckpointsColumns,
 		PrimaryKey: []*schema.Column{CheckpointsColumns[0]},
 	}
+	// DatasetsColumns holds the columns for the "datasets" table.
+	DatasetsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "name", Type: field.TypeString, Unique: true},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
+		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"ACTIVE", "DISABLED"}, Default: "ACTIVE"},
+		{Name: "type", Type: field.TypeString, Default: ""},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// DatasetsTable holds the schema information for the "datasets" table.
+	DatasetsTable = &schema.Table{
+		Name:       "datasets",
+		Columns:    DatasetsColumns,
+		PrimaryKey: []*schema.Column{DatasetsColumns[0]},
+	}
 	// DocumentsColumns holds the columns for the "documents" table.
 	DocumentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -198,11 +216,11 @@ var (
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
 		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ready", "indexing", "failed", "deleted"}, Default: "indexing"},
-		{Name: "knowledge_base_id", Type: field.TypeUint64, Default: 0},
+		{Name: "dataset_id", Type: field.TypeUint64, Default: 0},
 		{Name: "folder_id", Type: field.TypeUint64, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "knowledge_base_documents", Type: field.TypeUint64, Nullable: true},
+		{Name: "dataset_documents", Type: field.TypeUint64, Nullable: true},
 		{Name: "knowledge_folder_documents", Type: field.TypeUint64, Nullable: true},
 	}
 	// DocumentsTable holds the schema information for the "documents" table.
@@ -212,9 +230,9 @@ var (
 		PrimaryKey: []*schema.Column{DocumentsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "documents_knowledge_bases_documents",
+				Symbol:     "documents_datasets_documents",
 				Columns:    []*schema.Column{DocumentsColumns[11]},
-				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
+				RefColumns: []*schema.Column{DatasetsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
@@ -280,23 +298,6 @@ var (
 			},
 		},
 	}
-	// KnowledgeBasesColumns holds the columns for the "knowledge_bases" table.
-	KnowledgeBasesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "name", Type: field.TypeString, Unique: true},
-		{Name: "description", Type: field.TypeString, Nullable: true},
-		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
-		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"ACTIVE", "DISABLED"}, Default: "ACTIVE"},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-	}
-	// KnowledgeBasesTable holds the schema information for the "knowledge_bases" table.
-	KnowledgeBasesTable = &schema.Table{
-		Name:       "knowledge_bases",
-		Columns:    KnowledgeBasesColumns,
-		PrimaryKey: []*schema.Column{KnowledgeBasesColumns[0]},
-	}
 	// KnowledgeFoldersColumns holds the columns for the "knowledge_folders" table.
 	KnowledgeFoldersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -305,7 +306,7 @@ var (
 		{Name: "sort", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "knowledge_base_id", Type: field.TypeUint64},
+		{Name: "dataset_id", Type: field.TypeUint64},
 		{Name: "parent_id", Type: field.TypeUint64, Nullable: true},
 	}
 	// KnowledgeFoldersTable holds the schema information for the "knowledge_folders" table.
@@ -315,9 +316,9 @@ var (
 		PrimaryKey: []*schema.Column{KnowledgeFoldersColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "knowledge_folders_knowledge_bases_folders",
+				Symbol:     "knowledge_folders_datasets_folders",
 				Columns:    []*schema.Column{KnowledgeFoldersColumns[6]},
-				RefColumns: []*schema.Column{KnowledgeBasesColumns[0]},
+				RefColumns: []*schema.Column{DatasetsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
@@ -329,12 +330,12 @@ var (
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "knowledgefolder_knowledge_base_id_parent_id",
+				Name:    "knowledgefolder_dataset_id_parent_id",
 				Unique:  false,
 				Columns: []*schema.Column{KnowledgeFoldersColumns[6], KnowledgeFoldersColumns[7]},
 			},
 			{
-				Name:    "knowledgefolder_knowledge_base_id_path",
+				Name:    "knowledgefolder_dataset_id_path",
 				Unique:  true,
 				Columns: []*schema.Column{KnowledgeFoldersColumns[6], KnowledgeFoldersColumns[2]},
 			},
@@ -392,57 +393,30 @@ var (
 			},
 		},
 	}
-	// VectorOutboxesColumns holds the columns for the "vector_outboxes" table.
-	VectorOutboxesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "chunk_id", Type: field.TypeUint64, Unique: true},
-		{Name: "operation", Type: field.TypeEnum, Enums: []string{"upsert", "delete"}},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "processing", "done", "failed"}, Default: "pending"},
-		{Name: "attempts", Type: field.TypeInt, Default: 0},
-		{Name: "available_at", Type: field.TypeTime},
-		{Name: "locked_until", Type: field.TypeTime, Nullable: true},
-		{Name: "last_error", Type: field.TypeString, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-	}
-	// VectorOutboxesTable holds the schema information for the "vector_outboxes" table.
-	VectorOutboxesTable = &schema.Table{
-		Name:       "vector_outboxes",
-		Columns:    VectorOutboxesColumns,
-		PrimaryKey: []*schema.Column{VectorOutboxesColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "vectoroutbox_status_available_at",
-				Unique:  false,
-				Columns: []*schema.Column{VectorOutboxesColumns[3], VectorOutboxesColumns[5]},
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		AgentKnowledgeBasesTable,
+		AgentDatasetsTable,
 		AgentRunsTable,
 		ApprovalsTable,
 		AuditEventsTable,
 		ChatTurnsTable,
 		CheckpointsTable,
+		DatasetsTable,
 		DocumentsTable,
 		DocumentChunksTable,
-		KnowledgeBasesTable,
 		KnowledgeFoldersTable,
 		KnowledgeIndexesTable,
 		SessionsTable,
 		SessionMessagesTable,
-		VectorOutboxesTable,
 	}
 )
 
 func init() {
-	AgentKnowledgeBasesTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
-	DocumentsTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
+	AgentDatasetsTable.ForeignKeys[0].RefTable = DatasetsTable
+	DocumentsTable.ForeignKeys[0].RefTable = DatasetsTable
 	DocumentsTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
 	DocumentChunksTable.ForeignKeys[0].RefTable = DocumentsTable
-	KnowledgeFoldersTable.ForeignKeys[0].RefTable = KnowledgeBasesTable
+	KnowledgeFoldersTable.ForeignKeys[0].RefTable = DatasetsTable
 	KnowledgeFoldersTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
 	SessionsTable.Annotation = &entsql.Annotation{
 		Table: "sessions",

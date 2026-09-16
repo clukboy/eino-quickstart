@@ -28,7 +28,7 @@ func NewDeleteDatasetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 }
 
 func (l *DeleteDatasetLogic) DeleteDataset(req *types.DatasetIDReq) (resp *types.StatusResp, err error) {
-	err = l.svcCtx.EntClient.KnowledgeBase.DeleteOneID(req.ID).Exec(l.ctx)
+	err = l.svcCtx.EntClient.Dataset.DeleteOneID(req.ID).Exec(l.ctx)
 	if err != nil {
 		return nil, fail(err)
 	}

@@ -7,21 +7,20 @@ import (
 	"fmt"
 
 	"eino-quickstart/ent"
-	"eino-quickstart/ent/agentknowledgebase"
+	"eino-quickstart/ent/agentdataset"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
 	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/ent/checkpoint"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/predicate"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
-	"eino-quickstart/ent/vectoroutbox"
 
 	"entgo.io/ent/dialect/sql"
 )
@@ -82,31 +81,31 @@ func (f TraverseFunc) Traverse(ctx context.Context, q ent.Query) error {
 	return f(ctx, query)
 }
 
-// The AgentKnowledgeBaseFunc type is an adapter to allow the use of ordinary function as a Querier.
-type AgentKnowledgeBaseFunc func(context.Context, *ent.AgentKnowledgeBaseQuery) (ent.Value, error)
+// The AgentDatasetFunc type is an adapter to allow the use of ordinary function as a Querier.
+type AgentDatasetFunc func(context.Context, *ent.AgentDatasetQuery) (ent.Value, error)
 
 // Query calls f(ctx, q).
-func (f AgentKnowledgeBaseFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
-	if q, ok := q.(*ent.AgentKnowledgeBaseQuery); ok {
+func (f AgentDatasetFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.AgentDatasetQuery); ok {
 		return f(ctx, q)
 	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AgentKnowledgeBaseQuery", q)
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.AgentDatasetQuery", q)
 }
 
-// The TraverseAgentKnowledgeBase type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseAgentKnowledgeBase func(context.Context, *ent.AgentKnowledgeBaseQuery) error
+// The TraverseAgentDataset type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseAgentDataset func(context.Context, *ent.AgentDatasetQuery) error
 
 // Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseAgentKnowledgeBase) Intercept(next ent.Querier) ent.Querier {
+func (f TraverseAgentDataset) Intercept(next ent.Querier) ent.Querier {
 	return next
 }
 
 // Traverse calls f(ctx, q).
-func (f TraverseAgentKnowledgeBase) Traverse(ctx context.Context, q ent.Query) error {
-	if q, ok := q.(*ent.AgentKnowledgeBaseQuery); ok {
+func (f TraverseAgentDataset) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.AgentDatasetQuery); ok {
 		return f(ctx, q)
 	}
-	return fmt.Errorf("unexpected query type %T. expect *ent.AgentKnowledgeBaseQuery", q)
+	return fmt.Errorf("unexpected query type %T. expect *ent.AgentDatasetQuery", q)
 }
 
 // The AgentRunFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -244,6 +243,33 @@ func (f TraverseCheckpoint) Traverse(ctx context.Context, q ent.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *ent.CheckpointQuery", q)
 }
 
+// The DatasetFunc type is an adapter to allow the use of ordinary function as a Querier.
+type DatasetFunc func(context.Context, *ent.DatasetQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f DatasetFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.DatasetQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.DatasetQuery", q)
+}
+
+// The TraverseDataset type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseDataset func(context.Context, *ent.DatasetQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseDataset) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseDataset) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.DatasetQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.DatasetQuery", q)
+}
+
 // The DocumentFunc type is an adapter to allow the use of ordinary function as a Querier.
 type DocumentFunc func(context.Context, *ent.DocumentQuery) (ent.Value, error)
 
@@ -296,33 +322,6 @@ func (f TraverseDocumentChunk) Traverse(ctx context.Context, q ent.Query) error 
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.DocumentChunkQuery", q)
-}
-
-// The KnowledgeBaseFunc type is an adapter to allow the use of ordinary function as a Querier.
-type KnowledgeBaseFunc func(context.Context, *ent.KnowledgeBaseQuery) (ent.Value, error)
-
-// Query calls f(ctx, q).
-func (f KnowledgeBaseFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
-	if q, ok := q.(*ent.KnowledgeBaseQuery); ok {
-		return f(ctx, q)
-	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *ent.KnowledgeBaseQuery", q)
-}
-
-// The TraverseKnowledgeBase type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseKnowledgeBase func(context.Context, *ent.KnowledgeBaseQuery) error
-
-// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseKnowledgeBase) Intercept(next ent.Querier) ent.Querier {
-	return next
-}
-
-// Traverse calls f(ctx, q).
-func (f TraverseKnowledgeBase) Traverse(ctx context.Context, q ent.Query) error {
-	if q, ok := q.(*ent.KnowledgeBaseQuery); ok {
-		return f(ctx, q)
-	}
-	return fmt.Errorf("unexpected query type %T. expect *ent.KnowledgeBaseQuery", q)
 }
 
 // The KnowledgeFolderFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -433,38 +432,11 @@ func (f TraverseSessionMessage) Traverse(ctx context.Context, q ent.Query) error
 	return fmt.Errorf("unexpected query type %T. expect *ent.SessionMessageQuery", q)
 }
 
-// The VectorOutboxFunc type is an adapter to allow the use of ordinary function as a Querier.
-type VectorOutboxFunc func(context.Context, *ent.VectorOutboxQuery) (ent.Value, error)
-
-// Query calls f(ctx, q).
-func (f VectorOutboxFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
-	if q, ok := q.(*ent.VectorOutboxQuery); ok {
-		return f(ctx, q)
-	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *ent.VectorOutboxQuery", q)
-}
-
-// The TraverseVectorOutbox type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseVectorOutbox func(context.Context, *ent.VectorOutboxQuery) error
-
-// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseVectorOutbox) Intercept(next ent.Querier) ent.Querier {
-	return next
-}
-
-// Traverse calls f(ctx, q).
-func (f TraverseVectorOutbox) Traverse(ctx context.Context, q ent.Query) error {
-	if q, ok := q.(*ent.VectorOutboxQuery); ok {
-		return f(ctx, q)
-	}
-	return fmt.Errorf("unexpected query type %T. expect *ent.VectorOutboxQuery", q)
-}
-
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q ent.Query) (Query, error) {
 	switch q := q.(type) {
-	case *ent.AgentKnowledgeBaseQuery:
-		return &query[*ent.AgentKnowledgeBaseQuery, predicate.AgentKnowledgeBase, agentknowledgebase.OrderOption]{typ: ent.TypeAgentKnowledgeBase, tq: q}, nil
+	case *ent.AgentDatasetQuery:
+		return &query[*ent.AgentDatasetQuery, predicate.AgentDataset, agentdataset.OrderOption]{typ: ent.TypeAgentDataset, tq: q}, nil
 	case *ent.AgentRunQuery:
 		return &query[*ent.AgentRunQuery, predicate.AgentRun, agentrun.OrderOption]{typ: ent.TypeAgentRun, tq: q}, nil
 	case *ent.ApprovalQuery:
@@ -475,12 +447,12 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ChatTurnQuery, predicate.ChatTurn, chatturn.OrderOption]{typ: ent.TypeChatTurn, tq: q}, nil
 	case *ent.CheckpointQuery:
 		return &query[*ent.CheckpointQuery, predicate.Checkpoint, checkpoint.OrderOption]{typ: ent.TypeCheckpoint, tq: q}, nil
+	case *ent.DatasetQuery:
+		return &query[*ent.DatasetQuery, predicate.Dataset, dataset.OrderOption]{typ: ent.TypeDataset, tq: q}, nil
 	case *ent.DocumentQuery:
 		return &query[*ent.DocumentQuery, predicate.Document, document.OrderOption]{typ: ent.TypeDocument, tq: q}, nil
 	case *ent.DocumentChunkQuery:
 		return &query[*ent.DocumentChunkQuery, predicate.DocumentChunk, documentchunk.OrderOption]{typ: ent.TypeDocumentChunk, tq: q}, nil
-	case *ent.KnowledgeBaseQuery:
-		return &query[*ent.KnowledgeBaseQuery, predicate.KnowledgeBase, knowledgebase.OrderOption]{typ: ent.TypeKnowledgeBase, tq: q}, nil
 	case *ent.KnowledgeFolderQuery:
 		return &query[*ent.KnowledgeFolderQuery, predicate.KnowledgeFolder, knowledgefolder.OrderOption]{typ: ent.TypeKnowledgeFolder, tq: q}, nil
 	case *ent.KnowledgeIndexQuery:
@@ -489,8 +461,6 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.SessionQuery, predicate.Session, session.OrderOption]{typ: ent.TypeSession, tq: q}, nil
 	case *ent.SessionMessageQuery:
 		return &query[*ent.SessionMessageQuery, predicate.SessionMessage, sessionmessage.OrderOption]{typ: ent.TypeSessionMessage, tq: q}, nil
-	case *ent.VectorOutboxQuery:
-		return &query[*ent.VectorOutboxQuery, predicate.VectorOutbox, vectoroutbox.OrderOption]{typ: ent.TypeVectorOutbox, tq: q}, nil
 	default:
 		return nil, fmt.Errorf("unknown query type %T", q)
 	}

@@ -1,28 +1,50 @@
 syntax = "v1"
 
-// 知识库管理。
+// 数据集与文档。
 //
-// 本组 8 条路由全部需要 admin 角色，统一挂 RoleAdmin 中间件：
-//   /dataset*                     知识库与文档
-//   /agents/:subject/dataset*     给 agent 授权 / 撤销授权
+// 本组 11 条路由需要 admin 角色，统一挂 RoleAdmin 中间件：
+//   /dataset*   数据集的增/查/删，以及其下文档的增删改查与重建索引
 //
-// 其中上传文档与授权/撤销返回 StatusResp，该类型定义在 common/types.api。
+// 文档正文的去向：创建时给的 content 会写成 knowledge.root 托管目录下的
+// 文件，documents.source 保存相对路径；只给 source 则表示注册一个已经在
+// knowledge.root 里的文件，接口只读不改。正文以文件为唯一真相，所以
+// 「重建索引」就是把文件重新读出来，数据库里不必再存一份。
+//
+// 索引是异步的：写操作只做切块与落库，然后把文档投进 asynq 队列，返回的
+// status 会是 indexing。真正的 embedding 与向量写入由后台 worker 消费该任务
+// 完成，完成后 status 变 ready（失败则为 failed）；期间 chunk_count 不变，
+// indexed_chunk_count 会逐渐追上 chunk_count。
+//
+// 类型归属说明（两组互相引用，是刻意的）：
+//   StatusResp        定义在 common/types.api（创建/删除都返回它）
+//   DocumentResp /
+//   DocumentListResp  定义在本文件，只被本组使用
+//   DatasetListResp   定义在本文件，被 admin 组
+//                     GET /agents/:subject/dataset 引用
+// goctl 会先合并所有 import 的文件再解析类型，因此谁定义不重要；但**不要**
+// 两边各定义一份，会报类型重名。
 type CreateDatasetReq {
 	Name        string `json:"name"`
-	Description string `json:"description"`
+	Description string `json:"description,optional"`
 	Visibility  string `json:"visibility"`
+	Type        string `json:"type"`
 }
 
 type DatasetResp {
 	ID           uint64 `json:"id"`
 	Name         string `json:"name"`
-	Description  string `json:"description,omitempty"`
+	Description  string `json:"description"`
 	OwnerSubject string `json:"owner_subject"`
 	Visibility   string `json:"visibility"`
 	Status       string `json:"status"`
+	CreatedAt    int64  `json:"createdAt"`
+	Type         string `json:"type"`
 }
 
-type ListDatasetsReq {}
+type ListDatasetsReq {
+	Name string `json:"name,optional"`
+	Type string `json:"type,optional"`
+}
 
 type DatasetListResp {
 	Data []*DatasetResp `json:"data"`
@@ -32,35 +54,124 @@ type DatasetIDReq {
 	ID uint64 `path:"id"`
 }
 
-// 知识库管理全部需要 admin 角色。
+// DocumentIDReq 同时定位文档与其所属数据集，把「归属校验」写进路径，
+// 免得每个 handler 各自记得比较 dataset_id。
+type DocumentIDReq {
+	ID    uint64 `path:"id"`
+	DocID uint64 `path:"docId"`
+}
+
+// CreateDocumentReq 的 Content 与 Source 二选一：
+//   Content 非空 -> 正文写进托管目录（Source 若填写只能指向托管目录内的位置）
+//   Content 为空 -> 注册 Source 指向的既有文件，标题可省略（从文件名推断）
+type CreateDocumentReq {
+	ID         uint64            `path:"id"`
+	Title      string            `json:"title"`
+	Content    string            `json:"content"`
+	Source     string            `json:"source,omitempty"`
+	Visibility string            `json:"visibility,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+}
+
+// UpdateDocumentReq 的零值字段表示「不改」。Content 非空会改写正文并重新
+// 索引；只对托管文件有效，注册进来的外部文件不允许由接口覆盖。
+type UpdateDocumentReq {
+	ID         uint64            `path:"id"`
+	DocID      uint64            `path:"docId"`
+	Title      string            `json:"title,omitempty"`
+	Content    string            `json:"content,omitempty"`
+	Visibility string            `json:"visibility,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+}
+
+type DocumentResp {
+	ID                uint64 `json:"id"`
+	DatasetID         uint64 `json:"dataset_id"`
+	Source            string `json:"source"`
+	Title             string `json:"title"`
+	Status            string `json:"status"`
+	Visibility        string `json:"visibility"`
+	OwnerSubject      string `json:"owner_subject"`
+	ChunkCount        int    `json:"chunk_count"`
+	IndexedChunkCount int    `json:"indexed_chunk_count"`
+	CreatedAt         int64  `json:"createdAt"`
+	UpdatedAt         int64  `json:"updatedAt"`
+}
+
+type DocumentListResp {
+	Data []*DocumentResp `json:"data"`
+}
+
+// ReindexResp 是整库重建索引的受理结果。
+//
+// Documents 是成功排队的文档数，Chunks 是这次重建出的 chunk 总数，Failed 是
+// 正文读不回来（文件被移走等）而被标成 failed 的文档数。返回时 embedding
+// 还没开始，所以状态是 accepted 而不是 done。
+type ReindexResp {
+	Status    string `json:"status"`
+	Documents int    `json:"documents"`
+	Chunks    int    `json:"chunks"`
+	Failed    int    `json:"failed"`
+}
+
+type DocumentUploadReq {
+	DatasetID  uint64 `path:"id"`
+	Visibility string `form:"visibility"`
+}
+
+// 数据集管理全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
 	group:      dataset
 	middleware: RoleAdmin
 )
 service restapi {
-	@doc "创建知识库"
+	@doc "创建数据集"
 	@handler CreateDataset
 	post /dataset (CreateDatasetReq) returns (DatasetResp)
 
-	@doc "列出知识库"
+	@doc "列出数据集"
 	@handler ListDatasets
 	get /dataset (ListDatasetsReq) returns (DatasetListResp)
 
-	@doc "获取知识库详情"
+	@doc "获取数据集详情"
 	@handler GetDataset
 	get /dataset/:id (DatasetIDReq) returns (DatasetResp)
 
-	@doc "删除知识库"
+	@doc "删除数据集"
 	@handler DeleteDataset
 	delete /dataset/:id (DatasetIDReq) returns (StatusResp)
 
-	@doc "上传知识文档"
-	@handler UploadKnowledgeDocument
-	post /dataset/:id/documents (DatasetIDReq) returns (StatusResp)
+	@doc "创建文档"
+	@handler CreateDocument
+	post /dataset/:id/documents (CreateDocumentReq) returns (DocumentResp)
 
-	@doc "列出知识文档"
-	@handler ListKnowledgeDocuments
+	@doc "列出数据集文档"
+	@handler ListDocuments
 	get /dataset/:id/documents (DatasetIDReq) returns (DocumentListResp)
+
+	@doc "获取文档详情"
+	@handler GetDocument
+	get /dataset/:id/documents/:docId (DocumentIDReq) returns (DocumentResp)
+
+	@doc "更新文档"
+	@handler UpdateDocument
+	put /dataset/:id/documents/:docId (UpdateDocumentReq) returns (DocumentResp)
+
+	@doc "删除文档"
+	@handler DeleteDocument
+	delete /dataset/:id/documents/:docId (DocumentIDReq) returns (StatusResp)
+
+	@doc "重建文档索引"
+	@handler ReindexDocument
+	post /dataset/:id/documents/:docId/reindex (DocumentIDReq) returns (DocumentResp)
+
+	@doc "重建数据集全部文档索引"
+	@handler ReindexDataset
+	post /dataset/:id/reindex (DatasetIDReq) returns (ReindexResp)
+
+	@doc "上传文档"
+	@handler UploadDocument
+	post /dataset/:id/documents/upload (DocumentUploadReq) returns (DocumentListResp)
 }
 

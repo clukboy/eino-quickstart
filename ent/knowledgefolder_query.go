@@ -5,8 +5,8 @@ package ent
 import (
 	"context"
 	"database/sql/driver"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/predicate"
 	"fmt"
@@ -21,14 +21,14 @@ import (
 // KnowledgeFolderQuery is the builder for querying KnowledgeFolder entities.
 type KnowledgeFolderQuery struct {
 	config
-	ctx               *QueryContext
-	order             []knowledgefolder.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.KnowledgeFolder
-	withKnowledgeBase *KnowledgeBaseQuery
-	withParent        *KnowledgeFolderQuery
-	withChildren      *KnowledgeFolderQuery
-	withDocuments     *DocumentQuery
+	ctx           *QueryContext
+	order         []knowledgefolder.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.KnowledgeFolder
+	withDataset   *DatasetQuery
+	withParent    *KnowledgeFolderQuery
+	withChildren  *KnowledgeFolderQuery
+	withDocuments *DocumentQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -65,9 +65,9 @@ func (_q *KnowledgeFolderQuery) Order(o ...knowledgefolder.OrderOption) *Knowled
 	return _q
 }
 
-// QueryKnowledgeBase chains the current query on the "knowledge_base" edge.
-func (_q *KnowledgeFolderQuery) QueryKnowledgeBase() *KnowledgeBaseQuery {
-	query := (&KnowledgeBaseClient{config: _q.config}).Query()
+// QueryDataset chains the current query on the "dataset" edge.
+func (_q *KnowledgeFolderQuery) QueryDataset() *DatasetQuery {
+	query := (&DatasetClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -78,8 +78,8 @@ func (_q *KnowledgeFolderQuery) QueryKnowledgeBase() *KnowledgeBaseQuery {
 		}
 		step := sqlgraph.NewStep(
 			sqlgraph.From(knowledgefolder.Table, knowledgefolder.FieldID, selector),
-			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, knowledgefolder.KnowledgeBaseTable, knowledgefolder.KnowledgeBaseColumn),
+			sqlgraph.To(dataset.Table, dataset.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, knowledgefolder.DatasetTable, knowledgefolder.DatasetColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -340,29 +340,29 @@ func (_q *KnowledgeFolderQuery) Clone() *KnowledgeFolderQuery {
 		return nil
 	}
 	return &KnowledgeFolderQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]knowledgefolder.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.KnowledgeFolder{}, _q.predicates...),
-		withKnowledgeBase: _q.withKnowledgeBase.Clone(),
-		withParent:        _q.withParent.Clone(),
-		withChildren:      _q.withChildren.Clone(),
-		withDocuments:     _q.withDocuments.Clone(),
+		config:        _q.config,
+		ctx:           _q.ctx.Clone(),
+		order:         append([]knowledgefolder.OrderOption{}, _q.order...),
+		inters:        append([]Interceptor{}, _q.inters...),
+		predicates:    append([]predicate.KnowledgeFolder{}, _q.predicates...),
+		withDataset:   _q.withDataset.Clone(),
+		withParent:    _q.withParent.Clone(),
+		withChildren:  _q.withChildren.Clone(),
+		withDocuments: _q.withDocuments.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
 }
 
-// WithKnowledgeBase tells the query-builder to eager-load the nodes that are connected to
-// the "knowledge_base" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *KnowledgeFolderQuery) WithKnowledgeBase(opts ...func(*KnowledgeBaseQuery)) *KnowledgeFolderQuery {
-	query := (&KnowledgeBaseClient{config: _q.config}).Query()
+// WithDataset tells the query-builder to eager-load the nodes that are connected to
+// the "dataset" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *KnowledgeFolderQuery) WithDataset(opts ...func(*DatasetQuery)) *KnowledgeFolderQuery {
+	query := (&DatasetClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withKnowledgeBase = query
+	_q.withDataset = query
 	return _q
 }
 
@@ -478,7 +478,7 @@ func (_q *KnowledgeFolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) 
 		nodes       = []*KnowledgeFolder{}
 		_spec       = _q.querySpec()
 		loadedTypes = [4]bool{
-			_q.withKnowledgeBase != nil,
+			_q.withDataset != nil,
 			_q.withParent != nil,
 			_q.withChildren != nil,
 			_q.withDocuments != nil,
@@ -502,9 +502,9 @@ func (_q *KnowledgeFolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) 
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withKnowledgeBase; query != nil {
-		if err := _q.loadKnowledgeBase(ctx, query, nodes, nil,
-			func(n *KnowledgeFolder, e *KnowledgeBase) { n.Edges.KnowledgeBase = e }); err != nil {
+	if query := _q.withDataset; query != nil {
+		if err := _q.loadDataset(ctx, query, nodes, nil,
+			func(n *KnowledgeFolder, e *Dataset) { n.Edges.Dataset = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -531,11 +531,11 @@ func (_q *KnowledgeFolderQuery) sqlAll(ctx context.Context, hooks ...queryHook) 
 	return nodes, nil
 }
 
-func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *KnowledgeBaseQuery, nodes []*KnowledgeFolder, init func(*KnowledgeFolder), assign func(*KnowledgeFolder, *KnowledgeBase)) error {
+func (_q *KnowledgeFolderQuery) loadDataset(ctx context.Context, query *DatasetQuery, nodes []*KnowledgeFolder, init func(*KnowledgeFolder), assign func(*KnowledgeFolder, *Dataset)) error {
 	ids := make([]uint64, 0, len(nodes))
 	nodeids := make(map[uint64][]*KnowledgeFolder)
 	for i := range nodes {
-		fk := nodes[i].KnowledgeBaseID
+		fk := nodes[i].DatasetID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -544,7 +544,7 @@ func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *Kn
 	if len(ids) == 0 {
 		return nil
 	}
-	query.Where(knowledgebase.IDIn(ids...))
+	query.Where(dataset.IDIn(ids...))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
@@ -552,7 +552,7 @@ func (_q *KnowledgeFolderQuery) loadKnowledgeBase(ctx context.Context, query *Kn
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "knowledge_base_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "dataset_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -682,8 +682,8 @@ func (_q *KnowledgeFolderQuery) querySpec() *sqlgraph.QuerySpec {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
-		if _q.withKnowledgeBase != nil {
-			_spec.Node.AddColumnOnce(knowledgefolder.FieldKnowledgeBaseID)
+		if _q.withDataset != nil {
+			_spec.Node.AddColumnOnce(knowledgefolder.FieldDatasetID)
 		}
 		if _q.withParent != nil {
 			_spec.Node.AddColumnOnce(knowledgefolder.FieldParentID)

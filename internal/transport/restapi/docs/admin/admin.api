@@ -1,26 +1,22 @@
 syntax = "v1"
 
-// 知识库管理。
+// agent 授权。
 //
-// 本组 8 条路由全部需要 admin 角色，统一挂 RoleAdmin 中间件：
-//   /dataset*                     知识库与文档
-//   /agents/:subject/dataset*     给 agent 授权 / 撤销授权
+// 本组 3 条路由需要 admin 角色，统一挂 RoleAdmin 中间件：
+//   /agents/:subject/dataset*   给 agent 授予 / 撤销 / 列出数据集访问权
 //
-// 其中上传文档与授权/撤销返回 StatusResp，该类型定义在 common/types.api。
-type DocumentResp {
-	ID              uint64 `json:"id"`
-	KnowledgeBaseID uint64 `json:"knowledge_base_id"`
-	Source          string `json:"source"`
-	Title           string `json:"title"`
-	Status          string `json:"status"`
-	ChunkCount      int    `json:"chunk_count"`
-}
+// 类型归属说明：
+//   本文件不定义任何类型，只复用两组各自拥有的：
+//     StatusResp       定义在 common/types.api
+//     DatasetListResp  定义在 dataset.api（数据集归 dataset 组所有）
+//   goctl 会先合并所有 import 的文件再解析类型，因此定义在哪都可见；
+//   但**不要**两边各定义一份，会报类型重名。
+//
+//   DocumentResp / DocumentListResp 曾定义在本文件（历史上由 dataset 组引用），
+//   现已随文档接口一起迁回 dataset.api —— 只有本组用到的类型留在这里，
+//   跨组共享的类型去 common，才是这个目录的基本规则。
 
-type DocumentListResp {
-	Data []*DocumentResp `json:"data"`
-}
-
-type AgentKnowledgeBaseReq {
+type AgentDatasetReq {
 	Subject string `path:"subject"`
 	ID      uint64 `path:"id"`
 }
@@ -29,20 +25,19 @@ type AgentSubjectReq {
 	Subject string `path:"subject"`
 }
 
-// 知识库管理全部需要 admin 角色。
+// agent 授权全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
 	group:      admin
 	middleware: RoleAdmin
 )
 service restapi {
-	@handler ListAgentKnowledgeBases
+	@handler ListAgentDatasets
 	get /agents/:subject/dataset (AgentSubjectReq) returns (DatasetListResp)
 
-	@handler GrantAgentKnowledgeBase
-	put /agents/:subject/dataset/:id (AgentKnowledgeBaseReq) returns (StatusResp)
+	@handler GrantAgentDataset
+	put /agents/:subject/dataset/:id (AgentDatasetReq) returns (StatusResp)
 
-	@handler RevokeAgentKnowledgeBase
-	delete /agents/:subject/dataset/:id (AgentKnowledgeBaseReq) returns (StatusResp)
+	@handler RevokeAgentDataset
+	delete /agents/:subject/dataset/:id (AgentDatasetReq) returns (StatusResp)
 }
-

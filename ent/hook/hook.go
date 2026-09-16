@@ -8,16 +8,16 @@ import (
 	"fmt"
 )
 
-// The AgentKnowledgeBaseFunc type is an adapter to allow the use of ordinary
-// function as AgentKnowledgeBase mutator.
-type AgentKnowledgeBaseFunc func(context.Context, *ent.AgentKnowledgeBaseMutation) (ent.Value, error)
+// The AgentDatasetFunc type is an adapter to allow the use of ordinary
+// function as AgentDataset mutator.
+type AgentDatasetFunc func(context.Context, *ent.AgentDatasetMutation) (ent.Value, error)
 
 // Mutate calls f(ctx, m).
-func (f AgentKnowledgeBaseFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.AgentKnowledgeBaseMutation); ok {
+func (f AgentDatasetFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentDatasetMutation); ok {
 		return f(ctx, mv)
 	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentKnowledgeBaseMutation", m)
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentDatasetMutation", m)
 }
 
 // The AgentRunFunc type is an adapter to allow the use of ordinary
@@ -80,6 +80,18 @@ func (f CheckpointFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CheckpointMutation", m)
 }
 
+// The DatasetFunc type is an adapter to allow the use of ordinary
+// function as Dataset mutator.
+type DatasetFunc func(context.Context, *ent.DatasetMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DatasetFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DatasetMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DatasetMutation", m)
+}
+
 // The DocumentFunc type is an adapter to allow the use of ordinary
 // function as Document mutator.
 type DocumentFunc func(context.Context, *ent.DocumentMutation) (ent.Value, error)
@@ -102,18 +114,6 @@ func (f DocumentChunkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DocumentChunkMutation", m)
-}
-
-// The KnowledgeBaseFunc type is an adapter to allow the use of ordinary
-// function as KnowledgeBase mutator.
-type KnowledgeBaseFunc func(context.Context, *ent.KnowledgeBaseMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f KnowledgeBaseFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.KnowledgeBaseMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.KnowledgeBaseMutation", m)
 }
 
 // The KnowledgeFolderFunc type is an adapter to allow the use of ordinary
@@ -162,18 +162,6 @@ func (f SessionMessageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SessionMessageMutation", m)
-}
-
-// The VectorOutboxFunc type is an adapter to allow the use of ordinary
-// function as VectorOutbox mutator.
-type VectorOutboxFunc func(context.Context, *ent.VectorOutboxMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f VectorOutboxFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.VectorOutboxMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.VectorOutboxMutation", m)
 }
 
 // Condition is a hook condition function.

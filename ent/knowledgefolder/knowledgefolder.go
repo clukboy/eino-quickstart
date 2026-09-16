@@ -20,16 +20,16 @@ const (
 	FieldPath = "path"
 	// FieldSort holds the string denoting the sort field in the database.
 	FieldSort = "sort"
-	// FieldKnowledgeBaseID holds the string denoting the knowledge_base_id field in the database.
-	FieldKnowledgeBaseID = "knowledge_base_id"
+	// FieldDatasetID holds the string denoting the dataset_id field in the database.
+	FieldDatasetID = "dataset_id"
 	// FieldParentID holds the string denoting the parent_id field in the database.
 	FieldParentID = "parent_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
-	// EdgeKnowledgeBase holds the string denoting the knowledge_base edge name in mutations.
-	EdgeKnowledgeBase = "knowledge_base"
+	// EdgeDataset holds the string denoting the dataset edge name in mutations.
+	EdgeDataset = "dataset"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
@@ -38,13 +38,13 @@ const (
 	EdgeDocuments = "documents"
 	// Table holds the table name of the knowledgefolder in the database.
 	Table = "knowledge_folders"
-	// KnowledgeBaseTable is the table that holds the knowledge_base relation/edge.
-	KnowledgeBaseTable = "knowledge_folders"
-	// KnowledgeBaseInverseTable is the table name for the KnowledgeBase entity.
-	// It exists in this package in order to avoid circular dependency with the "knowledgebase" package.
-	KnowledgeBaseInverseTable = "knowledge_bases"
-	// KnowledgeBaseColumn is the table column denoting the knowledge_base relation/edge.
-	KnowledgeBaseColumn = "knowledge_base_id"
+	// DatasetTable is the table that holds the dataset relation/edge.
+	DatasetTable = "knowledge_folders"
+	// DatasetInverseTable is the table name for the Dataset entity.
+	// It exists in this package in order to avoid circular dependency with the "dataset" package.
+	DatasetInverseTable = "datasets"
+	// DatasetColumn is the table column denoting the dataset relation/edge.
+	DatasetColumn = "dataset_id"
 	// ParentTable is the table that holds the parent relation/edge.
 	ParentTable = "knowledge_folders"
 	// ParentColumn is the table column denoting the parent relation/edge.
@@ -68,7 +68,7 @@ var Columns = []string{
 	FieldName,
 	FieldPath,
 	FieldSort,
-	FieldKnowledgeBaseID,
+	FieldDatasetID,
 	FieldParentID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -118,9 +118,9 @@ func BySort(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSort, opts...).ToFunc()
 }
 
-// ByKnowledgeBaseID orders the results by the knowledge_base_id field.
-func ByKnowledgeBaseID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldKnowledgeBaseID, opts...).ToFunc()
+// ByDatasetID orders the results by the dataset_id field.
+func ByDatasetID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDatasetID, opts...).ToFunc()
 }
 
 // ByParentID orders the results by the parent_id field.
@@ -138,10 +138,10 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
-// ByKnowledgeBaseField orders the results by knowledge_base field.
-func ByKnowledgeBaseField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByDatasetField orders the results by dataset field.
+func ByDatasetField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newKnowledgeBaseStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newDatasetStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -179,11 +179,11 @@ func ByDocuments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newDocumentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
-func newKnowledgeBaseStep() *sqlgraph.Step {
+func newDatasetStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(KnowledgeBaseInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, KnowledgeBaseTable, KnowledgeBaseColumn),
+		sqlgraph.To(DatasetInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, DatasetTable, DatasetColumn),
 	)
 }
 func newParentStep() *sqlgraph.Step {

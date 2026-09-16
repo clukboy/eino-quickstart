@@ -8,10 +8,10 @@ require (
 	github.com/cloudwego/eino-ext/components/document/loader/file v0.0.0-20260908023733-87c861c739e1
 	github.com/cloudwego/eino-ext/components/embedding/openai v0.0.0-20260908023733-87c861c739e1
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
-	github.com/cloudwego/hertz v0.10.6
 	github.com/elastic/go-elasticsearch/v9 v9.5.2
 	github.com/goccy/go-json v0.10.6
 	github.com/google/uuid v1.6.0
+	github.com/hibiken/asynq v0.26.0
 	github.com/lib/pq v1.12.3
 	github.com/milvus-io/milvus/client/v2 v2.6.5
 	github.com/prometheus/client_golang v1.24.1
@@ -43,8 +43,6 @@ require (
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17 // indirect
-	github.com/cloudwego/gopkg v0.2.0 // indirect
-	github.com/cloudwego/netpoll v0.7.5 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
@@ -57,7 +55,6 @@ require (
 	github.com/elastic/elastic-transport-go/v8 v8.11.0 // indirect
 	github.com/evanphx/json-patch v0.5.2 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/getsentry/sentry-go v0.12.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -107,6 +104,8 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
+	github.com/redis/go-redis/v9 v9.21.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/samber/lo v1.52.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.12 // indirect
@@ -115,7 +114,7 @@ require (
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/spf13/cast v1.3.1 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tidwall/gjson v1.17.1 // indirect

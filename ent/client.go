@@ -11,20 +11,19 @@ import (
 
 	"eino-quickstart/ent/migrate"
 
-	"eino-quickstart/ent/agentknowledgebase"
+	"eino-quickstart/ent/agentdataset"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
 	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/ent/checkpoint"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
-	"eino-quickstart/ent/vectoroutbox"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -39,8 +38,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// AgentKnowledgeBase is the client for interacting with the AgentKnowledgeBase builders.
-	AgentKnowledgeBase *AgentKnowledgeBaseClient
+	// AgentDataset is the client for interacting with the AgentDataset builders.
+	AgentDataset *AgentDatasetClient
 	// AgentRun is the client for interacting with the AgentRun builders.
 	AgentRun *AgentRunClient
 	// Approval is the client for interacting with the Approval builders.
@@ -51,12 +50,12 @@ type Client struct {
 	ChatTurn *ChatTurnClient
 	// Checkpoint is the client for interacting with the Checkpoint builders.
 	Checkpoint *CheckpointClient
+	// Dataset is the client for interacting with the Dataset builders.
+	Dataset *DatasetClient
 	// Document is the client for interacting with the Document builders.
 	Document *DocumentClient
 	// DocumentChunk is the client for interacting with the DocumentChunk builders.
 	DocumentChunk *DocumentChunkClient
-	// KnowledgeBase is the client for interacting with the KnowledgeBase builders.
-	KnowledgeBase *KnowledgeBaseClient
 	// KnowledgeFolder is the client for interacting with the KnowledgeFolder builders.
 	KnowledgeFolder *KnowledgeFolderClient
 	// KnowledgeIndex is the client for interacting with the KnowledgeIndex builders.
@@ -65,8 +64,6 @@ type Client struct {
 	Session *SessionClient
 	// SessionMessage is the client for interacting with the SessionMessage builders.
 	SessionMessage *SessionMessageClient
-	// VectorOutbox is the client for interacting with the VectorOutbox builders.
-	VectorOutbox *VectorOutboxClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -78,20 +75,19 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.AgentKnowledgeBase = NewAgentKnowledgeBaseClient(c.config)
+	c.AgentDataset = NewAgentDatasetClient(c.config)
 	c.AgentRun = NewAgentRunClient(c.config)
 	c.Approval = NewApprovalClient(c.config)
 	c.AuditEvent = NewAuditEventClient(c.config)
 	c.ChatTurn = NewChatTurnClient(c.config)
 	c.Checkpoint = NewCheckpointClient(c.config)
+	c.Dataset = NewDatasetClient(c.config)
 	c.Document = NewDocumentClient(c.config)
 	c.DocumentChunk = NewDocumentChunkClient(c.config)
-	c.KnowledgeBase = NewKnowledgeBaseClient(c.config)
 	c.KnowledgeFolder = NewKnowledgeFolderClient(c.config)
 	c.KnowledgeIndex = NewKnowledgeIndexClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.SessionMessage = NewSessionMessageClient(c.config)
-	c.VectorOutbox = NewVectorOutboxClient(c.config)
 }
 
 type (
@@ -182,22 +178,21 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		AgentKnowledgeBase: NewAgentKnowledgeBaseClient(cfg),
-		AgentRun:           NewAgentRunClient(cfg),
-		Approval:           NewApprovalClient(cfg),
-		AuditEvent:         NewAuditEventClient(cfg),
-		ChatTurn:           NewChatTurnClient(cfg),
-		Checkpoint:         NewCheckpointClient(cfg),
-		Document:           NewDocumentClient(cfg),
-		DocumentChunk:      NewDocumentChunkClient(cfg),
-		KnowledgeBase:      NewKnowledgeBaseClient(cfg),
-		KnowledgeFolder:    NewKnowledgeFolderClient(cfg),
-		KnowledgeIndex:     NewKnowledgeIndexClient(cfg),
-		Session:            NewSessionClient(cfg),
-		SessionMessage:     NewSessionMessageClient(cfg),
-		VectorOutbox:       NewVectorOutboxClient(cfg),
+		ctx:             ctx,
+		config:          cfg,
+		AgentDataset:    NewAgentDatasetClient(cfg),
+		AgentRun:        NewAgentRunClient(cfg),
+		Approval:        NewApprovalClient(cfg),
+		AuditEvent:      NewAuditEventClient(cfg),
+		ChatTurn:        NewChatTurnClient(cfg),
+		Checkpoint:      NewCheckpointClient(cfg),
+		Dataset:         NewDatasetClient(cfg),
+		Document:        NewDocumentClient(cfg),
+		DocumentChunk:   NewDocumentChunkClient(cfg),
+		KnowledgeFolder: NewKnowledgeFolderClient(cfg),
+		KnowledgeIndex:  NewKnowledgeIndexClient(cfg),
+		Session:         NewSessionClient(cfg),
+		SessionMessage:  NewSessionMessageClient(cfg),
 	}, nil
 }
 
@@ -215,29 +210,28 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		AgentKnowledgeBase: NewAgentKnowledgeBaseClient(cfg),
-		AgentRun:           NewAgentRunClient(cfg),
-		Approval:           NewApprovalClient(cfg),
-		AuditEvent:         NewAuditEventClient(cfg),
-		ChatTurn:           NewChatTurnClient(cfg),
-		Checkpoint:         NewCheckpointClient(cfg),
-		Document:           NewDocumentClient(cfg),
-		DocumentChunk:      NewDocumentChunkClient(cfg),
-		KnowledgeBase:      NewKnowledgeBaseClient(cfg),
-		KnowledgeFolder:    NewKnowledgeFolderClient(cfg),
-		KnowledgeIndex:     NewKnowledgeIndexClient(cfg),
-		Session:            NewSessionClient(cfg),
-		SessionMessage:     NewSessionMessageClient(cfg),
-		VectorOutbox:       NewVectorOutboxClient(cfg),
+		ctx:             ctx,
+		config:          cfg,
+		AgentDataset:    NewAgentDatasetClient(cfg),
+		AgentRun:        NewAgentRunClient(cfg),
+		Approval:        NewApprovalClient(cfg),
+		AuditEvent:      NewAuditEventClient(cfg),
+		ChatTurn:        NewChatTurnClient(cfg),
+		Checkpoint:      NewCheckpointClient(cfg),
+		Dataset:         NewDatasetClient(cfg),
+		Document:        NewDocumentClient(cfg),
+		DocumentChunk:   NewDocumentChunkClient(cfg),
+		KnowledgeFolder: NewKnowledgeFolderClient(cfg),
+		KnowledgeIndex:  NewKnowledgeIndexClient(cfg),
+		Session:         NewSessionClient(cfg),
+		SessionMessage:  NewSessionMessageClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		AgentKnowledgeBase.
+//		AgentDataset.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -260,9 +254,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.AgentKnowledgeBase, c.AgentRun, c.Approval, c.AuditEvent, c.ChatTurn,
-		c.Checkpoint, c.Document, c.DocumentChunk, c.KnowledgeBase, c.KnowledgeFolder,
-		c.KnowledgeIndex, c.Session, c.SessionMessage, c.VectorOutbox,
+		c.AgentDataset, c.AgentRun, c.Approval, c.AuditEvent, c.ChatTurn, c.Checkpoint,
+		c.Dataset, c.Document, c.DocumentChunk, c.KnowledgeFolder, c.KnowledgeIndex,
+		c.Session, c.SessionMessage,
 	} {
 		n.Use(hooks...)
 	}
@@ -272,9 +266,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.AgentKnowledgeBase, c.AgentRun, c.Approval, c.AuditEvent, c.ChatTurn,
-		c.Checkpoint, c.Document, c.DocumentChunk, c.KnowledgeBase, c.KnowledgeFolder,
-		c.KnowledgeIndex, c.Session, c.SessionMessage, c.VectorOutbox,
+		c.AgentDataset, c.AgentRun, c.Approval, c.AuditEvent, c.ChatTurn, c.Checkpoint,
+		c.Dataset, c.Document, c.DocumentChunk, c.KnowledgeFolder, c.KnowledgeIndex,
+		c.Session, c.SessionMessage,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -283,8 +277,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *AgentKnowledgeBaseMutation:
-		return c.AgentKnowledgeBase.mutate(ctx, m)
+	case *AgentDatasetMutation:
+		return c.AgentDataset.mutate(ctx, m)
 	case *AgentRunMutation:
 		return c.AgentRun.mutate(ctx, m)
 	case *ApprovalMutation:
@@ -295,12 +289,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatTurn.mutate(ctx, m)
 	case *CheckpointMutation:
 		return c.Checkpoint.mutate(ctx, m)
+	case *DatasetMutation:
+		return c.Dataset.mutate(ctx, m)
 	case *DocumentMutation:
 		return c.Document.mutate(ctx, m)
 	case *DocumentChunkMutation:
 		return c.DocumentChunk.mutate(ctx, m)
-	case *KnowledgeBaseMutation:
-		return c.KnowledgeBase.mutate(ctx, m)
 	case *KnowledgeFolderMutation:
 		return c.KnowledgeFolder.mutate(ctx, m)
 	case *KnowledgeIndexMutation:
@@ -309,114 +303,112 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Session.mutate(ctx, m)
 	case *SessionMessageMutation:
 		return c.SessionMessage.mutate(ctx, m)
-	case *VectorOutboxMutation:
-		return c.VectorOutbox.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
 }
 
-// AgentKnowledgeBaseClient is a client for the AgentKnowledgeBase schema.
-type AgentKnowledgeBaseClient struct {
+// AgentDatasetClient is a client for the AgentDataset schema.
+type AgentDatasetClient struct {
 	config
 }
 
-// NewAgentKnowledgeBaseClient returns a client for the AgentKnowledgeBase from the given config.
-func NewAgentKnowledgeBaseClient(c config) *AgentKnowledgeBaseClient {
-	return &AgentKnowledgeBaseClient{config: c}
+// NewAgentDatasetClient returns a client for the AgentDataset from the given config.
+func NewAgentDatasetClient(c config) *AgentDatasetClient {
+	return &AgentDatasetClient{config: c}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `agentknowledgebase.Hooks(f(g(h())))`.
-func (c *AgentKnowledgeBaseClient) Use(hooks ...Hook) {
-	c.hooks.AgentKnowledgeBase = append(c.hooks.AgentKnowledgeBase, hooks...)
+// A call to `Use(f, g, h)` equals to `agentdataset.Hooks(f(g(h())))`.
+func (c *AgentDatasetClient) Use(hooks ...Hook) {
+	c.hooks.AgentDataset = append(c.hooks.AgentDataset, hooks...)
 }
 
 // Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `agentknowledgebase.Intercept(f(g(h())))`.
-func (c *AgentKnowledgeBaseClient) Intercept(interceptors ...Interceptor) {
-	c.inters.AgentKnowledgeBase = append(c.inters.AgentKnowledgeBase, interceptors...)
+// A call to `Intercept(f, g, h)` equals to `agentdataset.Intercept(f(g(h())))`.
+func (c *AgentDatasetClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AgentDataset = append(c.inters.AgentDataset, interceptors...)
 }
 
-// Create returns a builder for creating a AgentKnowledgeBase entity.
-func (c *AgentKnowledgeBaseClient) Create() *AgentKnowledgeBaseCreate {
-	mutation := newAgentKnowledgeBaseMutation(c.config, OpCreate)
-	return &AgentKnowledgeBaseCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Create returns a builder for creating a AgentDataset entity.
+func (c *AgentDatasetClient) Create() *AgentDatasetCreate {
+	mutation := newAgentDatasetMutation(c.config, OpCreate)
+	return &AgentDatasetCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
-// CreateBulk returns a builder for creating a bulk of AgentKnowledgeBase entities.
-func (c *AgentKnowledgeBaseClient) CreateBulk(builders ...*AgentKnowledgeBaseCreate) *AgentKnowledgeBaseCreateBulk {
-	return &AgentKnowledgeBaseCreateBulk{config: c.config, builders: builders}
+// CreateBulk returns a builder for creating a bulk of AgentDataset entities.
+func (c *AgentDatasetClient) CreateBulk(builders ...*AgentDatasetCreate) *AgentDatasetCreateBulk {
+	return &AgentDatasetCreateBulk{config: c.config, builders: builders}
 }
 
 // MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
 // a builder and applies setFunc on it.
-func (c *AgentKnowledgeBaseClient) MapCreateBulk(slice any, setFunc func(*AgentKnowledgeBaseCreate, int)) *AgentKnowledgeBaseCreateBulk {
+func (c *AgentDatasetClient) MapCreateBulk(slice any, setFunc func(*AgentDatasetCreate, int)) *AgentDatasetCreateBulk {
 	rv := reflect.ValueOf(slice)
 	if rv.Kind() != reflect.Slice {
-		return &AgentKnowledgeBaseCreateBulk{err: fmt.Errorf("calling to AgentKnowledgeBaseClient.MapCreateBulk with wrong type %T, need slice", slice)}
+		return &AgentDatasetCreateBulk{err: fmt.Errorf("calling to AgentDatasetClient.MapCreateBulk with wrong type %T, need slice", slice)}
 	}
-	builders := make([]*AgentKnowledgeBaseCreate, rv.Len())
+	builders := make([]*AgentDatasetCreate, rv.Len())
 	for i := 0; i < rv.Len(); i++ {
 		builders[i] = c.Create()
 		setFunc(builders[i], i)
 	}
-	return &AgentKnowledgeBaseCreateBulk{config: c.config, builders: builders}
+	return &AgentDatasetCreateBulk{config: c.config, builders: builders}
 }
 
-// Update returns an update builder for AgentKnowledgeBase.
-func (c *AgentKnowledgeBaseClient) Update() *AgentKnowledgeBaseUpdate {
-	mutation := newAgentKnowledgeBaseMutation(c.config, OpUpdate)
-	return &AgentKnowledgeBaseUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Update returns an update builder for AgentDataset.
+func (c *AgentDatasetClient) Update() *AgentDatasetUpdate {
+	mutation := newAgentDatasetMutation(c.config, OpUpdate)
+	return &AgentDatasetUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
-func (c *AgentKnowledgeBaseClient) UpdateOne(_m *AgentKnowledgeBase) *AgentKnowledgeBaseUpdateOne {
-	mutation := newAgentKnowledgeBaseMutation(c.config, OpUpdateOne, withAgentKnowledgeBase(_m))
-	return &AgentKnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+func (c *AgentDatasetClient) UpdateOne(_m *AgentDataset) *AgentDatasetUpdateOne {
+	mutation := newAgentDatasetMutation(c.config, OpUpdateOne, withAgentDataset(_m))
+	return &AgentDatasetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *AgentKnowledgeBaseClient) UpdateOneID(id uint64) *AgentKnowledgeBaseUpdateOne {
-	mutation := newAgentKnowledgeBaseMutation(c.config, OpUpdateOne, withAgentKnowledgeBaseID(id))
-	return &AgentKnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+func (c *AgentDatasetClient) UpdateOneID(id uint64) *AgentDatasetUpdateOne {
+	mutation := newAgentDatasetMutation(c.config, OpUpdateOne, withAgentDatasetID(id))
+	return &AgentDatasetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
-// Delete returns a delete builder for AgentKnowledgeBase.
-func (c *AgentKnowledgeBaseClient) Delete() *AgentKnowledgeBaseDelete {
-	mutation := newAgentKnowledgeBaseMutation(c.config, OpDelete)
-	return &AgentKnowledgeBaseDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Delete returns a delete builder for AgentDataset.
+func (c *AgentDatasetClient) Delete() *AgentDatasetDelete {
+	mutation := newAgentDatasetMutation(c.config, OpDelete)
+	return &AgentDatasetDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // DeleteOne returns a builder for deleting the given entity.
-func (c *AgentKnowledgeBaseClient) DeleteOne(_m *AgentKnowledgeBase) *AgentKnowledgeBaseDeleteOne {
+func (c *AgentDatasetClient) DeleteOne(_m *AgentDataset) *AgentDatasetDeleteOne {
 	return c.DeleteOneID(_m.ID)
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *AgentKnowledgeBaseClient) DeleteOneID(id uint64) *AgentKnowledgeBaseDeleteOne {
-	builder := c.Delete().Where(agentknowledgebase.ID(id))
+func (c *AgentDatasetClient) DeleteOneID(id uint64) *AgentDatasetDeleteOne {
+	builder := c.Delete().Where(agentdataset.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
-	return &AgentKnowledgeBaseDeleteOne{builder}
+	return &AgentDatasetDeleteOne{builder}
 }
 
-// Query returns a query builder for AgentKnowledgeBase.
-func (c *AgentKnowledgeBaseClient) Query() *AgentKnowledgeBaseQuery {
-	return &AgentKnowledgeBaseQuery{
+// Query returns a query builder for AgentDataset.
+func (c *AgentDatasetClient) Query() *AgentDatasetQuery {
+	return &AgentDatasetQuery{
 		config: c.config,
-		ctx:    &QueryContext{Type: TypeAgentKnowledgeBase},
+		ctx:    &QueryContext{Type: TypeAgentDataset},
 		inters: c.Interceptors(),
 	}
 }
 
-// Get returns a AgentKnowledgeBase entity by its id.
-func (c *AgentKnowledgeBaseClient) Get(ctx context.Context, id uint64) (*AgentKnowledgeBase, error) {
-	return c.Query().Where(agentknowledgebase.ID(id)).Only(ctx)
+// Get returns a AgentDataset entity by its id.
+func (c *AgentDatasetClient) Get(ctx context.Context, id uint64) (*AgentDataset, error) {
+	return c.Query().Where(agentdataset.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *AgentKnowledgeBaseClient) GetX(ctx context.Context, id uint64) *AgentKnowledgeBase {
+func (c *AgentDatasetClient) GetX(ctx context.Context, id uint64) *AgentDataset {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -424,15 +416,15 @@ func (c *AgentKnowledgeBaseClient) GetX(ctx context.Context, id uint64) *AgentKn
 	return obj
 }
 
-// QueryKnowledgeBase queries the knowledge_base edge of a AgentKnowledgeBase.
-func (c *AgentKnowledgeBaseClient) QueryKnowledgeBase(_m *AgentKnowledgeBase) *KnowledgeBaseQuery {
-	query := (&KnowledgeBaseClient{config: c.config}).Query()
+// QueryDataset queries the dataset edge of a AgentDataset.
+func (c *AgentDatasetClient) QueryDataset(_m *AgentDataset) *DatasetQuery {
+	query := (&DatasetClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
-			sqlgraph.From(agentknowledgebase.Table, agentknowledgebase.FieldID, id),
-			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, agentknowledgebase.KnowledgeBaseTable, agentknowledgebase.KnowledgeBaseColumn),
+			sqlgraph.From(agentdataset.Table, agentdataset.FieldID, id),
+			sqlgraph.To(dataset.Table, dataset.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, agentdataset.DatasetTable, agentdataset.DatasetColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -441,27 +433,27 @@ func (c *AgentKnowledgeBaseClient) QueryKnowledgeBase(_m *AgentKnowledgeBase) *K
 }
 
 // Hooks returns the client hooks.
-func (c *AgentKnowledgeBaseClient) Hooks() []Hook {
-	return c.hooks.AgentKnowledgeBase
+func (c *AgentDatasetClient) Hooks() []Hook {
+	return c.hooks.AgentDataset
 }
 
 // Interceptors returns the client interceptors.
-func (c *AgentKnowledgeBaseClient) Interceptors() []Interceptor {
-	return c.inters.AgentKnowledgeBase
+func (c *AgentDatasetClient) Interceptors() []Interceptor {
+	return c.inters.AgentDataset
 }
 
-func (c *AgentKnowledgeBaseClient) mutate(ctx context.Context, m *AgentKnowledgeBaseMutation) (Value, error) {
+func (c *AgentDatasetClient) mutate(ctx context.Context, m *AgentDatasetMutation) (Value, error) {
 	switch m.Op() {
 	case OpCreate:
-		return (&AgentKnowledgeBaseCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&AgentDatasetCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpUpdate:
-		return (&AgentKnowledgeBaseUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&AgentDatasetUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpUpdateOne:
-		return (&AgentKnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&AgentDatasetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpDelete, OpDeleteOne:
-		return (&AgentKnowledgeBaseDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+		return (&AgentDatasetDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("ent: unknown AgentKnowledgeBase mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown AgentDataset mutation op: %q", m.Op())
 	}
 }
 
@@ -1130,6 +1122,187 @@ func (c *CheckpointClient) mutate(ctx context.Context, m *CheckpointMutation) (V
 	}
 }
 
+// DatasetClient is a client for the Dataset schema.
+type DatasetClient struct {
+	config
+}
+
+// NewDatasetClient returns a client for the Dataset from the given config.
+func NewDatasetClient(c config) *DatasetClient {
+	return &DatasetClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `dataset.Hooks(f(g(h())))`.
+func (c *DatasetClient) Use(hooks ...Hook) {
+	c.hooks.Dataset = append(c.hooks.Dataset, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `dataset.Intercept(f(g(h())))`.
+func (c *DatasetClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Dataset = append(c.inters.Dataset, interceptors...)
+}
+
+// Create returns a builder for creating a Dataset entity.
+func (c *DatasetClient) Create() *DatasetCreate {
+	mutation := newDatasetMutation(c.config, OpCreate)
+	return &DatasetCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Dataset entities.
+func (c *DatasetClient) CreateBulk(builders ...*DatasetCreate) *DatasetCreateBulk {
+	return &DatasetCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DatasetClient) MapCreateBulk(slice any, setFunc func(*DatasetCreate, int)) *DatasetCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DatasetCreateBulk{err: fmt.Errorf("calling to DatasetClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DatasetCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DatasetCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Dataset.
+func (c *DatasetClient) Update() *DatasetUpdate {
+	mutation := newDatasetMutation(c.config, OpUpdate)
+	return &DatasetUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DatasetClient) UpdateOne(_m *Dataset) *DatasetUpdateOne {
+	mutation := newDatasetMutation(c.config, OpUpdateOne, withDataset(_m))
+	return &DatasetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DatasetClient) UpdateOneID(id uint64) *DatasetUpdateOne {
+	mutation := newDatasetMutation(c.config, OpUpdateOne, withDatasetID(id))
+	return &DatasetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Dataset.
+func (c *DatasetClient) Delete() *DatasetDelete {
+	mutation := newDatasetMutation(c.config, OpDelete)
+	return &DatasetDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DatasetClient) DeleteOne(_m *Dataset) *DatasetDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DatasetClient) DeleteOneID(id uint64) *DatasetDeleteOne {
+	builder := c.Delete().Where(dataset.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DatasetDeleteOne{builder}
+}
+
+// Query returns a query builder for Dataset.
+func (c *DatasetClient) Query() *DatasetQuery {
+	return &DatasetQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDataset},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Dataset entity by its id.
+func (c *DatasetClient) Get(ctx context.Context, id uint64) (*Dataset, error) {
+	return c.Query().Where(dataset.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DatasetClient) GetX(ctx context.Context, id uint64) *Dataset {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryFolders queries the folders edge of a Dataset.
+func (c *DatasetClient) QueryFolders(_m *Dataset) *KnowledgeFolderQuery {
+	query := (&KnowledgeFolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dataset.Table, dataset.FieldID, id),
+			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, dataset.FoldersTable, dataset.FoldersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDocuments queries the documents edge of a Dataset.
+func (c *DatasetClient) QueryDocuments(_m *Dataset) *DocumentQuery {
+	query := (&DocumentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dataset.Table, dataset.FieldID, id),
+			sqlgraph.To(document.Table, document.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, dataset.DocumentsTable, dataset.DocumentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAgentDatasets queries the agent_datasets edge of a Dataset.
+func (c *DatasetClient) QueryAgentDatasets(_m *Dataset) *AgentDatasetQuery {
+	query := (&AgentDatasetClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dataset.Table, dataset.FieldID, id),
+			sqlgraph.To(agentdataset.Table, agentdataset.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, dataset.AgentDatasetsTable, dataset.AgentDatasetsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DatasetClient) Hooks() []Hook {
+	return c.hooks.Dataset
+}
+
+// Interceptors returns the client interceptors.
+func (c *DatasetClient) Interceptors() []Interceptor {
+	return c.inters.Dataset
+}
+
+func (c *DatasetClient) mutate(ctx context.Context, m *DatasetMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DatasetCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DatasetUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DatasetUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DatasetDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Dataset mutation op: %q", m.Op())
+	}
+}
+
 // DocumentClient is a client for the Document schema.
 type DocumentClient struct {
 	config
@@ -1428,187 +1601,6 @@ func (c *DocumentChunkClient) mutate(ctx context.Context, m *DocumentChunkMutati
 	}
 }
 
-// KnowledgeBaseClient is a client for the KnowledgeBase schema.
-type KnowledgeBaseClient struct {
-	config
-}
-
-// NewKnowledgeBaseClient returns a client for the KnowledgeBase from the given config.
-func NewKnowledgeBaseClient(c config) *KnowledgeBaseClient {
-	return &KnowledgeBaseClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `knowledgebase.Hooks(f(g(h())))`.
-func (c *KnowledgeBaseClient) Use(hooks ...Hook) {
-	c.hooks.KnowledgeBase = append(c.hooks.KnowledgeBase, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `knowledgebase.Intercept(f(g(h())))`.
-func (c *KnowledgeBaseClient) Intercept(interceptors ...Interceptor) {
-	c.inters.KnowledgeBase = append(c.inters.KnowledgeBase, interceptors...)
-}
-
-// Create returns a builder for creating a KnowledgeBase entity.
-func (c *KnowledgeBaseClient) Create() *KnowledgeBaseCreate {
-	mutation := newKnowledgeBaseMutation(c.config, OpCreate)
-	return &KnowledgeBaseCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of KnowledgeBase entities.
-func (c *KnowledgeBaseClient) CreateBulk(builders ...*KnowledgeBaseCreate) *KnowledgeBaseCreateBulk {
-	return &KnowledgeBaseCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *KnowledgeBaseClient) MapCreateBulk(slice any, setFunc func(*KnowledgeBaseCreate, int)) *KnowledgeBaseCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &KnowledgeBaseCreateBulk{err: fmt.Errorf("calling to KnowledgeBaseClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*KnowledgeBaseCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &KnowledgeBaseCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for KnowledgeBase.
-func (c *KnowledgeBaseClient) Update() *KnowledgeBaseUpdate {
-	mutation := newKnowledgeBaseMutation(c.config, OpUpdate)
-	return &KnowledgeBaseUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *KnowledgeBaseClient) UpdateOne(_m *KnowledgeBase) *KnowledgeBaseUpdateOne {
-	mutation := newKnowledgeBaseMutation(c.config, OpUpdateOne, withKnowledgeBase(_m))
-	return &KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *KnowledgeBaseClient) UpdateOneID(id uint64) *KnowledgeBaseUpdateOne {
-	mutation := newKnowledgeBaseMutation(c.config, OpUpdateOne, withKnowledgeBaseID(id))
-	return &KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for KnowledgeBase.
-func (c *KnowledgeBaseClient) Delete() *KnowledgeBaseDelete {
-	mutation := newKnowledgeBaseMutation(c.config, OpDelete)
-	return &KnowledgeBaseDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *KnowledgeBaseClient) DeleteOne(_m *KnowledgeBase) *KnowledgeBaseDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *KnowledgeBaseClient) DeleteOneID(id uint64) *KnowledgeBaseDeleteOne {
-	builder := c.Delete().Where(knowledgebase.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &KnowledgeBaseDeleteOne{builder}
-}
-
-// Query returns a query builder for KnowledgeBase.
-func (c *KnowledgeBaseClient) Query() *KnowledgeBaseQuery {
-	return &KnowledgeBaseQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeKnowledgeBase},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a KnowledgeBase entity by its id.
-func (c *KnowledgeBaseClient) Get(ctx context.Context, id uint64) (*KnowledgeBase, error) {
-	return c.Query().Where(knowledgebase.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *KnowledgeBaseClient) GetX(ctx context.Context, id uint64) *KnowledgeBase {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryFolders queries the folders edge of a KnowledgeBase.
-func (c *KnowledgeBaseClient) QueryFolders(_m *KnowledgeBase) *KnowledgeFolderQuery {
-	query := (&KnowledgeFolderClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, id),
-			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.FoldersTable, knowledgebase.FoldersColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryDocuments queries the documents edge of a KnowledgeBase.
-func (c *KnowledgeBaseClient) QueryDocuments(_m *KnowledgeBase) *DocumentQuery {
-	query := (&DocumentClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, id),
-			sqlgraph.To(document.Table, document.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.DocumentsTable, knowledgebase.DocumentsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryAgentKnowledgeBindings queries the agent_knowledge_bindings edge of a KnowledgeBase.
-func (c *KnowledgeBaseClient) QueryAgentKnowledgeBindings(_m *KnowledgeBase) *AgentKnowledgeBaseQuery {
-	query := (&AgentKnowledgeBaseClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(knowledgebase.Table, knowledgebase.FieldID, id),
-			sqlgraph.To(agentknowledgebase.Table, agentknowledgebase.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, knowledgebase.AgentKnowledgeBindingsTable, knowledgebase.AgentKnowledgeBindingsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *KnowledgeBaseClient) Hooks() []Hook {
-	return c.hooks.KnowledgeBase
-}
-
-// Interceptors returns the client interceptors.
-func (c *KnowledgeBaseClient) Interceptors() []Interceptor {
-	return c.inters.KnowledgeBase
-}
-
-func (c *KnowledgeBaseClient) mutate(ctx context.Context, m *KnowledgeBaseMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&KnowledgeBaseCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&KnowledgeBaseUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&KnowledgeBaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&KnowledgeBaseDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown KnowledgeBase mutation op: %q", m.Op())
-	}
-}
-
 // KnowledgeFolderClient is a client for the KnowledgeFolder schema.
 type KnowledgeFolderClient struct {
 	config
@@ -1717,15 +1709,15 @@ func (c *KnowledgeFolderClient) GetX(ctx context.Context, id uint64) *KnowledgeF
 	return obj
 }
 
-// QueryKnowledgeBase queries the knowledge_base edge of a KnowledgeFolder.
-func (c *KnowledgeFolderClient) QueryKnowledgeBase(_m *KnowledgeFolder) *KnowledgeBaseQuery {
-	query := (&KnowledgeBaseClient{config: c.config}).Query()
+// QueryDataset queries the dataset edge of a KnowledgeFolder.
+func (c *KnowledgeFolderClient) QueryDataset(_m *KnowledgeFolder) *DatasetQuery {
+	query := (&DatasetClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(knowledgefolder.Table, knowledgefolder.FieldID, id),
-			sqlgraph.To(knowledgebase.Table, knowledgebase.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, knowledgefolder.KnowledgeBaseTable, knowledgefolder.KnowledgeBaseColumn),
+			sqlgraph.To(dataset.Table, dataset.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, knowledgefolder.DatasetTable, knowledgefolder.DatasetColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2237,150 +2229,17 @@ func (c *SessionMessageClient) mutate(ctx context.Context, m *SessionMessageMuta
 	}
 }
 
-// VectorOutboxClient is a client for the VectorOutbox schema.
-type VectorOutboxClient struct {
-	config
-}
-
-// NewVectorOutboxClient returns a client for the VectorOutbox from the given config.
-func NewVectorOutboxClient(c config) *VectorOutboxClient {
-	return &VectorOutboxClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `vectoroutbox.Hooks(f(g(h())))`.
-func (c *VectorOutboxClient) Use(hooks ...Hook) {
-	c.hooks.VectorOutbox = append(c.hooks.VectorOutbox, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `vectoroutbox.Intercept(f(g(h())))`.
-func (c *VectorOutboxClient) Intercept(interceptors ...Interceptor) {
-	c.inters.VectorOutbox = append(c.inters.VectorOutbox, interceptors...)
-}
-
-// Create returns a builder for creating a VectorOutbox entity.
-func (c *VectorOutboxClient) Create() *VectorOutboxCreate {
-	mutation := newVectorOutboxMutation(c.config, OpCreate)
-	return &VectorOutboxCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of VectorOutbox entities.
-func (c *VectorOutboxClient) CreateBulk(builders ...*VectorOutboxCreate) *VectorOutboxCreateBulk {
-	return &VectorOutboxCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *VectorOutboxClient) MapCreateBulk(slice any, setFunc func(*VectorOutboxCreate, int)) *VectorOutboxCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &VectorOutboxCreateBulk{err: fmt.Errorf("calling to VectorOutboxClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*VectorOutboxCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &VectorOutboxCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for VectorOutbox.
-func (c *VectorOutboxClient) Update() *VectorOutboxUpdate {
-	mutation := newVectorOutboxMutation(c.config, OpUpdate)
-	return &VectorOutboxUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *VectorOutboxClient) UpdateOne(_m *VectorOutbox) *VectorOutboxUpdateOne {
-	mutation := newVectorOutboxMutation(c.config, OpUpdateOne, withVectorOutbox(_m))
-	return &VectorOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *VectorOutboxClient) UpdateOneID(id uint64) *VectorOutboxUpdateOne {
-	mutation := newVectorOutboxMutation(c.config, OpUpdateOne, withVectorOutboxID(id))
-	return &VectorOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for VectorOutbox.
-func (c *VectorOutboxClient) Delete() *VectorOutboxDelete {
-	mutation := newVectorOutboxMutation(c.config, OpDelete)
-	return &VectorOutboxDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *VectorOutboxClient) DeleteOne(_m *VectorOutbox) *VectorOutboxDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *VectorOutboxClient) DeleteOneID(id uint64) *VectorOutboxDeleteOne {
-	builder := c.Delete().Where(vectoroutbox.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &VectorOutboxDeleteOne{builder}
-}
-
-// Query returns a query builder for VectorOutbox.
-func (c *VectorOutboxClient) Query() *VectorOutboxQuery {
-	return &VectorOutboxQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeVectorOutbox},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a VectorOutbox entity by its id.
-func (c *VectorOutboxClient) Get(ctx context.Context, id uint64) (*VectorOutbox, error) {
-	return c.Query().Where(vectoroutbox.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *VectorOutboxClient) GetX(ctx context.Context, id uint64) *VectorOutbox {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// Hooks returns the client hooks.
-func (c *VectorOutboxClient) Hooks() []Hook {
-	return c.hooks.VectorOutbox
-}
-
-// Interceptors returns the client interceptors.
-func (c *VectorOutboxClient) Interceptors() []Interceptor {
-	return c.inters.VectorOutbox
-}
-
-func (c *VectorOutboxClient) mutate(ctx context.Context, m *VectorOutboxMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&VectorOutboxCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&VectorOutboxUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&VectorOutboxUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&VectorOutboxDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown VectorOutbox mutation op: %q", m.Op())
-	}
-}
-
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AgentKnowledgeBase, AgentRun, Approval, AuditEvent, ChatTurn, Checkpoint,
-		Document, DocumentChunk, KnowledgeBase, KnowledgeFolder, KnowledgeIndex,
-		Session, SessionMessage, VectorOutbox []ent.Hook
+		AgentDataset, AgentRun, Approval, AuditEvent, ChatTurn, Checkpoint, Dataset,
+		Document, DocumentChunk, KnowledgeFolder, KnowledgeIndex, Session,
+		SessionMessage []ent.Hook
 	}
 	inters struct {
-		AgentKnowledgeBase, AgentRun, Approval, AuditEvent, ChatTurn, Checkpoint,
-		Document, DocumentChunk, KnowledgeBase, KnowledgeFolder, KnowledgeIndex,
-		Session, SessionMessage, VectorOutbox []ent.Interceptor
+		AgentDataset, AgentRun, Approval, AuditEvent, ChatTurn, Checkpoint, Dataset,
+		Document, DocumentChunk, KnowledgeFolder, KnowledgeIndex, Session,
+		SessionMessage []ent.Interceptor
 	}
 )
 

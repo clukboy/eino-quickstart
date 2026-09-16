@@ -111,24 +111,24 @@ func (_u *DocumentUpdate) SetNillableStatus(v *document.Status) *DocumentUpdate 
 	return _u
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_u *DocumentUpdate) SetKnowledgeBaseID(v uint64) *DocumentUpdate {
-	_u.mutation.ResetKnowledgeBaseID()
-	_u.mutation.SetKnowledgeBaseID(v)
+// SetDatasetID sets the "dataset_id" field.
+func (_u *DocumentUpdate) SetDatasetID(v uint64) *DocumentUpdate {
+	_u.mutation.ResetDatasetID()
+	_u.mutation.SetDatasetID(v)
 	return _u
 }
 
-// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_u *DocumentUpdate) SetNillableKnowledgeBaseID(v *uint64) *DocumentUpdate {
+// SetNillableDatasetID sets the "dataset_id" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableDatasetID(v *uint64) *DocumentUpdate {
 	if v != nil {
-		_u.SetKnowledgeBaseID(*v)
+		_u.SetDatasetID(*v)
 	}
 	return _u
 }
 
-// AddKnowledgeBaseID adds value to the "knowledge_base_id" field.
-func (_u *DocumentUpdate) AddKnowledgeBaseID(v int64) *DocumentUpdate {
-	_u.mutation.AddKnowledgeBaseID(v)
+// AddDatasetID adds value to the "dataset_id" field.
+func (_u *DocumentUpdate) AddDatasetID(v int64) *DocumentUpdate {
+	_u.mutation.AddDatasetID(v)
 	return _u
 }
 
@@ -290,11 +290,11 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := _u.mutation.KnowledgeBaseID(); ok {
-		_spec.SetField(document.FieldKnowledgeBaseID, field.TypeUint64, value)
+	if value, ok := _u.mutation.DatasetID(); ok {
+		_spec.SetField(document.FieldDatasetID, field.TypeUint64, value)
 	}
-	if value, ok := _u.mutation.AddedKnowledgeBaseID(); ok {
-		_spec.AddField(document.FieldKnowledgeBaseID, field.TypeUint64, value)
+	if value, ok := _u.mutation.AddedDatasetID(); ok {
+		_spec.AddField(document.FieldDatasetID, field.TypeUint64, value)
 	}
 	if value, ok := _u.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)
@@ -455,24 +455,24 @@ func (_u *DocumentUpdateOne) SetNillableStatus(v *document.Status) *DocumentUpda
 	return _u
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_u *DocumentUpdateOne) SetKnowledgeBaseID(v uint64) *DocumentUpdateOne {
-	_u.mutation.ResetKnowledgeBaseID()
-	_u.mutation.SetKnowledgeBaseID(v)
+// SetDatasetID sets the "dataset_id" field.
+func (_u *DocumentUpdateOne) SetDatasetID(v uint64) *DocumentUpdateOne {
+	_u.mutation.ResetDatasetID()
+	_u.mutation.SetDatasetID(v)
 	return _u
 }
 
-// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_u *DocumentUpdateOne) SetNillableKnowledgeBaseID(v *uint64) *DocumentUpdateOne {
+// SetNillableDatasetID sets the "dataset_id" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableDatasetID(v *uint64) *DocumentUpdateOne {
 	if v != nil {
-		_u.SetKnowledgeBaseID(*v)
+		_u.SetDatasetID(*v)
 	}
 	return _u
 }
 
-// AddKnowledgeBaseID adds value to the "knowledge_base_id" field.
-func (_u *DocumentUpdateOne) AddKnowledgeBaseID(v int64) *DocumentUpdateOne {
-	_u.mutation.AddKnowledgeBaseID(v)
+// AddDatasetID adds value to the "dataset_id" field.
+func (_u *DocumentUpdateOne) AddDatasetID(v int64) *DocumentUpdateOne {
+	_u.mutation.AddDatasetID(v)
 	return _u
 }
 
@@ -664,11 +664,11 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := _u.mutation.KnowledgeBaseID(); ok {
-		_spec.SetField(document.FieldKnowledgeBaseID, field.TypeUint64, value)
+	if value, ok := _u.mutation.DatasetID(); ok {
+		_spec.SetField(document.FieldDatasetID, field.TypeUint64, value)
 	}
-	if value, ok := _u.mutation.AddedKnowledgeBaseID(); ok {
-		_spec.AddField(document.FieldKnowledgeBaseID, field.TypeUint64, value)
+	if value, ok := _u.mutation.AddedDatasetID(); ok {
+		_spec.AddField(document.FieldDatasetID, field.TypeUint64, value)
 	}
 	if value, ok := _u.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)

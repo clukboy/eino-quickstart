@@ -6,7 +6,7 @@ package dataset
 import (
 	"context"
 
-	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -29,7 +29,7 @@ func NewListDatasetsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *List
 }
 
 func (l *ListDatasetsLogic) ListDatasets(req *types.ListDatasetsReq) (resp *types.DatasetListResp, err error) {
-	bases, err := l.svcCtx.EntClient.KnowledgeBase.Query().Order(knowledgebase.ByID()).All(l.ctx)
+	bases, err := l.svcCtx.EntClient.Dataset.Query().Order(dataset.ByID()).All(l.ctx)
 	if err != nil {
 		return nil, fail(err)
 	}

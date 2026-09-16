@@ -61,7 +61,6 @@ storage:
   maxOpenConn: 100
   sslMode: disable
 
-
 auth:
   enabled: true
   apiKeys:
@@ -84,7 +83,7 @@ runtime:
 observability:
   logLevel: "info"
   metricsEnabled: true
-  
+
   serviceName: "eino-harness-server"
   environment: "development"
 
@@ -160,8 +159,12 @@ retrieval:
 indexer:
   enabled: true
   batchSize: 32
-  intervalSeconds: 2
-  leaseDurationSeconds: 60
-  maxAttempts: 5
-  initialRetryDelaySeconds: 1
-  maxRetryDelaySeconds: 60
+
+queue:
+  enable: true
+  addr: "10.10.2.90:6379"
+  username: ""
+  pass: ""
+  db: 0
+  concurrency: 10
+  syncInterval: 60

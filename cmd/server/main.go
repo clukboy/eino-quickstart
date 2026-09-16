@@ -196,7 +196,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	knowledgeBindings, err := tool.NewEntKnowledgeBaseBindings(entClient)
+	knowledgeBindings, err := tool.NewEntDatasetBindings(entClient)
 	if err != nil {
 		log.Fatal(err)
 	}

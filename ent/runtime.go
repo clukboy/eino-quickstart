@@ -3,21 +3,20 @@
 package ent
 
 import (
-	"eino-quickstart/ent/agentknowledgebase"
+	"eino-quickstart/ent/agentdataset"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
 	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/ent/checkpoint"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/schema"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
-	"eino-quickstart/ent/vectoroutbox"
 	"time"
 )
 
@@ -25,12 +24,12 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	agentknowledgebaseFields := schema.AgentKnowledgeBase{}.Fields()
-	_ = agentknowledgebaseFields
-	// agentknowledgebaseDescCreatedAt is the schema descriptor for created_at field.
-	agentknowledgebaseDescCreatedAt := agentknowledgebaseFields[3].Descriptor()
-	// agentknowledgebase.DefaultCreatedAt holds the default value on creation for the created_at field.
-	agentknowledgebase.DefaultCreatedAt = agentknowledgebaseDescCreatedAt.Default.(func() time.Time)
+	agentdatasetFields := schema.AgentDataset{}.Fields()
+	_ = agentdatasetFields
+	// agentdatasetDescCreatedAt is the schema descriptor for created_at field.
+	agentdatasetDescCreatedAt := agentdatasetFields[3].Descriptor()
+	// agentdataset.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agentdataset.DefaultCreatedAt = agentdatasetDescCreatedAt.Default.(func() time.Time)
 	agentrunFields := schema.AgentRun{}.Fields()
 	_ = agentrunFields
 	// agentrunDescCreatedAt is the schema descriptor for created_at field.
@@ -73,16 +72,36 @@ func init() {
 	checkpoint.DefaultUpdatedAt = checkpointDescUpdatedAt.Default.(func() time.Time)
 	// checkpoint.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	checkpoint.UpdateDefaultUpdatedAt = checkpointDescUpdatedAt.UpdateDefault.(func() time.Time)
+	datasetFields := schema.Dataset{}.Fields()
+	_ = datasetFields
+	// datasetDescOwnerSubject is the schema descriptor for owner_subject field.
+	datasetDescOwnerSubject := datasetFields[2].Descriptor()
+	// dataset.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
+	dataset.DefaultOwnerSubject = datasetDescOwnerSubject.Default.(string)
+	// datasetDescType is the schema descriptor for type field.
+	datasetDescType := datasetFields[5].Descriptor()
+	// dataset.DefaultType holds the default value on creation for the type field.
+	dataset.DefaultType = datasetDescType.Default.(string)
+	// datasetDescCreatedAt is the schema descriptor for created_at field.
+	datasetDescCreatedAt := datasetFields[6].Descriptor()
+	// dataset.DefaultCreatedAt holds the default value on creation for the created_at field.
+	dataset.DefaultCreatedAt = datasetDescCreatedAt.Default.(func() time.Time)
+	// datasetDescUpdatedAt is the schema descriptor for updated_at field.
+	datasetDescUpdatedAt := datasetFields[7].Descriptor()
+	// dataset.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	dataset.DefaultUpdatedAt = datasetDescUpdatedAt.Default.(func() time.Time)
+	// dataset.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	dataset.UpdateDefaultUpdatedAt = datasetDescUpdatedAt.UpdateDefault.(func() time.Time)
 	documentFields := schema.Document{}.Fields()
 	_ = documentFields
 	// documentDescOwnerSubject is the schema descriptor for owner_subject field.
 	documentDescOwnerSubject := documentFields[3].Descriptor()
 	// document.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
 	document.DefaultOwnerSubject = documentDescOwnerSubject.Default.(string)
-	// documentDescKnowledgeBaseID is the schema descriptor for knowledge_base_id field.
-	documentDescKnowledgeBaseID := documentFields[6].Descriptor()
-	// document.DefaultKnowledgeBaseID holds the default value on creation for the knowledge_base_id field.
-	document.DefaultKnowledgeBaseID = documentDescKnowledgeBaseID.Default.(uint64)
+	// documentDescDatasetID is the schema descriptor for dataset_id field.
+	documentDescDatasetID := documentFields[6].Descriptor()
+	// document.DefaultDatasetID holds the default value on creation for the dataset_id field.
+	document.DefaultDatasetID = documentDescDatasetID.Default.(uint64)
 	// documentDescCreatedAt is the schema descriptor for created_at field.
 	documentDescCreatedAt := documentFields[8].Descriptor()
 	// document.DefaultCreatedAt holds the default value on creation for the created_at field.
@@ -99,22 +118,6 @@ func init() {
 	documentchunkDescCreatedAt := documentchunkFields[6].Descriptor()
 	// documentchunk.DefaultCreatedAt holds the default value on creation for the created_at field.
 	documentchunk.DefaultCreatedAt = documentchunkDescCreatedAt.Default.(func() time.Time)
-	knowledgebaseFields := schema.KnowledgeBase{}.Fields()
-	_ = knowledgebaseFields
-	// knowledgebaseDescOwnerSubject is the schema descriptor for owner_subject field.
-	knowledgebaseDescOwnerSubject := knowledgebaseFields[2].Descriptor()
-	// knowledgebase.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
-	knowledgebase.DefaultOwnerSubject = knowledgebaseDescOwnerSubject.Default.(string)
-	// knowledgebaseDescCreatedAt is the schema descriptor for created_at field.
-	knowledgebaseDescCreatedAt := knowledgebaseFields[5].Descriptor()
-	// knowledgebase.DefaultCreatedAt holds the default value on creation for the created_at field.
-	knowledgebase.DefaultCreatedAt = knowledgebaseDescCreatedAt.Default.(func() time.Time)
-	// knowledgebaseDescUpdatedAt is the schema descriptor for updated_at field.
-	knowledgebaseDescUpdatedAt := knowledgebaseFields[6].Descriptor()
-	// knowledgebase.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	knowledgebase.DefaultUpdatedAt = knowledgebaseDescUpdatedAt.Default.(func() time.Time)
-	// knowledgebase.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	knowledgebase.UpdateDefaultUpdatedAt = knowledgebaseDescUpdatedAt.UpdateDefault.(func() time.Time)
 	knowledgefolderFields := schema.KnowledgeFolder{}.Fields()
 	_ = knowledgefolderFields
 	// knowledgefolderDescSort is the schema descriptor for sort field.
@@ -161,24 +164,4 @@ func init() {
 	sessionmessageDescCreatedAt := sessionmessageFields[2].Descriptor()
 	// sessionmessage.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionmessage.DefaultCreatedAt = sessionmessageDescCreatedAt.Default.(func() time.Time)
-	vectoroutboxFields := schema.VectorOutbox{}.Fields()
-	_ = vectoroutboxFields
-	// vectoroutboxDescAttempts is the schema descriptor for attempts field.
-	vectoroutboxDescAttempts := vectoroutboxFields[3].Descriptor()
-	// vectoroutbox.DefaultAttempts holds the default value on creation for the attempts field.
-	vectoroutbox.DefaultAttempts = vectoroutboxDescAttempts.Default.(int)
-	// vectoroutboxDescAvailableAt is the schema descriptor for available_at field.
-	vectoroutboxDescAvailableAt := vectoroutboxFields[4].Descriptor()
-	// vectoroutbox.DefaultAvailableAt holds the default value on creation for the available_at field.
-	vectoroutbox.DefaultAvailableAt = vectoroutboxDescAvailableAt.Default.(func() time.Time)
-	// vectoroutboxDescCreatedAt is the schema descriptor for created_at field.
-	vectoroutboxDescCreatedAt := vectoroutboxFields[7].Descriptor()
-	// vectoroutbox.DefaultCreatedAt holds the default value on creation for the created_at field.
-	vectoroutbox.DefaultCreatedAt = vectoroutboxDescCreatedAt.Default.(func() time.Time)
-	// vectoroutboxDescUpdatedAt is the schema descriptor for updated_at field.
-	vectoroutboxDescUpdatedAt := vectoroutboxFields[8].Descriptor()
-	// vectoroutbox.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	vectoroutbox.DefaultUpdatedAt = vectoroutboxDescUpdatedAt.Default.(func() time.Time)
-	// vectoroutbox.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	vectoroutbox.UpdateDefaultUpdatedAt = vectoroutboxDescUpdatedAt.UpdateDefault.(func() time.Time)
 }

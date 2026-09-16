@@ -2,8 +2,7 @@
 # 由 cmd/restapi 用项目的 config.Load 读取，两者各管一层。
 #
 # 用 goctl 生成/更新代码时不要覆盖本文件：
-#   goctl api go --api internal/transport/restapi/restapi.api \
-#                --dir internal/transport/restapi --style gozero
+#   make gen-api            （契约入口是 docs/restapi.api）
 
 Name: eino-quickstart-restapi
 
@@ -13,26 +12,63 @@ Host: 0.0.0.0
 Port: 8090
 
 # 单请求体上限，与 configs/config.yaml 的 runtime.maxRequestBodyBytes 一致。
-MaxBytes: 5242880
+MaxBytes: 52428800
 
 # 毫秒，与 runtime.readTimeoutSeconds=15 对齐。SSE 路由用 rest.WithSSE() 标记，
 # go-zero 会清掉写超时，且带 Accept: text/event-stream 的请求跳过 Timeout 中间件。
 Timeout: 15000
 
 # logx 的输出去向由 restapi.BridgeLogx 接管，统一写进项目的 slog（JSON 文件）。
+# 注意 BridgeLogx 必须在 ServiceConf.SetUp() 之后调用：SetUp 会重配 logx，
+# 顺序反了会把桥接覆盖掉。Run() 已处理，见 restapi.go。
 Log:
   Mode: console
   Level: info
 
-# go-zero 自带的中间件默认全开。下面这几项与 internal/platform/observability
-# 的能力重叠，关掉以免每个请求被处理两遍（重复的 trace span、访问日志、
-# recover 日志、指标）。链路由 restapi.go 的 server.Use(...) 提供。
+# 这里**故意不写 Middlewares 块**：各字段默认值都是 true，即整条链路全部使用
+# go-zero 自带的中间件，按 rest/engine.go 的固定顺序逐路由装配：
 #
-# 保留的（纯传输层韧性，项目里没有对应实现）：
-#   MaxConns / Breaker / Shedding / Timeout / MaxBytes / Gunzip
-Middlewares:
-  Trace: false       # 用 observability.HTTPTrace（项目自己的 otel span）
-  Log: false         # 用 observability.AccessLog
-  Prometheus: false  # 用 observability.Metrics（私有 registry + GET /metrics）
-  Recover: false     # 用 observability.Recover
-  Metrics: false     # 用 observability.Metrics
+#   Trace      -> handler.TraceHandler        （otel span，注入 traceparent）
+#   Log        -> handler.LogHandler          （logx 访问日志）
+#   Prometheus -> handler.PrometheusHandler   （记录请求指标）
+#   MaxConns / Breaker / Shedding / Timeout
+#   Recover    -> handler.RecoverHandler
+#   Metrics / MaxBytes / Gunzip
+#
+# restapi 不再挂 internal/platform/observability 的任何中间件 —— 那个包只服务
+# httpapi（net/http）与 hertzapi 两个传输层。本项目自己写的只剩下鉴权，
+# 因为 go-zero 的 handler.Authorize 是 HMAC 签名鉴权，不是 Bearer API key。
+
+# trace id 的来源。**这个块不能省**：go-zero 的 trace.startAgent 即使 Endpoint
+# 为空，也会安装一个真实的 SDK TracerProvider（只是没有 exporter），trace id 才
+# 有效；不配的话全局 provider 是 noop 的，trace id 恒为空字符串，
+# 响应头 X-Trace-ID 和错误体里的 request_id 都会是空的。
+Telemetry:
+  Name: eino-quickstart-restapi
+  # Sampler: 1.0          # 默认全采样
+  Endpoint: 10.10.2.90:4317 # 填上才开始真正导出 span（Batcher 默认 otlpgrpc）
+
+# 进程关闭的时间预算。**这个块必须留**，默认值会杀死还没关完的进程：
+# core/proc 收到 SIGTERM/SIGINT 后先跑 wrap up 监听器，等 WrapUpTime，再跑
+# shutdown 监听器（HTTP 的优雅排空和 asynq worker 的收尾都在这里），最后再等
+# WaitTime - WrapUpTime，然后 syscall.Kill 自己。默认 WaitTime 只有 5.5s，
+# 而 asynq 允许在跑的任务再活 asynq.shutdownTimeoutSeconds（当前 20s），
+# 于是「优雅关闭」永远走不完，进程被硬杀，任务要等下次启动才被重新领取。
+#
+# 这里的 WaitTime 必须 > asynq.shutdownTimeoutSeconds + 余量。
+Shutdown:
+  WrapUpTime: 1s
+  WaitTime: 30s
+
+
+# go-zero 原生 Prometheus agent：**独立端口**暴露，与上面的 8090 分开。
+# 由 Start() 里的 ServiceConf.SetUp() 启动 —— go-zero 的 rest 自己不会调 SetUp，
+# 必须由进程显式调用，否则这个监听不会起来。
+#
+# 指标名是 go-zero 的 http_server_requests_duration_ms /
+# http_server_requests_code_total（labels: path/method/code），
+# 与旧的 eino_harness_* 私有指标不是同一套，抓取规则要跟着改。
+# Prometheus:
+#   Host: 0.0.0.0
+#   Port: 9091
+#   Path: /metrics

@@ -3,7 +3,7 @@
 
 package types
 
-type AgentKnowledgeBaseReq struct {
+type AgentDatasetReq struct {
 	Subject string `path:"subject"`
 	ID      uint64 `path:"id"`
 }
@@ -37,8 +37,18 @@ type ApprovalResp struct {
 
 type CreateDatasetReq struct {
 	Name        string `json:"name"`
-	Description string `json:"description"`
+	Description string `json:"description,optional"`
 	Visibility  string `json:"visibility"`
+	Type        string `json:"type"`
+}
+
+type CreateDocumentReq struct {
+	ID         uint64            `path:"id"`
+	Title      string            `json:"title"`
+	Content    string            `json:"content"`
+	Source     string            `json:"source,omitempty"`
+	Visibility string            `json:"visibility,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
 type CreateSessionResp struct {
@@ -56,10 +66,17 @@ type DatasetListResp struct {
 type DatasetResp struct {
 	ID           uint64 `json:"id"`
 	Name         string `json:"name"`
-	Description  string `json:"description,omitempty"`
+	Description  string `json:"description"`
 	OwnerSubject string `json:"owner_subject"`
 	Visibility   string `json:"visibility"`
 	Status       string `json:"status"`
+	CreatedAt    int64  `json:"createdAt"`
+	Type         string `json:"type"`
+}
+
+type DocumentIDReq struct {
+	ID    uint64 `path:"id"`
+	DocID uint64 `path:"docId"`
 }
 
 type DocumentListResp struct {
@@ -67,12 +84,22 @@ type DocumentListResp struct {
 }
 
 type DocumentResp struct {
-	ID              uint64 `json:"id"`
-	KnowledgeBaseID uint64 `json:"knowledge_base_id"`
-	Source          string `json:"source"`
-	Title           string `json:"title"`
-	Status          string `json:"status"`
-	ChunkCount      int    `json:"chunk_count"`
+	ID                uint64 `json:"id"`
+	DatasetID         uint64 `json:"dataset_id"`
+	Source            string `json:"source"`
+	Title             string `json:"title"`
+	Status            string `json:"status"`
+	Visibility        string `json:"visibility"`
+	OwnerSubject      string `json:"owner_subject"`
+	ChunkCount        int    `json:"chunk_count"`
+	IndexedChunkCount int    `json:"indexed_chunk_count"`
+	CreatedAt         int64  `json:"createdAt"`
+	UpdatedAt         int64  `json:"updatedAt"`
+}
+
+type DocumentUploadReq struct {
+	DatasetID  uint64 `path:"id"`
+	Visibility string `form:"visibility"`
 }
 
 type HealthResp struct {
@@ -80,6 +107,8 @@ type HealthResp struct {
 }
 
 type ListDatasetsReq struct {
+	Name string `json:"name,optional"`
+	Type string `json:"type,optional"`
 }
 
 type ReadyResp struct {
@@ -87,6 +116,22 @@ type ReadyResp struct {
 	Error  string `json:"error,omitempty"`
 }
 
+type ReindexResp struct {
+	Status    string `json:"status"`
+	Documents int    `json:"documents"`
+	Chunks    int    `json:"chunks"`
+	Failed    int    `json:"failed"`
+}
+
 type StatusResp struct {
 	Status string `json:"status"`
+}
+
+type UpdateDocumentReq struct {
+	ID         uint64            `path:"id"`
+	DocID      uint64            `path:"docId"`
+	Title      string            `json:"title,omitempty"`
+	Content    string            `json:"content,omitempty"`
+	Visibility string            `json:"visibility,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }

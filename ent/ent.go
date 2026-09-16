@@ -4,20 +4,19 @@ package ent
 
 import (
 	"context"
-	"eino-quickstart/ent/agentknowledgebase"
+	"eino-quickstart/ent/agentdataset"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
 	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/ent/checkpoint"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
-	"eino-quickstart/ent/vectoroutbox"
 	"errors"
 	"fmt"
 	"reflect"
@@ -86,20 +85,19 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			agentknowledgebase.Table: agentknowledgebase.ValidColumn,
-			agentrun.Table:           agentrun.ValidColumn,
-			approval.Table:           approval.ValidColumn,
-			auditevent.Table:         auditevent.ValidColumn,
-			chatturn.Table:           chatturn.ValidColumn,
-			checkpoint.Table:         checkpoint.ValidColumn,
-			document.Table:           document.ValidColumn,
-			documentchunk.Table:      documentchunk.ValidColumn,
-			knowledgebase.Table:      knowledgebase.ValidColumn,
-			knowledgefolder.Table:    knowledgefolder.ValidColumn,
-			knowledgeindex.Table:     knowledgeindex.ValidColumn,
-			session.Table:            session.ValidColumn,
-			sessionmessage.Table:     sessionmessage.ValidColumn,
-			vectoroutbox.Table:       vectoroutbox.ValidColumn,
+			agentdataset.Table:    agentdataset.ValidColumn,
+			agentrun.Table:        agentrun.ValidColumn,
+			approval.Table:        approval.ValidColumn,
+			auditevent.Table:      auditevent.ValidColumn,
+			chatturn.Table:        chatturn.ValidColumn,
+			checkpoint.Table:      checkpoint.ValidColumn,
+			dataset.Table:         dataset.ValidColumn,
+			document.Table:        document.ValidColumn,
+			documentchunk.Table:   documentchunk.ValidColumn,
+			knowledgefolder.Table: knowledgefolder.ValidColumn,
+			knowledgeindex.Table:  knowledgeindex.ValidColumn,
+			session.Table:         session.ValidColumn,
+			sessionmessage.Table:  sessionmessage.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

@@ -4,8 +4,8 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/predicate"
 	"errors"
@@ -79,16 +79,16 @@ func (_u *KnowledgeFolderUpdate) AddSort(v int) *KnowledgeFolderUpdate {
 	return _u
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_u *KnowledgeFolderUpdate) SetKnowledgeBaseID(v uint64) *KnowledgeFolderUpdate {
-	_u.mutation.SetKnowledgeBaseID(v)
+// SetDatasetID sets the "dataset_id" field.
+func (_u *KnowledgeFolderUpdate) SetDatasetID(v uint64) *KnowledgeFolderUpdate {
+	_u.mutation.SetDatasetID(v)
 	return _u
 }
 
-// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_u *KnowledgeFolderUpdate) SetNillableKnowledgeBaseID(v *uint64) *KnowledgeFolderUpdate {
+// SetNillableDatasetID sets the "dataset_id" field if the given value is not nil.
+func (_u *KnowledgeFolderUpdate) SetNillableDatasetID(v *uint64) *KnowledgeFolderUpdate {
 	if v != nil {
-		_u.SetKnowledgeBaseID(*v)
+		_u.SetDatasetID(*v)
 	}
 	return _u
 }
@@ -119,9 +119,9 @@ func (_u *KnowledgeFolderUpdate) SetUpdatedAt(v time.Time) *KnowledgeFolderUpdat
 	return _u
 }
 
-// SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
-func (_u *KnowledgeFolderUpdate) SetKnowledgeBase(v *KnowledgeBase) *KnowledgeFolderUpdate {
-	return _u.SetKnowledgeBaseID(v.ID)
+// SetDataset sets the "dataset" edge to the Dataset entity.
+func (_u *KnowledgeFolderUpdate) SetDataset(v *Dataset) *KnowledgeFolderUpdate {
+	return _u.SetDatasetID(v.ID)
 }
 
 // SetParent sets the "parent" edge to the KnowledgeFolder entity.
@@ -164,9 +164,9 @@ func (_u *KnowledgeFolderUpdate) Mutation() *KnowledgeFolderMutation {
 	return _u.mutation
 }
 
-// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
-func (_u *KnowledgeFolderUpdate) ClearKnowledgeBase() *KnowledgeFolderUpdate {
-	_u.mutation.ClearKnowledgeBase()
+// ClearDataset clears the "dataset" edge to the Dataset entity.
+func (_u *KnowledgeFolderUpdate) ClearDataset() *KnowledgeFolderUpdate {
+	_u.mutation.ClearDataset()
 	return _u
 }
 
@@ -256,8 +256,8 @@ func (_u *KnowledgeFolderUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *KnowledgeFolderUpdate) check() error {
-	if _u.mutation.KnowledgeBaseCleared() && len(_u.mutation.KnowledgeBaseIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "KnowledgeFolder.knowledge_base"`)
+	if _u.mutation.DatasetCleared() && len(_u.mutation.DatasetIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "KnowledgeFolder.dataset"`)
 	}
 	return nil
 }
@@ -289,28 +289,28 @@ func (_u *KnowledgeFolderUpdate) sqlSave(ctx context.Context) (_node int, err er
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(knowledgefolder.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if _u.mutation.KnowledgeBaseCleared() {
+	if _u.mutation.DatasetCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   knowledgefolder.KnowledgeBaseTable,
-			Columns: []string{knowledgefolder.KnowledgeBaseColumn},
+			Table:   knowledgefolder.DatasetTable,
+			Columns: []string{knowledgefolder.DatasetColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.KnowledgeBaseIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.DatasetIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   knowledgefolder.KnowledgeBaseTable,
-			Columns: []string{knowledgefolder.KnowledgeBaseColumn},
+			Table:   knowledgefolder.DatasetTable,
+			Columns: []string{knowledgefolder.DatasetColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -506,16 +506,16 @@ func (_u *KnowledgeFolderUpdateOne) AddSort(v int) *KnowledgeFolderUpdateOne {
 	return _u
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_u *KnowledgeFolderUpdateOne) SetKnowledgeBaseID(v uint64) *KnowledgeFolderUpdateOne {
-	_u.mutation.SetKnowledgeBaseID(v)
+// SetDatasetID sets the "dataset_id" field.
+func (_u *KnowledgeFolderUpdateOne) SetDatasetID(v uint64) *KnowledgeFolderUpdateOne {
+	_u.mutation.SetDatasetID(v)
 	return _u
 }
 
-// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_u *KnowledgeFolderUpdateOne) SetNillableKnowledgeBaseID(v *uint64) *KnowledgeFolderUpdateOne {
+// SetNillableDatasetID sets the "dataset_id" field if the given value is not nil.
+func (_u *KnowledgeFolderUpdateOne) SetNillableDatasetID(v *uint64) *KnowledgeFolderUpdateOne {
 	if v != nil {
-		_u.SetKnowledgeBaseID(*v)
+		_u.SetDatasetID(*v)
 	}
 	return _u
 }
@@ -546,9 +546,9 @@ func (_u *KnowledgeFolderUpdateOne) SetUpdatedAt(v time.Time) *KnowledgeFolderUp
 	return _u
 }
 
-// SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
-func (_u *KnowledgeFolderUpdateOne) SetKnowledgeBase(v *KnowledgeBase) *KnowledgeFolderUpdateOne {
-	return _u.SetKnowledgeBaseID(v.ID)
+// SetDataset sets the "dataset" edge to the Dataset entity.
+func (_u *KnowledgeFolderUpdateOne) SetDataset(v *Dataset) *KnowledgeFolderUpdateOne {
+	return _u.SetDatasetID(v.ID)
 }
 
 // SetParent sets the "parent" edge to the KnowledgeFolder entity.
@@ -591,9 +591,9 @@ func (_u *KnowledgeFolderUpdateOne) Mutation() *KnowledgeFolderMutation {
 	return _u.mutation
 }
 
-// ClearKnowledgeBase clears the "knowledge_base" edge to the KnowledgeBase entity.
-func (_u *KnowledgeFolderUpdateOne) ClearKnowledgeBase() *KnowledgeFolderUpdateOne {
-	_u.mutation.ClearKnowledgeBase()
+// ClearDataset clears the "dataset" edge to the Dataset entity.
+func (_u *KnowledgeFolderUpdateOne) ClearDataset() *KnowledgeFolderUpdateOne {
+	_u.mutation.ClearDataset()
 	return _u
 }
 
@@ -696,8 +696,8 @@ func (_u *KnowledgeFolderUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *KnowledgeFolderUpdateOne) check() error {
-	if _u.mutation.KnowledgeBaseCleared() && len(_u.mutation.KnowledgeBaseIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "KnowledgeFolder.knowledge_base"`)
+	if _u.mutation.DatasetCleared() && len(_u.mutation.DatasetIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "KnowledgeFolder.dataset"`)
 	}
 	return nil
 }
@@ -746,28 +746,28 @@ func (_u *KnowledgeFolderUpdateOne) sqlSave(ctx context.Context) (_node *Knowled
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(knowledgefolder.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if _u.mutation.KnowledgeBaseCleared() {
+	if _u.mutation.DatasetCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   knowledgefolder.KnowledgeBaseTable,
-			Columns: []string{knowledgefolder.KnowledgeBaseColumn},
+			Table:   knowledgefolder.DatasetTable,
+			Columns: []string{knowledgefolder.DatasetColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.KnowledgeBaseIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.DatasetIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   knowledgefolder.KnowledgeBaseTable,
-			Columns: []string{knowledgefolder.KnowledgeBaseColumn},
+			Table:   knowledgefolder.DatasetTable,
+			Columns: []string{knowledgefolder.DatasetColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

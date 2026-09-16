@@ -4,8 +4,8 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"errors"
 	"fmt"
@@ -48,9 +48,9 @@ func (_c *KnowledgeFolderCreate) SetNillableSort(v *int) *KnowledgeFolderCreate 
 	return _c
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_c *KnowledgeFolderCreate) SetKnowledgeBaseID(v uint64) *KnowledgeFolderCreate {
-	_c.mutation.SetKnowledgeBaseID(v)
+// SetDatasetID sets the "dataset_id" field.
+func (_c *KnowledgeFolderCreate) SetDatasetID(v uint64) *KnowledgeFolderCreate {
+	_c.mutation.SetDatasetID(v)
 	return _c
 }
 
@@ -96,9 +96,9 @@ func (_c *KnowledgeFolderCreate) SetNillableUpdatedAt(v *time.Time) *KnowledgeFo
 	return _c
 }
 
-// SetKnowledgeBase sets the "knowledge_base" edge to the KnowledgeBase entity.
-func (_c *KnowledgeFolderCreate) SetKnowledgeBase(v *KnowledgeBase) *KnowledgeFolderCreate {
-	return _c.SetKnowledgeBaseID(v.ID)
+// SetDataset sets the "dataset" edge to the Dataset entity.
+func (_c *KnowledgeFolderCreate) SetDataset(v *Dataset) *KnowledgeFolderCreate {
+	return _c.SetDatasetID(v.ID)
 }
 
 // SetParent sets the "parent" edge to the KnowledgeFolder entity.
@@ -196,8 +196,8 @@ func (_c *KnowledgeFolderCreate) check() error {
 	if _, ok := _c.mutation.Sort(); !ok {
 		return &ValidationError{Name: "sort", err: errors.New(`ent: missing required field "KnowledgeFolder.sort"`)}
 	}
-	if _, ok := _c.mutation.KnowledgeBaseID(); !ok {
-		return &ValidationError{Name: "knowledge_base_id", err: errors.New(`ent: missing required field "KnowledgeFolder.knowledge_base_id"`)}
+	if _, ok := _c.mutation.DatasetID(); !ok {
+		return &ValidationError{Name: "dataset_id", err: errors.New(`ent: missing required field "KnowledgeFolder.dataset_id"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "KnowledgeFolder.created_at"`)}
@@ -205,8 +205,8 @@ func (_c *KnowledgeFolderCreate) check() error {
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "KnowledgeFolder.updated_at"`)}
 	}
-	if len(_c.mutation.KnowledgeBaseIDs()) == 0 {
-		return &ValidationError{Name: "knowledge_base", err: errors.New(`ent: missing required edge "KnowledgeFolder.knowledge_base"`)}
+	if len(_c.mutation.DatasetIDs()) == 0 {
+		return &ValidationError{Name: "dataset", err: errors.New(`ent: missing required edge "KnowledgeFolder.dataset"`)}
 	}
 	return nil
 }
@@ -254,21 +254,21 @@ func (_c *KnowledgeFolderCreate) createSpec() (*KnowledgeFolder, *sqlgraph.Creat
 		_spec.SetField(knowledgefolder.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
-	if nodes := _c.mutation.KnowledgeBaseIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.DatasetIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   knowledgefolder.KnowledgeBaseTable,
-			Columns: []string{knowledgefolder.KnowledgeBaseColumn},
+			Table:   knowledgefolder.DatasetTable,
+			Columns: []string{knowledgefolder.DatasetColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgebase.FieldID, field.TypeUint64),
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.KnowledgeBaseID = nodes[0]
+		_node.DatasetID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ParentIDs(); len(nodes) > 0 {

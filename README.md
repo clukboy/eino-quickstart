@@ -1,13 +1,13 @@
 # Eino Harness
 
-基于 [Eino](https://github.com/cloudwego/eino) ADK 的多 Agent 软件工程 Harness。服务将请求分派给知识库、工作区和自动化专项 Agent；RAG 使用 PostgreSQL 保存文档与分块、Milvus 保存向量，并通过 durable outbox 可靠地完成向量索引。
+基于 [Eino](https://github.com/cloudwego/eino) ADK 的多 Agent 软件工程 Harness。服务将请求分派给知识库、工作区和自动化专项 Agent；RAG 使用 PostgreSQL 保存文档与分块、Milvus 保存向量，文档索引由 asynq（Redis）队列驱动，写请求不等待 embedding。
 
 ## 当前能力
 
 | 能力 | 入口 | 说明 |
 | --- | --- | --- |
 | 对话服务 | `go run ./cmd/server` | 提供 API Key 认证的 SSE 对话 API。 |
-| RAG 摄取与索引 | `go run ./cmd/knowledge-worker` | 扫描 `knowledge.root` 下的 Markdown/text 文件，切块、入库并持续消费向量 outbox。 |
+| RAG 摄取与索引 | `go run ./cmd/restapi` | 经 `POST /api/v1/dataset/:id/documents` 创建文档：请求内切块入库，索引任务投进 asynq（Redis）队列，由同进程的 worker 消费并写入 Milvus。 |
 | 维护任务 | `go run ./cmd/maintenance` | 清理过期审批、检查点和对话轮次。 |
 
 ## 文档

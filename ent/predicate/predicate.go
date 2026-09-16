@@ -6,8 +6,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// AgentKnowledgeBase is the predicate function for agentknowledgebase builders.
-type AgentKnowledgeBase func(*sql.Selector)
+// AgentDataset is the predicate function for agentdataset builders.
+type AgentDataset func(*sql.Selector)
 
 // AgentRun is the predicate function for agentrun builders.
 type AgentRun func(*sql.Selector)
@@ -24,14 +24,14 @@ type ChatTurn func(*sql.Selector)
 // Checkpoint is the predicate function for checkpoint builders.
 type Checkpoint func(*sql.Selector)
 
+// Dataset is the predicate function for dataset builders.
+type Dataset func(*sql.Selector)
+
 // Document is the predicate function for document builders.
 type Document func(*sql.Selector)
 
 // DocumentChunk is the predicate function for documentchunk builders.
 type DocumentChunk func(*sql.Selector)
-
-// KnowledgeBase is the predicate function for knowledgebase builders.
-type KnowledgeBase func(*sql.Selector)
 
 // KnowledgeFolder is the predicate function for knowledgefolder builders.
 type KnowledgeFolder func(*sql.Selector)
@@ -44,6 +44,3 @@ type Session func(*sql.Selector)
 
 // SessionMessage is the predicate function for sessionmessage builders.
 type SessionMessage func(*sql.Selector)
-
-// VectorOutbox is the predicate function for vectoroutbox builders.
-type VectorOutbox func(*sql.Selector)

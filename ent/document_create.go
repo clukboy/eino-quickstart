@@ -81,16 +81,16 @@ func (_c *DocumentCreate) SetNillableStatus(v *document.Status) *DocumentCreate 
 	return _c
 }
 
-// SetKnowledgeBaseID sets the "knowledge_base_id" field.
-func (_c *DocumentCreate) SetKnowledgeBaseID(v uint64) *DocumentCreate {
-	_c.mutation.SetKnowledgeBaseID(v)
+// SetDatasetID sets the "dataset_id" field.
+func (_c *DocumentCreate) SetDatasetID(v uint64) *DocumentCreate {
+	_c.mutation.SetDatasetID(v)
 	return _c
 }
 
-// SetNillableKnowledgeBaseID sets the "knowledge_base_id" field if the given value is not nil.
-func (_c *DocumentCreate) SetNillableKnowledgeBaseID(v *uint64) *DocumentCreate {
+// SetNillableDatasetID sets the "dataset_id" field if the given value is not nil.
+func (_c *DocumentCreate) SetNillableDatasetID(v *uint64) *DocumentCreate {
 	if v != nil {
-		_c.SetKnowledgeBaseID(*v)
+		_c.SetDatasetID(*v)
 	}
 	return _c
 }
@@ -199,9 +199,9 @@ func (_c *DocumentCreate) defaults() {
 		v := document.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
-	if _, ok := _c.mutation.KnowledgeBaseID(); !ok {
-		v := document.DefaultKnowledgeBaseID
-		_c.mutation.SetKnowledgeBaseID(v)
+	if _, ok := _c.mutation.DatasetID(); !ok {
+		v := document.DefaultDatasetID
+		_c.mutation.SetDatasetID(v)
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := document.DefaultCreatedAt()
@@ -240,8 +240,8 @@ func (_c *DocumentCreate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.KnowledgeBaseID(); !ok {
-		return &ValidationError{Name: "knowledge_base_id", err: errors.New(`ent: missing required field "Document.knowledge_base_id"`)}
+	if _, ok := _c.mutation.DatasetID(); !ok {
+		return &ValidationError{Name: "dataset_id", err: errors.New(`ent: missing required field "Document.dataset_id"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Document.created_at"`)}
@@ -299,9 +299,9 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
 	}
-	if value, ok := _c.mutation.KnowledgeBaseID(); ok {
-		_spec.SetField(document.FieldKnowledgeBaseID, field.TypeUint64, value)
-		_node.KnowledgeBaseID = value
+	if value, ok := _c.mutation.DatasetID(); ok {
+		_spec.SetField(document.FieldDatasetID, field.TypeUint64, value)
+		_node.DatasetID = value
 	}
 	if value, ok := _c.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)

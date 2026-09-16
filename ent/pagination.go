@@ -4,20 +4,19 @@ package ent
 
 import (
 	"context"
-	"eino-quickstart/ent/agentknowledgebase"
+	"eino-quickstart/ent/agentdataset"
 	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/approval"
 	"eino-quickstart/ent/auditevent"
 	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/ent/checkpoint"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
-	"eino-quickstart/ent/knowledgebase"
 	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
-	"eino-quickstart/ent/vectoroutbox"
 	"fmt"
 )
 
@@ -67,46 +66,46 @@ func (o OrderDirection) reverse() OrderDirection {
 
 const errInvalidPagination = "INVALID_PAGINATION"
 
-type AgentKnowledgeBasePager struct {
-	Order  agentknowledgebase.OrderOption
-	Filter func(*AgentKnowledgeBaseQuery) (*AgentKnowledgeBaseQuery, error)
+type AgentDatasetPager struct {
+	Order  agentdataset.OrderOption
+	Filter func(*AgentDatasetQuery) (*AgentDatasetQuery, error)
 }
 
-// AgentKnowledgeBasePaginateOption enables pagination customization.
-type AgentKnowledgeBasePaginateOption func(*AgentKnowledgeBasePager)
+// AgentDatasetPaginateOption enables pagination customization.
+type AgentDatasetPaginateOption func(*AgentDatasetPager)
 
-// DefaultAgentKnowledgeBaseOrder is the default ordering of AgentKnowledgeBase.
-var DefaultAgentKnowledgeBaseOrder = Desc(agentknowledgebase.FieldID)
+// DefaultAgentDatasetOrder is the default ordering of AgentDataset.
+var DefaultAgentDatasetOrder = Desc(agentdataset.FieldID)
 
-func newAgentKnowledgeBasePager(opts []AgentKnowledgeBasePaginateOption) (*AgentKnowledgeBasePager, error) {
-	pager := &AgentKnowledgeBasePager{}
+func newAgentDatasetPager(opts []AgentDatasetPaginateOption) (*AgentDatasetPager, error) {
+	pager := &AgentDatasetPager{}
 	for _, opt := range opts {
 		opt(pager)
 	}
 	if pager.Order == nil {
-		pager.Order = DefaultAgentKnowledgeBaseOrder
+		pager.Order = DefaultAgentDatasetOrder
 	}
 	return pager, nil
 }
 
-func (p *AgentKnowledgeBasePager) ApplyFilter(query *AgentKnowledgeBaseQuery) (*AgentKnowledgeBaseQuery, error) {
+func (p *AgentDatasetPager) ApplyFilter(query *AgentDatasetQuery) (*AgentDatasetQuery, error) {
 	if p.Filter != nil {
 		return p.Filter(query)
 	}
 	return query, nil
 }
 
-// AgentKnowledgeBasePageList is AgentKnowledgeBase PageList result.
-type AgentKnowledgeBasePageList struct {
-	List        []*AgentKnowledgeBase `json:"list"`
-	PageDetails *PageDetails          `json:"pageDetails"`
+// AgentDatasetPageList is AgentDataset PageList result.
+type AgentDatasetPageList struct {
+	List        []*AgentDataset `json:"list"`
+	PageDetails *PageDetails    `json:"pageDetails"`
 }
 
-func (_m *AgentKnowledgeBaseQuery) Page(
-	ctx context.Context, pageNum uint64, pageSize uint64, opts ...AgentKnowledgeBasePaginateOption,
-) (*AgentKnowledgeBasePageList, error) {
+func (_m *AgentDatasetQuery) Page(
+	ctx context.Context, pageNum uint64, pageSize uint64, opts ...AgentDatasetPaginateOption,
+) (*AgentDatasetPageList, error) {
 
-	pager, err := newAgentKnowledgeBasePager(opts)
+	pager, err := newAgentDatasetPager(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +114,7 @@ func (_m *AgentKnowledgeBaseQuery) Page(
 		return nil, err
 	}
 
-	ret := &AgentKnowledgeBasePageList{}
+	ret := &AgentDatasetPageList{}
 
 	ret.PageDetails = &PageDetails{
 		Page: pageNum,
@@ -135,7 +134,7 @@ func (_m *AgentKnowledgeBaseQuery) Page(
 	if pager.Order != nil {
 		_m = _m.Order(pager.Order)
 	} else {
-		_m = _m.Order(DefaultAgentKnowledgeBaseOrder)
+		_m = _m.Order(DefaultAgentDatasetOrder)
 	}
 
 	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
@@ -553,6 +552,87 @@ func (_m *CheckpointQuery) Page(
 	return ret, nil
 }
 
+type DatasetPager struct {
+	Order  dataset.OrderOption
+	Filter func(*DatasetQuery) (*DatasetQuery, error)
+}
+
+// DatasetPaginateOption enables pagination customization.
+type DatasetPaginateOption func(*DatasetPager)
+
+// DefaultDatasetOrder is the default ordering of Dataset.
+var DefaultDatasetOrder = Desc(dataset.FieldID)
+
+func newDatasetPager(opts []DatasetPaginateOption) (*DatasetPager, error) {
+	pager := &DatasetPager{}
+	for _, opt := range opts {
+		opt(pager)
+	}
+	if pager.Order == nil {
+		pager.Order = DefaultDatasetOrder
+	}
+	return pager, nil
+}
+
+func (p *DatasetPager) ApplyFilter(query *DatasetQuery) (*DatasetQuery, error) {
+	if p.Filter != nil {
+		return p.Filter(query)
+	}
+	return query, nil
+}
+
+// DatasetPageList is Dataset PageList result.
+type DatasetPageList struct {
+	List        []*Dataset   `json:"list"`
+	PageDetails *PageDetails `json:"pageDetails"`
+}
+
+func (_m *DatasetQuery) Page(
+	ctx context.Context, pageNum uint64, pageSize uint64, opts ...DatasetPaginateOption,
+) (*DatasetPageList, error) {
+
+	pager, err := newDatasetPager(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if _m, err = pager.ApplyFilter(_m); err != nil {
+		return nil, err
+	}
+
+	ret := &DatasetPageList{}
+
+	ret.PageDetails = &PageDetails{
+		Page: pageNum,
+		Size: pageSize,
+	}
+
+	query := _m.Clone()
+	query.ctx.Fields = nil
+	count, err := query.Count(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ret.PageDetails.Total = uint64(count)
+
+	if pager.Order != nil {
+		_m = _m.Order(pager.Order)
+	} else {
+		_m = _m.Order(DefaultDatasetOrder)
+	}
+
+	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
+	list, err := _m.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret.List = list
+
+	return ret, nil
+}
+
 type DocumentPager struct {
 	Order  document.OrderOption
 	Filter func(*DocumentQuery) (*DocumentQuery, error)
@@ -703,87 +783,6 @@ func (_m *DocumentChunkQuery) Page(
 		_m = _m.Order(pager.Order)
 	} else {
 		_m = _m.Order(DefaultDocumentChunkOrder)
-	}
-
-	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
-	list, err := _m.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ret.List = list
-
-	return ret, nil
-}
-
-type KnowledgeBasePager struct {
-	Order  knowledgebase.OrderOption
-	Filter func(*KnowledgeBaseQuery) (*KnowledgeBaseQuery, error)
-}
-
-// KnowledgeBasePaginateOption enables pagination customization.
-type KnowledgeBasePaginateOption func(*KnowledgeBasePager)
-
-// DefaultKnowledgeBaseOrder is the default ordering of KnowledgeBase.
-var DefaultKnowledgeBaseOrder = Desc(knowledgebase.FieldID)
-
-func newKnowledgeBasePager(opts []KnowledgeBasePaginateOption) (*KnowledgeBasePager, error) {
-	pager := &KnowledgeBasePager{}
-	for _, opt := range opts {
-		opt(pager)
-	}
-	if pager.Order == nil {
-		pager.Order = DefaultKnowledgeBaseOrder
-	}
-	return pager, nil
-}
-
-func (p *KnowledgeBasePager) ApplyFilter(query *KnowledgeBaseQuery) (*KnowledgeBaseQuery, error) {
-	if p.Filter != nil {
-		return p.Filter(query)
-	}
-	return query, nil
-}
-
-// KnowledgeBasePageList is KnowledgeBase PageList result.
-type KnowledgeBasePageList struct {
-	List        []*KnowledgeBase `json:"list"`
-	PageDetails *PageDetails     `json:"pageDetails"`
-}
-
-func (_m *KnowledgeBaseQuery) Page(
-	ctx context.Context, pageNum uint64, pageSize uint64, opts ...KnowledgeBasePaginateOption,
-) (*KnowledgeBasePageList, error) {
-
-	pager, err := newKnowledgeBasePager(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	if _m, err = pager.ApplyFilter(_m); err != nil {
-		return nil, err
-	}
-
-	ret := &KnowledgeBasePageList{}
-
-	ret.PageDetails = &PageDetails{
-		Page: pageNum,
-		Size: pageSize,
-	}
-
-	query := _m.Clone()
-	query.ctx.Fields = nil
-	count, err := query.Count(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	ret.PageDetails.Total = uint64(count)
-
-	if pager.Order != nil {
-		_m = _m.Order(pager.Order)
-	} else {
-		_m = _m.Order(DefaultKnowledgeBaseOrder)
 	}
 
 	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
@@ -1108,87 +1107,6 @@ func (_m *SessionMessageQuery) Page(
 		_m = _m.Order(pager.Order)
 	} else {
 		_m = _m.Order(DefaultSessionMessageOrder)
-	}
-
-	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
-	list, err := _m.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ret.List = list
-
-	return ret, nil
-}
-
-type VectorOutboxPager struct {
-	Order  vectoroutbox.OrderOption
-	Filter func(*VectorOutboxQuery) (*VectorOutboxQuery, error)
-}
-
-// VectorOutboxPaginateOption enables pagination customization.
-type VectorOutboxPaginateOption func(*VectorOutboxPager)
-
-// DefaultVectorOutboxOrder is the default ordering of VectorOutbox.
-var DefaultVectorOutboxOrder = Desc(vectoroutbox.FieldID)
-
-func newVectorOutboxPager(opts []VectorOutboxPaginateOption) (*VectorOutboxPager, error) {
-	pager := &VectorOutboxPager{}
-	for _, opt := range opts {
-		opt(pager)
-	}
-	if pager.Order == nil {
-		pager.Order = DefaultVectorOutboxOrder
-	}
-	return pager, nil
-}
-
-func (p *VectorOutboxPager) ApplyFilter(query *VectorOutboxQuery) (*VectorOutboxQuery, error) {
-	if p.Filter != nil {
-		return p.Filter(query)
-	}
-	return query, nil
-}
-
-// VectorOutboxPageList is VectorOutbox PageList result.
-type VectorOutboxPageList struct {
-	List        []*VectorOutbox `json:"list"`
-	PageDetails *PageDetails    `json:"pageDetails"`
-}
-
-func (_m *VectorOutboxQuery) Page(
-	ctx context.Context, pageNum uint64, pageSize uint64, opts ...VectorOutboxPaginateOption,
-) (*VectorOutboxPageList, error) {
-
-	pager, err := newVectorOutboxPager(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	if _m, err = pager.ApplyFilter(_m); err != nil {
-		return nil, err
-	}
-
-	ret := &VectorOutboxPageList{}
-
-	ret.PageDetails = &PageDetails{
-		Page: pageNum,
-		Size: pageSize,
-	}
-
-	query := _m.Clone()
-	query.ctx.Fields = nil
-	count, err := query.Count(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	ret.PageDetails.Total = uint64(count)
-
-	if pager.Order != nil {
-		_m = _m.Order(pager.Order)
-	} else {
-		_m = _m.Order(DefaultVectorOutboxOrder)
 	}
 
 	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))

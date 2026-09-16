@@ -1,10 +1,12 @@
 // Package middleware holds the go-zero middleware for the restapi transport.
 //
-// The global chain (trace, request id, recover, access log, metrics, authenticate)
-// is installed in restapi.go straight from internal/platform/observability and
-// internal/platform/auth, because those are already net/http native — only the
-// signature needs adapting. What lives here is the route-scoped role checks that
-// the .api DSL references via `middleware: RoleAgent` and friends.
+// The global chain is go-zero's own: rest assembles TraceHandler, LogHandler,
+// PrometheusHandler, RecoverHandler and the resilience handlers per route from
+// MiddlewaresConf (see etc/restapi.yaml), and restapi.go adds only the two
+// things go-zero does not provide — TraceID and the Bearer API key check.
+//
+// What lives here is those two global middlewares plus the route-scoped role
+// checks that the .api DSL references via `middleware: RoleAgent` and friends.
 package middleware
 
 import (

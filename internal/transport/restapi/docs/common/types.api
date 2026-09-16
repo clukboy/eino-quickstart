@@ -2,14 +2,21 @@ syntax = "v1"
 
 // 跨功能组共享的类型。
 //
-// StatusResp 同时被 approver 组（DecideApproval）与 admin 组
-// （UploadKnowledgeDocument、GrantAgentKnowledgeBase、RevokeAgentKnowledgeBase）
-// 返回，因此必须定义在此处 —— 放进任一组，另一组引用时 goctl 会报未定义；
-// 两边各定义一份，又会报类型重名。
+// StatusResp 被三个组引用，因此必须定义在此处 —— 放进任一组，另两组引用时
+// goctl 会报未定义；各组各定义一份，又会报类型重名。
+//
+//   approver  DecideApproval
+//   dataset   DeleteDataset、UploadKnowledgeDocument
+//   admin     GrantAgentDataset、RevokeAgentDataset
 //
 // 判断标准：只有被两个及以上功能组引用的类型才放这里。
 // 单一功能组专用的类型一律放该组自己的 .api，不要图省事堆到 common，
 // 否则这个文件会退化成新的「大杂烩」。
+//
+// 已知例外：DocumentListResp（定义在 admin.api）被 dataset 组引用，
+// DatasetListResp（定义在 dataset.api）被 admin 组引用，都满足「两组引用」
+// 的标准却留在各自的组里。这是历史遗留，迁移时要注意：类型定义分散在组之间，
+// 想彻底解决就把它们一并挪到本文件。
 
 type StatusResp {
 	Status string `json:"status"`

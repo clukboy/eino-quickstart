@@ -3,7 +3,7 @@
 package ent
 
 import (
-	"eino-quickstart/ent/knowledgebase"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/knowledgefolder"
 	"fmt"
 	"strings"
@@ -24,8 +24,8 @@ type KnowledgeFolder struct {
 	Path string `json:"path,omitempty"`
 	// Sort holds the value of the "sort" field.
 	Sort int `json:"sort,omitempty"`
-	// KnowledgeBaseID holds the value of the "knowledge_base_id" field.
-	KnowledgeBaseID uint64 `json:"knowledge_base_id,omitempty"`
+	// DatasetID holds the value of the "dataset_id" field.
+	DatasetID uint64 `json:"dataset_id,omitempty"`
 	// ParentID holds the value of the "parent_id" field.
 	ParentID *uint64 `json:"parent_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -40,8 +40,8 @@ type KnowledgeFolder struct {
 
 // KnowledgeFolderEdges holds the relations/edges for other nodes in the graph.
 type KnowledgeFolderEdges struct {
-	// KnowledgeBase holds the value of the knowledge_base edge.
-	KnowledgeBase *KnowledgeBase `json:"knowledge_base,omitempty"`
+	// Dataset holds the value of the dataset edge.
+	Dataset *Dataset `json:"dataset,omitempty"`
 	// Parent holds the value of the parent edge.
 	Parent *KnowledgeFolder `json:"parent,omitempty"`
 	// Children holds the value of the children edge.
@@ -53,15 +53,15 @@ type KnowledgeFolderEdges struct {
 	loadedTypes [4]bool
 }
 
-// KnowledgeBaseOrErr returns the KnowledgeBase value or an error if the edge
+// DatasetOrErr returns the Dataset value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e KnowledgeFolderEdges) KnowledgeBaseOrErr() (*KnowledgeBase, error) {
-	if e.KnowledgeBase != nil {
-		return e.KnowledgeBase, nil
+func (e KnowledgeFolderEdges) DatasetOrErr() (*Dataset, error) {
+	if e.Dataset != nil {
+		return e.Dataset, nil
 	} else if e.loadedTypes[0] {
-		return nil, &NotFoundError{label: knowledgebase.Label}
+		return nil, &NotFoundError{label: dataset.Label}
 	}
-	return nil, &NotLoadedError{edge: "knowledge_base"}
+	return nil, &NotLoadedError{edge: "dataset"}
 }
 
 // ParentOrErr returns the Parent value or an error if the edge
@@ -98,7 +98,7 @@ func (*KnowledgeFolder) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case knowledgefolder.FieldID, knowledgefolder.FieldSort, knowledgefolder.FieldKnowledgeBaseID, knowledgefolder.FieldParentID:
+		case knowledgefolder.FieldID, knowledgefolder.FieldSort, knowledgefolder.FieldDatasetID, knowledgefolder.FieldParentID:
 			values[i] = new(sql.NullInt64)
 		case knowledgefolder.FieldName, knowledgefolder.FieldPath:
 			values[i] = new(sql.NullString)
@@ -143,11 +143,11 @@ func (_m *KnowledgeFolder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Sort = int(value.Int64)
 			}
-		case knowledgefolder.FieldKnowledgeBaseID:
+		case knowledgefolder.FieldDatasetID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field knowledge_base_id", values[i])
+				return fmt.Errorf("unexpected type %T for field dataset_id", values[i])
 			} else if value.Valid {
-				_m.KnowledgeBaseID = uint64(value.Int64)
+				_m.DatasetID = uint64(value.Int64)
 			}
 		case knowledgefolder.FieldParentID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -181,9 +181,9 @@ func (_m *KnowledgeFolder) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// QueryKnowledgeBase queries the "knowledge_base" edge of the KnowledgeFolder entity.
-func (_m *KnowledgeFolder) QueryKnowledgeBase() *KnowledgeBaseQuery {
-	return NewKnowledgeFolderClient(_m.config).QueryKnowledgeBase(_m)
+// QueryDataset queries the "dataset" edge of the KnowledgeFolder entity.
+func (_m *KnowledgeFolder) QueryDataset() *DatasetQuery {
+	return NewKnowledgeFolderClient(_m.config).QueryDataset(_m)
 }
 
 // QueryParent queries the "parent" edge of the KnowledgeFolder entity.
@@ -233,8 +233,8 @@ func (_m *KnowledgeFolder) String() string {
 	builder.WriteString("sort=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Sort))
 	builder.WriteString(", ")
-	builder.WriteString("knowledge_base_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.KnowledgeBaseID))
+	builder.WriteString("dataset_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DatasetID))
 	builder.WriteString(", ")
 	if v := _m.ParentID; v != nil {
 		builder.WriteString("parent_id=")

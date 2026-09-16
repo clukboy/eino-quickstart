@@ -70,9 +70,9 @@ func Sort(v int) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldEQ(FieldSort, v))
 }
 
-// KnowledgeBaseID applies equality check predicate on the "knowledge_base_id" field. It's identical to KnowledgeBaseIDEQ.
-func KnowledgeBaseID(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldEQ(FieldKnowledgeBaseID, v))
+// DatasetID applies equality check predicate on the "dataset_id" field. It's identical to DatasetIDEQ.
+func DatasetID(v uint64) predicate.KnowledgeFolder {
+	return predicate.KnowledgeFolder(sql.FieldEQ(FieldDatasetID, v))
 }
 
 // ParentID applies equality check predicate on the "parent_id" field. It's identical to ParentIDEQ.
@@ -260,24 +260,24 @@ func SortLTE(v int) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldLTE(FieldSort, v))
 }
 
-// KnowledgeBaseIDEQ applies the EQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDEQ(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldEQ(FieldKnowledgeBaseID, v))
+// DatasetIDEQ applies the EQ predicate on the "dataset_id" field.
+func DatasetIDEQ(v uint64) predicate.KnowledgeFolder {
+	return predicate.KnowledgeFolder(sql.FieldEQ(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDNEQ applies the NEQ predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNEQ(v uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldNEQ(FieldKnowledgeBaseID, v))
+// DatasetIDNEQ applies the NEQ predicate on the "dataset_id" field.
+func DatasetIDNEQ(v uint64) predicate.KnowledgeFolder {
+	return predicate.KnowledgeFolder(sql.FieldNEQ(FieldDatasetID, v))
 }
 
-// KnowledgeBaseIDIn applies the In predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDIn(vs ...uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldIn(FieldKnowledgeBaseID, vs...))
+// DatasetIDIn applies the In predicate on the "dataset_id" field.
+func DatasetIDIn(vs ...uint64) predicate.KnowledgeFolder {
+	return predicate.KnowledgeFolder(sql.FieldIn(FieldDatasetID, vs...))
 }
 
-// KnowledgeBaseIDNotIn applies the NotIn predicate on the "knowledge_base_id" field.
-func KnowledgeBaseIDNotIn(vs ...uint64) predicate.KnowledgeFolder {
-	return predicate.KnowledgeFolder(sql.FieldNotIn(FieldKnowledgeBaseID, vs...))
+// DatasetIDNotIn applies the NotIn predicate on the "dataset_id" field.
+func DatasetIDNotIn(vs ...uint64) predicate.KnowledgeFolder {
+	return predicate.KnowledgeFolder(sql.FieldNotIn(FieldDatasetID, vs...))
 }
 
 // ParentIDEQ applies the EQ predicate on the "parent_id" field.
@@ -390,21 +390,21 @@ func UpdatedAtLTE(v time.Time) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
-// HasKnowledgeBase applies the HasEdge predicate on the "knowledge_base" edge.
-func HasKnowledgeBase() predicate.KnowledgeFolder {
+// HasDataset applies the HasEdge predicate on the "dataset" edge.
+func HasDataset() predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, KnowledgeBaseTable, KnowledgeBaseColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, DatasetTable, DatasetColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasKnowledgeBaseWith applies the HasEdge predicate on the "knowledge_base" edge with a given conditions (other predicates).
-func HasKnowledgeBaseWith(preds ...predicate.KnowledgeBase) predicate.KnowledgeFolder {
+// HasDatasetWith applies the HasEdge predicate on the "dataset" edge with a given conditions (other predicates).
+func HasDatasetWith(preds ...predicate.Dataset) predicate.KnowledgeFolder {
 	return predicate.KnowledgeFolder(func(s *sql.Selector) {
-		step := newKnowledgeBaseStep()
+		step := newDatasetStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

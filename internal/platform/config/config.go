@@ -29,6 +29,7 @@ type Config struct {
 	Maintenance MaintenanceConfig `yaml:"maintenance"`
 	Retrieval   RetrievalConfig   `yaml:"retrieval"`
 	Indexer     IndexerConfig     `yaml:"indexer"`
+	QueueConfig QueueConfig       `yaml:"queue"`
 }
 
 type ServerConfig struct {
@@ -181,20 +182,69 @@ type RetrievalConfig struct {
 	MaxRerankCandidates int  `yaml:"maxRerankCandidates"`
 }
 
+// IndexerConfig 控制进程内的文档索引 worker。
+//
+// 这里只剩两件事：要不要在本进程跑 worker，以及一次 embedding 送多少段文本。
+// 轮询周期、租约和重试计数都不再属于它 —— 索引改由 asynq 队列驱动，那三件事
+// 由队列自己负责（见 AsynqConfig）。
 type IndexerConfig struct {
-	Enabled                  bool `yaml:"enabled"`
-	BatchSize                int  `yaml:"batchSize"`
-	IntervalSeconds          int  `yaml:"intervalSeconds"`
-	LeaseDurationSeconds     int  `yaml:"leaseDurationSeconds"`
-	MaxAttempts              int  `yaml:"maxAttempts"`
-	InitialRetryDelaySeconds int  `yaml:"initialRetryDelaySeconds"`
-	MaxRetryDelaySeconds     int  `yaml:"maxRetryDelaySeconds"`
+	Enabled   bool `yaml:"enabled"`
+	BatchSize int  `yaml:"batchSize"`
+}
+
+// AsynqConfig 是文档索引用的异步队列。
+//
+// Enabled=false 时进程完全不碰 Redis：索引任务无处投递，写文档会直接失败，
+// 因此只在「明知道索引链路整体停摆也要让 HTTP 起来」的排障场景下才关它。
+type AsynqConfig struct {
+	Enabled bool             `yaml:"enabled"`
+	Redis   AsynqRedisConfig `yaml:"redis"`
+
+	// Queues 是队列名到权重的映射，权重越高被拉取得越频繁。
+	Queues []AsynqQueueConfig `yaml:"queues"`
+
+	// Concurrency 是同时处理的任务数。索引任务大部分时间在等 embedding
+	// 服务的网络往返，所以这个值可以远大于 CPU 核数。
+	Concurrency int `yaml:"concurrency"`
+
+	// MaxRetries 是单个任务的重试次数上限，含首次共执行 MaxRetries+1 次。
+	MaxRetries int `yaml:"maxRetries"`
+
+	RetryDelaySeconds    int `yaml:"retryDelaySeconds"`
+	MaxRetryDelaySeconds int `yaml:"maxRetryDelaySeconds"`
+
+	// ShutdownTimeoutSeconds 是优雅关闭的上限：已开始的任务最多再跑这么久，
+	// 超时未完成的任务会被退回队列，由启动后的实例重新领取。
+	ShutdownTimeoutSeconds int `yaml:"shutdownTimeoutSeconds"`
+}
+
+type AsynqRedisConfig struct {
+	Addr        string `yaml:"addr"`
+	Username    string `yaml:"username"`
+	Password    string `yaml:"-"`
+	PasswordEnv string `yaml:"passwordEnv"`
+	DB          int    `yaml:"db"`
+}
+
+type AsynqQueueConfig struct {
+	Name   string `yaml:"name"`
+	Weight int    `yaml:"weight"`
 }
 type ESConfig struct {
 	Address    []string `yaml:"address"`
 	CaCertPath string   `yaml:"caCertPath"`
 	Username   string   `yaml:"username"`
 	Password   string   `yaml:"password"`
+}
+
+type QueueConfig struct {
+	Enable       bool   `yaml:"enable"`
+	Addr         string `yaml:"addr"`
+	Username     string `yaml:"username"`
+	Pass         string `yaml:"pass"`
+	DB           int    `yaml:"db"`
+	Concurrency  int    `yaml:"concurrency"`
+	SyncInterval int    `yaml:"syncInterval"`
 }
 
 func Load(path string) (*Config, error) {
@@ -559,36 +609,56 @@ func Load(path string) (*Config, error) {
 		)
 	}
 
-	if cfg.Indexer.IntervalSeconds <= 0 {
-		return nil, fmt.Errorf(
-			"indexer.intervalSeconds must be greater than zero",
-		)
-	}
-
-	if cfg.Indexer.LeaseDurationSeconds <= 0 {
-		return nil, fmt.Errorf(
-			"indexer.leaseDurationSeconds must be greater than zero",
-		)
-	}
-
-	if cfg.Indexer.MaxAttempts <= 0 {
-		return nil, fmt.Errorf(
-			"indexer.maxAttempts must be greater than zero",
-		)
-	}
-
-	if cfg.Indexer.InitialRetryDelaySeconds <= 0 {
-		return nil, fmt.Errorf(
-			"indexer.initialRetryDelaySeconds must be greater than zero",
-		)
-	}
-
-	if cfg.Indexer.MaxRetryDelaySeconds <
-		cfg.Indexer.InitialRetryDelaySeconds {
-		return nil, fmt.Errorf(
-			"indexer.maxRetryDelaySeconds must be >= initialRetryDelaySeconds",
-		)
-	}
-
 	return &cfg, nil
+}
+
+// validateAsynq 只在 asynq.enabled=true 时执行：关掉队列意味着整个索引链路
+// 停摆，那种情况下再校验连接参数只会挡住一次有意为之的排障启动。
+func validateAsynq(cfg AsynqConfig) error {
+	if cfg.Redis.Addr == "" {
+		return fmt.Errorf("asynq.redis.addr is required")
+	}
+	if cfg.Redis.DB < 0 {
+		return fmt.Errorf("asynq.redis.db must not be negative")
+	}
+	if cfg.Redis.PasswordEnv != "" && cfg.Redis.Password == "" {
+		return fmt.Errorf(
+			"environment variable %s is required",
+			cfg.Redis.PasswordEnv,
+		)
+	}
+	if len(cfg.Queues) == 0 {
+		return fmt.Errorf("asynq.queues must contain at least one queue")
+	}
+	for _, queue := range cfg.Queues {
+		if queue.Name == "" {
+			return fmt.Errorf("asynq.queues.name must be set")
+		}
+		if queue.Weight <= 0 {
+			return fmt.Errorf(
+				"asynq queue %q must have a positive weight",
+				queue.Name,
+			)
+		}
+	}
+	if cfg.Concurrency <= 0 {
+		return fmt.Errorf("asynq.concurrency must be greater than zero")
+	}
+	if cfg.MaxRetries < 0 {
+		return fmt.Errorf("asynq.maxRetries must not be negative")
+	}
+	if cfg.RetryDelaySeconds <= 0 {
+		return fmt.Errorf("asynq.retryDelaySeconds must be greater than zero")
+	}
+	if cfg.MaxRetryDelaySeconds < cfg.RetryDelaySeconds {
+		return fmt.Errorf(
+			"asynq.maxRetryDelaySeconds must be >= retryDelaySeconds",
+		)
+	}
+	if cfg.ShutdownTimeoutSeconds <= 0 {
+		return fmt.Errorf(
+			"asynq.shutdownTimeoutSeconds must be greater than zero",
+		)
+	}
+	return nil
 }

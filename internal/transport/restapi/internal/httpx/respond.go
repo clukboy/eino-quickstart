@@ -5,8 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"eino-quickstart/internal/platform/observability"
-
+	"github.com/zeromicro/go-zero/core/trace"
 	resthttpx "github.com/zeromicro/go-zero/rest/httpx"
 )
 
@@ -29,6 +28,11 @@ const (
 // ErrorResponse is the single error envelope for every endpoint. The error
 // field keeps the historical shape ({"error": "..."}) so existing clients keep
 // working, while code/request_id are additive.
+//
+// RequestID is go-zero's trace id for the request (trace.TraceIDFromContext),
+// the same value the X-Trace-ID response header carries — see
+// internal/middleware/traceid.go. It is empty when no TracerProvider is
+// installed, i.e. when the process never ran ServiceConf.SetUp.
 type ErrorResponse struct {
 	Code      string `json:"code"`
 	Error     string `json:"error"`
@@ -139,14 +143,14 @@ func Register() {
 			return appErr.Status, ErrorResponse{
 				Code:      appErr.Code,
 				Error:     appErr.Message,
-				RequestID: observability.RequestIDFromContext(ctx),
+				RequestID: trace.TraceIDFromContext(ctx),
 			}
 		}
 
 		return http.StatusBadRequest, ErrorResponse{
 			Code:      CodeBadRequest,
 			Error:     err.Error(),
-			RequestID: observability.RequestIDFromContext(ctx),
+			RequestID: trace.TraceIDFromContext(ctx),
 		}
 	})
 }
