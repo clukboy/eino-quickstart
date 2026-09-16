@@ -84,11 +84,19 @@ observability:
   logLevel: "info"
   metricsEnabled: true
 
+  # HTTP 进程（cmd/restapi）在 trace 里的服务名。
   serviceName: "eino-harness-server"
+  # worker 进程（cmd/worker）在 trace 里的服务名。必须与上面区分开：一篇文档的
+  # 索引是「HTTP 投递 -> Redis -> worker 消费」的跨服务调用，同名会显示成服务
+  # 自己调自己，异步那一段看不见。留空则回落成 serviceName + "-worker"。
+  workerServiceName: "eino-harness-worker"
   environment: "development"
 
-  otlpEndpoint: "otel-collector:4317"
+  # OTLP 端点。留空也照样安装 provider（只是不导出）—— provider 在不在决定了
+  # trace id 有没有值，跨进程链路因此不会因为少配一个端点就静默断掉。
+  otlpEndpoint: "10.10.2.90:4317"
   otlpInsecure: true
+  # 采样率。<= 0 会被当作 1.0（全采），避免漏填一个字段就变成一条都不采。
   traceSampleRatio: 1.0
 
   logFilePath: "logs/eino/server.json"
@@ -122,7 +130,7 @@ knowledge:
 embedding:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKeyEnv: "EINO_EMBEDDING_API_KEY"
-  model: "text-embedding-v4"
+  model: "qwen3.7-text-embedding"
   dimensions: 1024
   batchSize: 32
 

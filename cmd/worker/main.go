@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/platform/config"
@@ -42,6 +43,10 @@ import (
 )
 
 const defaultBusinessConfig = "./configs/config.yaml"
+
+// traceFlushTimeout 是退出前等 OTLP 导出的上限。只在进程收尾时用，短一点没关系：
+// 超时就丢掉未发送的 span，不能让一个连不上的 collector 拖住整个进程的退出。
+const traceFlushTimeout = 5 * time.Second
 
 func main() {
 	if err := runWorker(); err != nil {
@@ -87,6 +92,42 @@ func runWorker() error {
 	// 同一个观测面。
 	logx.DisableStat()
 	observability.BridgeLogx(logger)
+
+	// 链路追踪。worker 不走 go-zero 的 rest/rpc，所以没有 ServiceConf.SetUp()
+	// 帮它装 provider，必须自己装：没有 provider 时 otel 的 tracer 是空实现，
+	// 从任务 payload 里恢复出来的 traceparent 无处落地，HTTP 那条 trace 到
+	// worker 就断了 —— 而且断得无声无息，日志里连一个空的 trace 字段都不会有。
+	//
+	// 服务名刻意与 HTTP 进程不同（observability.workerServiceName）：异步那一段
+	// 要能看成一次跨服务调用，而不是「服务自己调自己」。
+	otlpEndpoint := cfg.Observability.OTLPEndpoint
+	shutdownTracing, err := observability.SetupTracing(ctx, observability.TraceConfig{
+		ServiceName: cfg.Observability.WorkerTraceName(),
+		Environment: cfg.Observability.Environment,
+		Endpoint:    otlpEndpoint,
+		Insecure:    cfg.Observability.OTLPInsecure,
+		SampleRatio: cfg.Observability.TraceSampleRatio,
+	})
+	if err != nil {
+		return fmt.Errorf("init tracer provider: %w", err)
+	}
+	defer func() {
+		// 冲刷要用独立的超时上下文：这里的 ctx 是信号上下文，进程退出时已经被
+		// 取消，拿它去 Shutdown 会把还在 Batcher 里没发出去的 span 直接丢掉 ——
+		// 而「优雅退出时最后一批 span 丢失」恰恰是最难注意到的那种丢数据。
+		flushCtx, cancel := context.WithTimeout(context.Background(), traceFlushTimeout)
+		defer cancel()
+		if err := shutdownTracing(flushCtx); err != nil {
+			logger.Error("trace provider shutdown failed", slog.String("error", err.Error()))
+		}
+	}()
+	logger.Info(
+		"tracing enabled",
+		slog.String("service_name", cfg.Observability.WorkerTraceName()),
+		slog.String("otlp_endpoint", otlpEndpoint),
+		slog.Bool("exporting", otlpEndpoint != ""),
+		slog.Float64("sample_ratio", cfg.Observability.TraceSampleRatio),
+	)
 
 	entClient, err := entx.Open(ctx, cfg.Storage)
 	if err != nil {

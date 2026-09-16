@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -111,7 +112,9 @@ type ObservabilityConfig struct {
 	MetricsEnabled bool   `yaml:"metricsEnabled"`
 
 	ServiceName string `yaml:"serviceName"`
-	Environment string `yaml:"environment"`
+
+	WorkerServiceName string `yaml:"workerServiceName"`
+	Environment       string `yaml:"environment"`
 
 	OTLPEndpoint     string  `yaml:"otlpEndpoint"`
 	OTLPInsecure     bool    `yaml:"otlpInsecure"`
@@ -121,6 +124,17 @@ type ObservabilityConfig struct {
 	LogMaxSizeMB  int    `yaml:"logMaxSizeMB"`
 	LogMaxBackups int    `yaml:"logMaxBackups"`
 	LogMaxAgeDays int    `yaml:"logMaxAgeDays"`
+}
+
+// WorkerTraceName 返回 worker 进程在 trace 里的服务名。
+func (c ObservabilityConfig) WorkerTraceName() string {
+	if name := strings.TrimSpace(c.WorkerServiceName); name != "" {
+		return name
+	}
+	if name := strings.TrimSpace(c.ServiceName); name != "" {
+		return name + "-worker"
+	}
+	return "eino-worker"
 }
 
 type ExecutionConfig struct {

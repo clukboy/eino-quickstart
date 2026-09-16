@@ -15,6 +15,7 @@ import (
 	"eino-quickstart/ent"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/queue"
 	"eino-quickstart/internal/platform/queue/tasks"
 	"eino-quickstart/internal/platform/storage/entx"
@@ -27,6 +28,8 @@ import (
 	"github.com/cloudwego/eino/components/document/parser"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // defaultChunkBatchSize 是一次 embedding 送多少段文本。embedding 服务对单请求
@@ -121,7 +124,22 @@ func (i *Indexer) HandleTask(ctx context.Context, payload []byte) error {
 
 // IndexDocument 让一篇文档的索引追上它的内容。可重放：重复执行只会空转，
 // 不会重复写向量。
-func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) error {
+//
+// 这是 worker 侧的主 span，也是「HTTP 那条链路」与「向量库那条链路」的接点：
+// 它的父 span 是队列投递 span（跨进程传过来的 traceparent），子 span 是读入、
+// 切块与每个 embedding 批次。埋点只给 err 起名字，任何 `return ..., err` 都会被
+// defer 记进 span。
+func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) (err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.index_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.document_id", int64(documentID)),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	doc, err := i.client.Document.Query().
 		Where(document.IDEQ(documentID)).
 		WithDataset().
@@ -129,7 +147,7 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) error {
 	if err != nil {
 		if ent.IsNotFound(err) {
 			// 文档在投递之后被删了，任务失去意义，静默成功即可。
-			i.logger.Info("knowledge: index task skipped, document is gone",
+			observability.LogWithTrace(ctx, i.logger).Info("knowledge: index task skipped, document is gone",
 				slog.Uint64("document_id", documentID),
 			)
 			return nil
@@ -137,8 +155,14 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) error {
 		return fmt.Errorf("knowledge: load document %d: %w", documentID, err)
 	}
 	if doc.Status == document.StatusDeleted {
+		span.SetAttributes(attribute.Bool("knowledge.document_deleted", true))
 		return nil
 	}
+	span.SetAttributes(
+		attribute.Int64("knowledge.dataset_id", int64(doc.DatasetID)),
+		attribute.String("knowledge.source", doc.Source),
+		attribute.String("knowledge.document_status", string(doc.Status)),
+	)
 
 	content, err := i.content.Read(doc.Source)
 	if err != nil {
@@ -153,10 +177,15 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) error {
 	// 哈希一致就直接跳到「补还欠着的分块」，重试时不会把上一轮已经切好的
 	// 产品块推倒重来。
 	hash := contentHash(content)
+	span.SetAttributes(attribute.String("knowledge.content_hash", hash))
 	if !i.alreadyChunked(ctx, doc, hash) {
 		if err := i.rechunk(ctx, doc, hash); err != nil {
 			return err
 		}
+	} else {
+		// 这条属性是「重试有没有真的续跑」的直接证据：重试的任务应当命中这里，
+		// 而不是每轮都重新切一次块。
+		span.SetAttributes(attribute.Bool("knowledge.rechunk_skipped", true))
 	}
 	return i.embedPending(ctx, documentID)
 }
@@ -175,7 +204,7 @@ func (i *Indexer) alreadyChunked(ctx context.Context, doc *ent.Document, hash st
 		Exist(ctx)
 	if err != nil {
 		// 查不出来就当作需要重切：重切是幂等的，比漏切安全。
-		i.logger.Warn("knowledge: check existing chunks failed, will re-chunk",
+		observability.LogWithTrace(ctx, i.logger).Warn("knowledge: check existing chunks failed, will re-chunk",
 			slog.Uint64("document_id", doc.ID),
 			slog.String("error", err.Error()),
 		)
@@ -189,7 +218,22 @@ func (i *Indexer) alreadyChunked(ctx context.Context, doc *ent.Document, hash st
 // 传绝对路径：Pipeline 的 FileLoader 会自己再校验一次 root 边界、扩展名与大小，
 // 所以组合根必须把 Pipeline 的 DocRoot 和 ContentStore 的 root 指向同一个目录，
 // 否则这里会以「路径逃出 doc root」失败。
-func (i *Indexer) ingest(ctx context.Context, doc *ent.Document) ([]*schema.Document, error) {
+func (i *Indexer) ingest(ctx context.Context, doc *ent.Document) (_ []*schema.Document, err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.ingest_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.document_id", int64(doc.ID)),
+			attribute.String("knowledge.source", doc.Source),
+			// 这个值是 parser 注册表的查表键：产品拆分到底走了 ProductParser
+			// 还是静默退化成 TextParser，全看它。不落到 span 上的话，排查
+			// 「为什么 chunk 元数据里没有 product_id」只能靠猜。
+			attribute.String("knowledge.dataset_type", doc.Edges.Dataset.Type),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	uri := strings.TrimSpace(doc.Source)
 	if uri == "" {
 		return nil, fmt.Errorf("knowledge: document %d has no source", doc.ID)
@@ -205,11 +249,23 @@ func (i *Indexer) ingest(ctx context.Context, doc *ent.Document) ([]*schema.Docu
 	if err != nil {
 		return nil, fmt.Errorf("knowledge: ingest document %d: %w", doc.ID, err)
 	}
+	span.SetAttributes(attribute.Int("knowledge.parsed_blocks", len(parsed)))
 	return parsed, nil
 }
 
 // rechunk 让 Pipeline 重切一次，清掉旧行、写回 pending 行，并记下这次的内容指纹。
-func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) error {
+func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) (err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.rechunk_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.document_id", int64(doc.ID)),
+			attribute.String("knowledge.content_hash", hash),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	parsed, err := i.ingest(ctx, doc)
 	if err != nil {
 		// 读不回来通常是正文格式或权限的问题，重试不会变好，但正文可能被修好
@@ -221,6 +277,10 @@ func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) e
 	if len(chunks) == 0 {
 		return i.abandon(ctx, doc.ID, "ingest produced no chunks")
 	}
+	span.SetAttributes(
+		attribute.Int("knowledge.parsed_blocks", len(parsed)),
+		attribute.Int("knowledge.chunks", len(chunks)),
+	)
 
 	// 旧分块行在事务里会被删掉，删掉之后就查不到它们的 ID 了，向量得先记下来。
 	oldChunkIDs, err := i.client.DocumentChunk.Query().
@@ -262,7 +322,7 @@ func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) e
 	// 旧向量尽力而为地清掉；清不掉只会留垃圾，不影响正确性（检索要回到
 	// chunk 行做过滤）。
 	i.cleanupVectors(ctx, doc.ID, oldChunkIDs)
-	i.logger.Info("knowledge: document re-chunked",
+	observability.LogWithTrace(ctx, i.logger).Info("knowledge: document re-chunked",
 		slog.Uint64("document_id", doc.ID),
 		slog.Int("parsed", len(parsed)),
 		slog.Int("chunks", len(chunks)),
@@ -347,7 +407,26 @@ func (i *Indexer) embedPending(ctx context.Context, documentID uint64) error {
 	return setDocumentStatus(ctx, i.client, documentID, document.StatusReady)
 }
 
-func (i *Indexer) embedBatch(ctx context.Context, documentID uint64, chunks []*ent.DocumentChunk) error {
+// embedBatch 处理一个批次：embedding -> 向量库 upsert -> 分块标 indexed。
+//
+// 一个批次只开一个 span，而不是给 embedding、upsert、标记各开一个：一篇长文档
+// 按 batchSize=32 会切出几十个批次，每个批次再套三层 span 会把 trace 淹掉。批次
+// span 上的错误信息本身就区分了失败在哪一段（"embed %d chunks" / "upsert %d
+// vectors"），要定位到具体阶段够用了。
+func (i *Indexer) embedBatch(ctx context.Context, documentID uint64, chunks []*ent.DocumentChunk) (err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.embed_batch",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.document_id", int64(documentID)),
+			attribute.Int("knowledge.batch_size", len(chunks)),
+			// 批次在文档里的位置：重试时每轮只挑 pending，靠它能看出这轮从哪续跑。
+			attribute.Int("knowledge.first_chunk_index", chunks[0].ChunkIndex),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	texts := make([]string, len(chunks))
 	chunkIDs := make([]uint64, len(chunks))
 	vectorIDs := make([]int64, len(chunks))
@@ -388,7 +467,7 @@ func (i *Indexer) embedBatch(ctx context.Context, documentID uint64, chunks []*e
 // 那会把一次正常的优雅关闭变成用户看到的「索引失败」。
 func (i *Indexer) report(ctx context.Context, documentID uint64, cause error) error {
 	state := queue.RetryStateFrom(ctx)
-	i.logger.Error("knowledge: index document failed",
+	observability.LogWithTrace(ctx, i.logger).Error("knowledge: index document failed",
 		slog.Uint64("document_id", documentID),
 		slog.Int("attempt", state.Attempt),
 		slog.Int("max_retries", state.Max),
@@ -405,7 +484,7 @@ func (i *Indexer) report(ctx context.Context, documentID uint64, cause error) er
 // abandon 用于「重试也不会变好」的失败：正文文件不在了、切不出任何产品块。
 // 落终态之后返回 nil —— 返回 error 只会让队列把注定失败的任务再跑几遍。
 func (i *Indexer) abandon(ctx context.Context, documentID uint64, reason string) error {
-	i.logger.Warn("knowledge: abandoning index task",
+	observability.LogWithTrace(ctx, i.logger).Warn("knowledge: abandoning index task",
 		slog.Uint64("document_id", documentID),
 		slog.String("reason", reason),
 	)
@@ -424,7 +503,7 @@ func (i *Indexer) settleFailed(ctx context.Context, documentID uint64) error {
 		).
 		SetVectorStatus(documentchunk.VectorStatusFailed).
 		Save(ctx); err != nil {
-		i.logger.Error("knowledge: mark pending chunks failed",
+		observability.LogWithTrace(ctx, i.logger).Error("knowledge: mark pending chunks failed",
 			slog.Uint64("document_id", documentID),
 			slog.String("error", err.Error()),
 		)
@@ -445,7 +524,7 @@ func (i *Indexer) cleanupVectors(ctx context.Context, documentID uint64, chunkID
 		ids = append(ids, int64(id))
 	}
 	if err := i.vectors.Delete(ctx, ids); err != nil {
-		i.logger.Warn("knowledge: stale vector cleanup failed, orphan vectors remain until a full rebuild",
+		observability.LogWithTrace(ctx, i.logger).Warn("knowledge: stale vector cleanup failed, orphan vectors remain until a full rebuild",
 			slog.Uint64("document_id", documentID),
 			slog.Int("chunks", len(ids)),
 			slog.String("error", err.Error()),

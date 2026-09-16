@@ -12,9 +12,13 @@ import (
 	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
+	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
+
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // IndexTaskQueue 是应用层定义的窄端口：它只说「把这篇文档排进索引队列」，
@@ -106,7 +110,22 @@ type CreateInput struct {
 // 注意这里**不切块**：文件里到底有几个产品、每篇多长，要等 worker 内联的
 // parse 之后才知道，请求内算不出来。所以文档行建出来时计数是 0、状态是
 // indexing，客户端要轮询 GET 等它变 ready。
-func (s *Service) Create(ctx context.Context, in CreateInput) (*ent.Document, error) {
+//
+// 埋点只给 err 起名字、结果位留空。这样任何一处 `return ..., err` 都会被下面
+// 这个 defer 记进 span，不用在每个错误返回点手写一遍（手写一定会漏，而漏掉的
+// 往往就是最需要看见的那条路径）。反过来如果连结果也起名，函数体里原本的
+// `base, err := ...` 会因为「:= 左侧没有新变量」而编译不过。
+func (s *Service) Create(ctx context.Context, in CreateInput) (_ *ent.Document, err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.create_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.dataset_id", int64(in.DatasetID)),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	base, err := s.dataset(ctx, in.DatasetID)
 	if err != nil {
 		return nil, err
@@ -176,6 +195,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*ent.Document, er
 	if err := s.enqueue(ctx, created, in.DatasetID); err != nil {
 		return nil, err
 	}
+	span.SetAttributes(
+		attribute.Int64("knowledge.document_id", int64(created.ID)),
+		attribute.String("knowledge.source", created.Source),
+		attribute.String("knowledge.title", created.Title),
+	)
 	return created, nil
 }
 
@@ -193,7 +217,18 @@ type UpdateInput struct {
 //
 // 只有托管目录内的正文允许被覆盖：注册进来的外部文件是调用方的资产，
 // 接口不该无声改写。
-func (s *Service) Update(ctx context.Context, in UpdateInput) (*ent.Document, error) {
+func (s *Service) Update(ctx context.Context, in UpdateInput) (_ *ent.Document, err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.update_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.dataset_id", int64(in.DatasetID)),
+			attribute.Int64("knowledge.document_id", int64(in.DocumentID)),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	doc, err := s.document(ctx, in.DatasetID, in.DocumentID)
 	if err != nil {
 		return nil, err
@@ -239,12 +274,24 @@ func (s *Service) Update(ctx context.Context, in UpdateInput) (*ent.Document, er
 			return nil, err
 		}
 	}
+	span.SetAttributes(attribute.Bool("knowledge.reindex_queued", reindex))
 	return saved, nil
 }
 
 // Reindex 重新读正文、重新排队。用途是修复：改了切块参数、换了 embedding
 // 模型、或者上一次索引失败之后，都按新配置重建。
-func (s *Service) Reindex(ctx context.Context, datasetID, documentID uint64) (*ent.Document, error) {
+func (s *Service) Reindex(ctx context.Context, datasetID, documentID uint64) (_ *ent.Document, err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.reindex_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.dataset_id", int64(datasetID)),
+			attribute.Int64("knowledge.document_id", int64(documentID)),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	doc, err := s.document(ctx, datasetID, documentID)
 	if err != nil {
 		return nil, err
@@ -278,7 +325,17 @@ type ReindexResult struct {
 
 // ReindexDataset 逐个文档重建，互不影响：某个文档的正文丢了只计入 failed，
 // 其余照常排队。
-func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (*ReindexResult, error) {
+func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (_ *ReindexResult, err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.reindex_dataset",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.dataset_id", int64(datasetID)),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	if _, err := s.dataset(ctx, datasetID); err != nil {
 		return nil, err
 	}
@@ -315,7 +372,7 @@ func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (*Reinde
 		}
 		if err := s.enqueue(ctx, saved, datasetID); err != nil {
 			// enqueue 内部已经把文档标成 failed，这里只计数不中断整批。
-			s.logger.Warn("reindex dataset: enqueue failed",
+			observability.LogWithTrace(ctx, s.logger).Warn("reindex dataset: enqueue failed",
 				slog.Uint64("dataset_id", datasetID),
 				slog.Uint64("document_id", doc.ID),
 				slog.String("error", err.Error()),
@@ -325,6 +382,12 @@ func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (*Reinde
 		}
 		result.Documents++
 	}
+	// 整批的规模要有痕迹：批量重建是「投了一批、失败几个」的形态，只靠单文档
+	// 的 span 看不出批次全貌。
+	span.SetAttributes(
+		attribute.Int("knowledge.documents_queued", result.Documents),
+		attribute.Int("knowledge.documents_failed", result.Failed),
+	)
 	return result, nil
 }
 
@@ -333,7 +396,18 @@ func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (*Reinde
 // 关系库的部分在事务里完成；Milvus 不参与这个事务，清理失败只记警告 ——
 // 孤儿向量取不回来（检索要回到 chunk 行做过滤），但会一直占着向量库空间，
 // 需要靠后续的全量重建收拾。
-func (s *Service) Delete(ctx context.Context, datasetID, documentID uint64) error {
+func (s *Service) Delete(ctx context.Context, datasetID, documentID uint64) (err error) {
+	ctx, span := observability.StartSpan(ctx, "knowledge.delete_document",
+		oteltrace.WithAttributes(
+			attribute.Int64("knowledge.dataset_id", int64(datasetID)),
+			attribute.Int64("knowledge.document_id", int64(documentID)),
+		),
+	)
+	defer func() {
+		observability.SpanError(span, err)
+		span.End()
+	}()
+
 	doc, err := s.document(ctx, datasetID, documentID)
 	if err != nil {
 		return err
@@ -362,7 +436,7 @@ func (s *Service) Delete(ctx context.Context, datasetID, documentID uint64) erro
 
 	s.cleanupVectors(ctx, doc.ID, chunkIDs)
 	if err := s.content.Remove(doc.Source); err != nil {
-		s.logger.Warn("knowledge: remove content file failed",
+		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: remove content file failed",
 			slog.Uint64("document_id", doc.ID),
 			slog.String("source", doc.Source),
 			slog.String("error", err.Error()),
@@ -453,13 +527,13 @@ func (s *Service) countChunks(
 // 的选择 —— 文档在列表里可见、状态诚实，客户端拿到 5xx，之后可以显式 reindex。
 func (s *Service) enqueue(ctx context.Context, doc *ent.Document, datasetID uint64) error {
 	if err := s.queue.EnqueueIndex(ctx, datasetID, doc.ID); err != nil {
-		s.logger.Error("knowledge: enqueue index task failed",
+		observability.LogWithTrace(ctx, s.logger).Error("knowledge: enqueue index task failed",
 			slog.Uint64("dataset_id", datasetID),
 			slog.Uint64("document_id", doc.ID),
 			slog.String("error", err.Error()),
 		)
 		if markErr := setDocumentStatus(ctx, s.client, doc.ID, document.StatusFailed); markErr != nil {
-			s.logger.Error("knowledge: mark document failed after enqueue error",
+			observability.LogWithTrace(ctx, s.logger).Error("knowledge: mark document failed after enqueue error",
 				slog.Uint64("document_id", doc.ID),
 				slog.String("error", markErr.Error()),
 			)
@@ -521,7 +595,7 @@ func (s *Service) cleanupVectors(ctx context.Context, documentID uint64, chunkID
 		return
 	}
 	if s.vectors == nil {
-		s.logger.Warn("knowledge: vector cleanup skipped, no vector index configured",
+		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: vector cleanup skipped, no vector index configured",
 			slog.Uint64("document_id", documentID),
 			slog.Int("chunks", len(chunkIDs)),
 		)
@@ -532,7 +606,7 @@ func (s *Service) cleanupVectors(ctx context.Context, documentID uint64, chunkID
 		ids = append(ids, int64(id))
 	}
 	if err := s.vectors.Delete(ctx, ids); err != nil {
-		s.logger.Warn("knowledge: vector cleanup failed, orphan vectors remain until a full rebuild",
+		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: vector cleanup failed, orphan vectors remain until a full rebuild",
 			slog.Uint64("document_id", documentID),
 			slog.Int("chunks", len(ids)),
 			slog.String("error", err.Error()),

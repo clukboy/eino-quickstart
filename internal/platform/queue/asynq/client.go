@@ -2,6 +2,7 @@ package asynq
 
 import (
 	"context"
+	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/queue"
 	"fmt"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type AsynqClient struct {
@@ -162,6 +164,10 @@ var _ queue.Producer = (*AsynqClient)(nil)
 var _ queue.Consumer = (*AsynqClient)(nil)
 
 // Enqueue implements [queue.Producer].
+//
+// 这里是跨进程链路的**起点**：先在 producer span 之内注入上下文，再投递，
+// 消费端解出同一个 traceparent 就能接上。顺序不能反 —— 先投递后开 span 的话
+// 注入的上下文里没有这次投递的 span，消费端只能挂在更上层（或者根本没有）。
 func (a *AsynqClient) Enqueue(ctx context.Context, msg *queue.TaskMessage) error {
 	if a.Client == nil {
 		return fmt.Errorf("asynq client is not enabled")
@@ -181,15 +187,39 @@ func (a *AsynqClient) Enqueue(ctx context.Context, msg *queue.TaskMessage) error
 			opts = append(opts, asynq.ProcessIn(opt.(time.Duration)))
 		}
 	}
-	task := asynq.NewTask(msg.Type, msg.Payload)
-	_, err := a.Client.EnqueueContext(ctx, task, opts...)
-	return err
+
+	queueName, _ := msg.Options[queue.OptionQueue].(string)
+	ctx, span := startPublishSpan(ctx, msg.Type, queueName)
+	defer span.End()
+
+	payload, err := encodeEnvelope(ctx, msg.Payload)
+	if err != nil {
+		observability.SpanError(span, err)
+		return err
+	}
+
+	task := asynq.NewTask(msg.Type, payload)
+	info, err := a.Client.EnqueueContext(ctx, task, opts...)
+	if err != nil {
+		observability.SpanError(span, err)
+		return err
+	}
+	span.SetAttributes(attribute.String("messaging.message.id", info.ID))
+	return nil
 }
 
 // Register implements [queue.Consumer].
 //
-// handler 拿到的 ctx 里带着本次执行的重试位置（queue.RetryStateFrom）：那种
-// 「失败要不要落终态」的判断只有队列知道答案，应用层因此不必 import asynq。
+// handler 拿到的 ctx 里带着两件事：
+//
+//   - 本次执行的重试位置（queue.RetryStateFrom）：那种「失败要不要落终态」的
+//     判断只有队列知道答案，应用层因此不必 import asynq。
+//   - 从 payload 信封里恢复出来的链路上下文：这就是「HTTP 进程的 trace」与
+//     「worker 进程的 trace」接上的地方。两个进程之间 ctx 不会自己传过去，
+//     唯一能带过去的就是任务 payload。
+//
+// 注意顺序：**extract 必须在开 span 之前** —— span 是挂在恢复出来的上游上下文
+// 下面的，反过来做就没有父 span，消费端会各自成为一条新 trace 的根。
 func (a *AsynqClient) Register(taskType string, handler queue.TaskHandler) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -197,14 +227,35 @@ func (a *AsynqClient) Register(taskType string, handler queue.TaskHandler) {
 		panic(fmt.Sprintf("handler for task type %s already exists", taskType))
 	}
 	a.handler[taskType] = func(ctx context.Context, task *asynq.Task) error {
+		// asynq 把本次执行的重试次数挂在它传进来的 ctx 上。
 		attempt, attemptOK := asynq.GetRetryCount(ctx)
 		maxRetry, maxOK := asynq.GetMaxRetry(ctx)
-		ctx = queue.WithRetryState(ctx, queue.RetryState{
+
+		carrier, payload := decodeEnvelope(task.Payload())
+		ctx = observability.ExtractTrace(ctx, carrier)
+
+		ctx, span := startProcessSpan(ctx, taskType)
+		defer span.End()
+
+		state := queue.RetryState{
 			Attempt: attempt,
 			Max:     maxRetry,
 			Known:   attemptOK && maxOK,
-		})
-		return handler(ctx, task.Payload())
+		}
+		span.SetAttributes(
+			attribute.Int("messaging.retry.attempt", attempt),
+			attribute.Int("messaging.retry.max", maxRetry),
+			attribute.Bool("messaging.retry.exhausted", state.Exhausted()),
+		)
+
+		ctx = queue.WithRetryState(ctx, state)
+
+		if err := handler(ctx, payload); err != nil {
+			// 队列重试是常规路径，这里只把失败记进 span，不改变返回语义。
+			observability.SpanError(span, err)
+			return err
+		}
+		return nil
 	}
 }
 
