@@ -52,7 +52,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "document" package.
 	DocumentsInverseTable = "documents"
 	// DocumentsColumn is the table column denoting the documents relation/edge.
-	DocumentsColumn = "dataset_documents"
+	DocumentsColumn = "dataset_id"
 	// AgentDatasetsTable is the table that holds the agent_datasets relation/edge.
 	AgentDatasetsTable = "agent_datasets"
 	// AgentDatasetsInverseTable is the table name for the AgentDataset entity.

@@ -6,7 +6,6 @@ package dataset
 import (
 	"context"
 
-	"eino-quickstart/ent/document"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -29,12 +28,12 @@ func NewListDocumentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 }
 
 func (l *ListDocumentsLogic) ListDocuments(req *types.DatasetIDReq) (resp *types.DocumentListResp, err error) {
-	docs, err := l.svcCtx.EntClient.Document.Query().Where(document.DatasetIDEQ(req.ID)).All(l.ctx)
+	docs, err := l.svcCtx.Knowledge.List(l.ctx, req.ID)
 	if err != nil {
 		return nil, documentFail(err)
 	}
 
-	data, err := documentDTOs(l.ctx, docs)
+	data, err := documentDTOs(l.ctx, l.svcCtx.Knowledge, docs)
 	if err != nil {
 		return nil, documentFail(err)
 	}

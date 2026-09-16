@@ -1,4 +1,4 @@
-package restapi
+package observability
 
 import (
 	"log/slog"
@@ -27,4 +27,16 @@ func (w slogWriter) Write(p []byte) (int, error) {
 // sink.
 func installLogxWriter(logger *slog.Logger) {
 	logx.SetWriter(logx.NewWriter(slogWriter{logger: logger}))
+}
+
+// BridgeLogx 把 go-zero 的 logx 输出接到项目统一的 slog 上。
+//
+// 它属于观测层而不是 HTTP 层：worker 进程根本不跑 go-zero 的 rest 传输，
+// 但 asynq 的内部日志同样走 logx，需要落到同一个日志文件里。放在传输包里
+// 会逼着 worker import 整个 HTTP 传输栈。
+func BridgeLogx(logger *slog.Logger) {
+	if logger == nil {
+		return
+	}
+	installLogxWriter(logger)
 }

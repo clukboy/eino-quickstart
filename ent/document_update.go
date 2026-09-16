@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/ent/predicate"
@@ -113,7 +114,6 @@ func (_u *DocumentUpdate) SetNillableStatus(v *document.Status) *DocumentUpdate 
 
 // SetDatasetID sets the "dataset_id" field.
 func (_u *DocumentUpdate) SetDatasetID(v uint64) *DocumentUpdate {
-	_u.mutation.ResetDatasetID()
 	_u.mutation.SetDatasetID(v)
 	return _u
 }
@@ -123,12 +123,6 @@ func (_u *DocumentUpdate) SetNillableDatasetID(v *uint64) *DocumentUpdate {
 	if v != nil {
 		_u.SetDatasetID(*v)
 	}
-	return _u
-}
-
-// AddDatasetID adds value to the "dataset_id" field.
-func (_u *DocumentUpdate) AddDatasetID(v int64) *DocumentUpdate {
-	_u.mutation.AddDatasetID(v)
 	return _u
 }
 
@@ -165,6 +159,11 @@ func (_u *DocumentUpdate) SetUpdatedAt(v time.Time) *DocumentUpdate {
 	return _u
 }
 
+// SetDataset sets the "dataset" edge to the Dataset entity.
+func (_u *DocumentUpdate) SetDataset(v *Dataset) *DocumentUpdate {
+	return _u.SetDatasetID(v.ID)
+}
+
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
 func (_u *DocumentUpdate) AddChunkIDs(ids ...uint64) *DocumentUpdate {
 	_u.mutation.AddChunkIDs(ids...)
@@ -183,6 +182,12 @@ func (_u *DocumentUpdate) AddChunks(v ...*DocumentChunk) *DocumentUpdate {
 // Mutation returns the DocumentMutation object of the builder.
 func (_u *DocumentUpdate) Mutation() *DocumentMutation {
 	return _u.mutation
+}
+
+// ClearDataset clears the "dataset" edge to the Dataset entity.
+func (_u *DocumentUpdate) ClearDataset() *DocumentUpdate {
+	_u.mutation.ClearDataset()
+	return _u
 }
 
 // ClearChunks clears all "chunks" edges to the DocumentChunk entity.
@@ -254,6 +259,9 @@ func (_u *DocumentUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
 	}
+	if _u.mutation.DatasetCleared() && len(_u.mutation.DatasetIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Document.dataset"`)
+	}
 	return nil
 }
 
@@ -290,12 +298,6 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := _u.mutation.DatasetID(); ok {
-		_spec.SetField(document.FieldDatasetID, field.TypeUint64, value)
-	}
-	if value, ok := _u.mutation.AddedDatasetID(); ok {
-		_spec.AddField(document.FieldDatasetID, field.TypeUint64, value)
-	}
 	if value, ok := _u.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)
 	}
@@ -307,6 +309,35 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(document.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DatasetCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.DatasetTable,
+			Columns: []string{document.DatasetColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DatasetIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.DatasetTable,
+			Columns: []string{document.DatasetColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.ChunksCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -457,7 +488,6 @@ func (_u *DocumentUpdateOne) SetNillableStatus(v *document.Status) *DocumentUpda
 
 // SetDatasetID sets the "dataset_id" field.
 func (_u *DocumentUpdateOne) SetDatasetID(v uint64) *DocumentUpdateOne {
-	_u.mutation.ResetDatasetID()
 	_u.mutation.SetDatasetID(v)
 	return _u
 }
@@ -467,12 +497,6 @@ func (_u *DocumentUpdateOne) SetNillableDatasetID(v *uint64) *DocumentUpdateOne 
 	if v != nil {
 		_u.SetDatasetID(*v)
 	}
-	return _u
-}
-
-// AddDatasetID adds value to the "dataset_id" field.
-func (_u *DocumentUpdateOne) AddDatasetID(v int64) *DocumentUpdateOne {
-	_u.mutation.AddDatasetID(v)
 	return _u
 }
 
@@ -509,6 +533,11 @@ func (_u *DocumentUpdateOne) SetUpdatedAt(v time.Time) *DocumentUpdateOne {
 	return _u
 }
 
+// SetDataset sets the "dataset" edge to the Dataset entity.
+func (_u *DocumentUpdateOne) SetDataset(v *Dataset) *DocumentUpdateOne {
+	return _u.SetDatasetID(v.ID)
+}
+
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
 func (_u *DocumentUpdateOne) AddChunkIDs(ids ...uint64) *DocumentUpdateOne {
 	_u.mutation.AddChunkIDs(ids...)
@@ -527,6 +556,12 @@ func (_u *DocumentUpdateOne) AddChunks(v ...*DocumentChunk) *DocumentUpdateOne {
 // Mutation returns the DocumentMutation object of the builder.
 func (_u *DocumentUpdateOne) Mutation() *DocumentMutation {
 	return _u.mutation
+}
+
+// ClearDataset clears the "dataset" edge to the Dataset entity.
+func (_u *DocumentUpdateOne) ClearDataset() *DocumentUpdateOne {
+	_u.mutation.ClearDataset()
+	return _u
 }
 
 // ClearChunks clears all "chunks" edges to the DocumentChunk entity.
@@ -611,6 +646,9 @@ func (_u *DocumentUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
 	}
+	if _u.mutation.DatasetCleared() && len(_u.mutation.DatasetIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Document.dataset"`)
+	}
 	return nil
 }
 
@@ -664,12 +702,6 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := _u.mutation.DatasetID(); ok {
-		_spec.SetField(document.FieldDatasetID, field.TypeUint64, value)
-	}
-	if value, ok := _u.mutation.AddedDatasetID(); ok {
-		_spec.AddField(document.FieldDatasetID, field.TypeUint64, value)
-	}
 	if value, ok := _u.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)
 	}
@@ -681,6 +713,35 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(document.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DatasetCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.DatasetTable,
+			Columns: []string{document.DatasetColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DatasetIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.DatasetTable,
+			Columns: []string{document.DatasetColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.ChunksCleared() {
 		edge := &sqlgraph.EdgeSpec{

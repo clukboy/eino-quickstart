@@ -7,12 +7,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"eino-quickstart/ent"
-	"eino-quickstart/ent/document"
+	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -23,6 +22,9 @@ import (
 // 会落到临时文件。请求体本身已经被 go-zero 的 MaxBytes 中间件按
 // runtime.maxRequestBodyBytes 截断，这里只是不让一个大文件常驻内存。
 const uploadMaxMemory = 8 << 20
+
+// uploadFieldName 是 multipart 里的文件字段名。
+const uploadFieldName = "file"
 
 type UploadDocumentLogic struct {
 	logx.Logger
@@ -42,62 +44,78 @@ func NewUploadDocumentLogic(r *http.Request, svcCtx *svc.ServiceContext) *Upload
 	}
 }
 
-const maxMemory = 32 << 20 // 32MB，控制内存中缓存的最大字节数
-
+// UploadDocument 接收上传的文件，逐个落成文档。
+//
+// 走的和 CreateDocument 完全同一条路：正文写进 knowledge.root 的托管目录、
+// 建文档行、投递索引任务。**这里不解析、也不切块** —— 一份上传文件里有几个
+// 产品，要等 worker 按内容拆开之后才知道，请求内算不出来；本接口只保证
+// 「文件已收下并且排队了」。
+//
+// 返回的每条 DocumentResp 都是 status=indexing、chunk_count=0：要轮询
+// GET /dataset/:id/documents/:docId 才能看到索引进度。
 func (l *UploadDocumentLogic) UploadDocument(req *types.DocumentUploadReq) (resp *types.DocumentListResp, err error) {
-	if err := l.r.ParseMultipartForm(maxMemory); err != nil {
-		return nil, fmt.Errorf("解析上传文件失败: %w", err)
-
-	}
-
-	// ✅ 获取所有名为 "files" 的文件头（支持多文件）
-	fileHeaders := l.r.MultipartForm.File["file"]
-	if len(fileHeaders) == 0 {
-		return nil, fmt.Errorf("未找到上传文件，请确认字段名为 'file'")
-	}
-	files := make([]*ent.DocumentCreate, 0, len(fileHeaders))
-
-	saveDir := "./uploads"
-	os.MkdirAll(saveDir, os.ModePerm)
-
-	for _, fh := range fileHeaders {
-		file, err := fh.Open()
-		if err != nil {
-			return nil, fmt.Errorf("打开文件 %s 失败: %w", fh.Filename, err)
-		}
-
-		savePath := filepath.Join(saveDir, fh.Filename)
-		dst, err := os.Create(savePath)
-		if err != nil {
-			file.Close()
-			return nil, fmt.Errorf("创建目标文件失败: %w", err)
-		}
-
-		_, err = io.Copy(dst, file)
-		file.Close()
-		dst.Close()
-		if err != nil {
-			return nil, fmt.Errorf("保存文件 %s 失败: %w", fh.Filename, err)
-		}
-
-		files = append(files, l.svcCtx.EntClient.Document.Create().
-			SetDatasetID(req.DatasetID).
-			SetVisibility(document.Visibility(req.Visibility)).
-			SetTitle(fh.Filename).
-			SetSource(savePath).
-			SetStatus(document.StatusIndexing),
-		)
-
-		
-
-	}
-	documents, err := l.svcCtx.EntClient.Document.CreateBulk(files...).Save(l.ctx)
+	subject, err := actorSubject(l.ctx)
 	if err != nil {
-		return nil, documentFail(err)
+		return nil, err
 	}
-	list, err := documentDTOs(l.ctx, documents)
+
+	if err := l.r.ParseMultipartForm(uploadMaxMemory); err != nil {
+		return nil, fmt.Errorf("解析上传文件失败: %w", err)
+	}
+
+	fileHeaders := l.r.MultipartForm.File[uploadFieldName]
+	if len(fileHeaders) == 0 {
+		return nil, documentFail(&knowledge.ValidationError{
+			Message: fmt.Sprintf("未找到上传文件，请确认字段名为 %q", uploadFieldName),
+		})
+	}
+
+	docs := make([]*ent.Document, 0, len(fileHeaders))
+	for _, header := range fileHeaders {
+		content, err := readUploadedFile(header)
+		if err != nil {
+			return nil, err
+		}
+
+		doc, err := l.svcCtx.Knowledge.Create(l.ctx, knowledge.CreateInput{
+			DatasetID:    req.DatasetID,
+			Title:        header.Filename,
+			Content:      content,
+			Visibility:   req.Visibility,
+			OwnerSubject: subject,
+		})
+		if err != nil {
+			// 中途失败就整批报错：此前建好的文档还在（状态诚实、可以 reindex），
+			// 但调用方必须知道这一批没全成功。
+			return nil, documentFail(err)
+		}
+		docs = append(docs, doc)
+	}
+
+	list, err := documentDTOs(l.ctx, l.svcCtx.Knowledge, docs)
 	if err != nil {
 		return nil, documentFail(err)
 	}
 	return &types.DocumentListResp{Data: list}, nil
+}
+
+// readUploadedFile 读一个上传文件的全部内容。
+//
+// 不落临时文件：正文马上要交给 ContentStore 写进它自己的托管目录，中间再落
+// 一次盘既多余、又多一份要清理的状态。大小上限由 ContentStore 的
+// maxDocumentBytes 把守，超限时 Create 会返回 ErrContentTooLarge。
+func readUploadedFile(header *multipart.FileHeader) (string, error) {
+	file, err := header.Open()
+	if err != nil {
+		return "", fmt.Errorf("打开文件 %s 失败: %w", header.Filename, err)
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("读取文件 %s 失败: %w", header.Filename, err)
+	}
+	return string(data), nil
 }

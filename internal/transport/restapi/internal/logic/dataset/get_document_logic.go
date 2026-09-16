@@ -27,21 +27,17 @@ func NewGetDocumentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetDo
 	}
 }
 
+// GetDocument 是「索引进度」的查询入口：status 从 indexing 变 ready、以及
+// indexed_chunk_count 逐批追上 chunk_count，都只能从这里看到。
 func (l *GetDocumentLogic) GetDocument(req *types.DocumentIDReq) (resp *types.DocumentResp, err error) {
-	// service, err := documents(l.svcCtx)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	doc, err := l.svcCtx.Knowledge.Get(l.ctx, req.ID, req.DocID)
+	if err != nil {
+		return nil, documentFail(err)
+	}
 
-	// doc, err := service.Get(l.ctx, req.ID, req.DocID)
-	// if err != nil {
-	// 	return nil, documentFail(err)
-	// }
-
-	// resp, err = documentDTOOne(l.ctx, service, doc)
-	// if err != nil {
-	// 	return nil, documentFail(err)
-	// }
-	// return resp, nil
-	return
+	resp, err = documentDTOOne(l.ctx, l.svcCtx.Knowledge, doc)
+	if err != nil {
+		return nil, documentFail(err)
+	}
+	return resp, nil
 }

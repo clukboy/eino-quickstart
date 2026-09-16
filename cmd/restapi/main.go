@@ -1,8 +1,11 @@
 // Command restapi runs the Eino agent harness on the go-zero REST transport.
 //
-// It is the composition root. It builds the application dependencies — tool
-// registry, executor, harness, stores, auth, observability — the same way
-// cmd/server does, then hands them to internal/transport/restapi.
+// It is the composition root of the HTTP-only process. It builds the
+// application dependencies — tool registry, executor, harness, stores, auth,
+// observability — the same way cmd/server does, then hands them to
+// internal/transport/restapi. Async work is not done here: this process only
+// enqueues tasks onto the shared Redis queue (see internal/platform/queue/tasks);
+// a separate cmd/worker process consumes them.
 //
 // Two config files, one layer each:
 //
@@ -25,6 +28,7 @@ import (
 	"time"
 
 	"eino-quickstart/internal/application/agent"
+	"eino-quickstart/internal/application/knowledge"
 	appmiddleware "eino-quickstart/internal/application/middleware"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/config"
@@ -38,6 +42,8 @@ import (
 	"eino-quickstart/internal/platform/privacy"
 	"eino-quickstart/internal/platform/queue/asynq"
 	"eino-quickstart/internal/platform/storage/entx"
+	"eino-quickstart/internal/rag"
+	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/skill"
 	"eino-quickstart/internal/tool"
 	"eino-quickstart/internal/tool/builtin"
@@ -198,19 +204,39 @@ func runServer() error {
 		return err
 	}
 
-	asynqWorker := asynq.NewAsynqClient(&asynq.AsynqConf{
-		Addr:         cfg.QueueConfig.Addr,
-		Username:     cfg.QueueConfig.Username,
-		Pass:         cfg.QueueConfig.Pass,
-		DB:           cfg.QueueConfig.DB,
-		Concurrency:  cfg.QueueConfig.Concurrency,
-		SyncInterval: cfg.QueueConfig.SyncInterval,
-		Enable:       cfg.QueueConfig.Enable,
-	})
+	asynqQueue := asynq.NewAsynqClient(newAsynqConf(cfg))
+	// 本进程只当 Producer：asynqQueue.Server 保持未启动状态，消费端在
+	// cmd/worker 进程里。两者通过共享 Redis 连接，任务契约见
+	// internal/platform/queue/tasks。asynq.enabled=false 时 Enqueue 会返回
+	// 明确的错误，调用方必须把它当作请求失败浮出来。
+
+	contentStore, err := rag.NewContentStore(
+		cfg.Knowledge.Root,
+		int64(cfg.Knowledge.MaxDocumentBytes),
+	)
+	if err != nil {
+		return fmt.Errorf("init knowledge content store: %w", err)
+	}
+
+	// 知识库用例是 HTTP 侧唯一的索引入口：它落正文、建行、投递任务。
+	// transport 只调它，不认识队列。
+	knowledgeService, err := knowledge.NewService(
+		entClient,
+		contentStore,
+		asynq.NewIndexQueue(asynqQueue, asynq.IndexQueueConfig{
+			MaxRetries: cfg.Asynq.MaxRetries,
+		}),
+		newVectorCleaner(ctx, cfg, logger),
+		logger,
+	)
+	if err != nil {
+		return fmt.Errorf("init knowledge service: %w", err)
+	}
 
 	server, err := restapi.New(restapi.Options{
 		ConfigFile: transportConfigPath,
 		Agent:      harness,
+		Knowledge:  knowledgeService,
 		Sessions:   session.NewStore(entClient),
 		Approvals:  approvals,
 		Runs:       run.NewStore(entClient),
@@ -218,20 +244,16 @@ func runServer() error {
 		Auth:       authenticator,
 		Logger:     logger,
 		EntClient:  entClient,
-		Queue:      asynqWorker,
 	})
 	if err != nil {
 		return err
 	}
 	logx.DisableStat()
 
-	// HTTP 与索引 worker 交给同一个 ServiceGroup。Add 是前插、Stop 逆序执行，
-	// 所以下面这个顺序会让 worker 先停：先掐掉消费，再收起 HTTP 监听，避免
-	// 端口已经关了而任务还在被领走。
+	// HTTP-only 进程：asynq 消费端已拆到 cmd/worker，这里不再把 worker 加进
+	// ServiceGroup。进程里唯一的 service 就是 HTTP server，Stop 语义不变：
+	// 监听由 go-zero 的 proc 关闭链收起。
 	group := service.NewServiceGroup()
-	if cfg.QueueConfig.Enable {
-		group.Add(asynqWorker)
-	}
 
 	group.Add(server)
 
@@ -249,8 +271,8 @@ func runServer() error {
 		slog.String("workspace", cfg.Workspace.Root),
 	)
 
-	// 阻塞到全部服务停下：HTTP 监听由 go-zero 的 proc 关闭链收起，asynq worker
-	// 由 ServiceGroup.Stop 排空。两者都返回后这里才继续，main 随之退出。
+	// 阻塞到 HTTP server 停下：监听由 go-zero 的 proc 关闭链收起，main 随之
+	// 退出。队列里的任务由 cmd/worker 进程继续消化，HTTP 重启不影响它们。
 	group.Start()
 
 	logger.Info("eino harness restapi stopped")
@@ -280,6 +302,56 @@ func newRunner(cfg *config.Config) (execution.Runner, error) {
 	default:
 		return nil, fmt.Errorf("unsupported execution mode: %s", cfg.Execution.Mode)
 	}
+}
+
+// newAsynqConf 把业务配置里的 asynq 段翻译成适配器配置。
+//
+// 连接参数、队列权重、重试上限、关闭超时都收在 asynq 一段里 —— 早先这些散在
+// queue 与 asynq 两处、只有一处生效，是很容易配错的结构。
+func newAsynqConf(cfg *config.Config) *asynq.AsynqConf {
+	queues := make(map[string]int, len(cfg.Asynq.Queues))
+	for _, q := range cfg.Asynq.Queues {
+		queues[q.Name] = q.Weight
+	}
+	return &asynq.AsynqConf{
+		Addr:                   cfg.Asynq.Redis.Addr,
+		Username:               cfg.Asynq.Redis.Username,
+		Pass:                   cfg.Asynq.Redis.Password,
+		DB:                     cfg.Asynq.Redis.DB,
+		Concurrency:            cfg.Asynq.Concurrency,
+		Enable:                 cfg.Asynq.Enabled,
+		Queues:                 queues,
+		MaxRetries:             cfg.Asynq.MaxRetries,
+		RetryDelaySeconds:      cfg.Asynq.RetryDelaySeconds,
+		MaxRetryDelaySeconds:   cfg.Asynq.MaxRetryDelaySeconds,
+		ShutdownTimeoutSeconds: cfg.Asynq.ShutdownTimeoutSeconds,
+	}
+}
+
+// newVectorCleaner 给 HTTP 进程准备一个向量清理句柄。
+//
+// 删除文档时要顺手清掉 Milvus 里的向量，所以 HTTP 侧也需要向量库句柄。但这条
+// 清理路径是**尽力而为**的（孤儿向量取不回来，靠后续全量重建收拾），所以连不上
+// Milvus 不该挡住 HTTP 启动：失败只记警告，返回 nil，删除退化成「只摘索引」。
+func newVectorCleaner(
+	ctx context.Context,
+	cfg *config.Config,
+	logger *slog.Logger,
+) knowledge.VectorIndex {
+	store, err := milvus.NewMilvusStore(ctx, &milvus.MilvusConfig{
+		Address:    cfg.Milvus.Address,
+		Collection: cfg.Milvus.Collection,
+		Dimensions: cfg.Embedding.Dimensions,
+		MetricType: cfg.Milvus.MetricType,
+	})
+	if err != nil {
+		logger.Warn(
+			"vector store unavailable, document delete will skip vector cleanup",
+			slog.String("error", err.Error()),
+		)
+		return nil
+	}
+	return store
 }
 
 func envOr(key, fallback string) string {

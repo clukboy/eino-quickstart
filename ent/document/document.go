@@ -35,10 +35,19 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// EdgeDataset holds the string denoting the dataset edge name in mutations.
+	EdgeDataset = "dataset"
 	// EdgeChunks holds the string denoting the chunks edge name in mutations.
 	EdgeChunks = "chunks"
 	// Table holds the table name of the document in the database.
 	Table = "documents"
+	// DatasetTable is the table that holds the dataset relation/edge.
+	DatasetTable = "documents"
+	// DatasetInverseTable is the table name for the Dataset entity.
+	// It exists in this package in order to avoid circular dependency with the "dataset" package.
+	DatasetInverseTable = "datasets"
+	// DatasetColumn is the table column denoting the dataset relation/edge.
+	DatasetColumn = "dataset_id"
 	// ChunksTable is the table that holds the chunks relation/edge.
 	ChunksTable = "document_chunks"
 	// ChunksInverseTable is the table name for the DocumentChunk entity.
@@ -66,7 +75,6 @@ var Columns = []string{
 // ForeignKeys holds the SQL foreign-keys that are owned by the "documents"
 // table and are not defined as standalone fields in the schema.
 var ForeignKeys = []string{
-	"dataset_documents",
 	"knowledge_folder_documents",
 }
 
@@ -205,6 +213,13 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
+// ByDatasetField orders the results by dataset field.
+func ByDatasetField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDatasetStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByChunksCount orders the results by chunks count.
 func ByChunksCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -217,6 +232,13 @@ func ByChunks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newChunksStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
+}
+func newDatasetStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DatasetInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, DatasetTable, DatasetColumn),
+	)
 }
 func newChunksStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

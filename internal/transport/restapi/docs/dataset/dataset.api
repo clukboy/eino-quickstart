@@ -10,10 +10,13 @@ syntax = "v1"
 // knowledge.root 里的文件，接口只读不改。正文以文件为唯一真相，所以
 // 「重建索引」就是把文件重新读出来，数据库里不必再存一份。
 //
-// 索引是异步的：写操作只做切块与落库，然后把文档投进 asynq 队列，返回的
-// status 会是 indexing。真正的 embedding 与向量写入由后台 worker 消费该任务
-// 完成，完成后 status 变 ready（失败则为 failed）；期间 chunk_count 不变，
-// indexed_chunk_count 会逐渐追上 chunk_count。
+// 索引是异步的，而且**切块也在后台**：写操作只做「落正文 + 建文档行 +
+// 投递 asynq 任务」，返回的 status 会是 indexing。为什么切块不在请求内做：
+// 一份文件里有几个产品、每个产品多长，要等 worker 按内容拆出产品块之后才
+// 知道（对应 internal/application/knowledge 的 ProductSplitter），请求内
+// 算不出来。worker 消费该任务完成 parse / 切块 / embedding / 向量写入，
+// 完成后 status 变 ready（失败则为 failed）；期间 chunk_count 从 0 开始、
+// indexed_chunk_count 逐批追上 chunk_count。
 //
 // 类型归属说明（两组互相引用，是刻意的）：
 //   StatusResp        定义在 common/types.api（创建/删除都返回它）
@@ -104,9 +107,12 @@ type DocumentListResp {
 
 // ReindexResp 是整库重建索引的受理结果。
 //
-// Documents 是成功排队的文档数，Chunks 是这次重建出的 chunk 总数，Failed 是
-// 正文读不回来（文件被移走等）而被标成 failed 的文档数。返回时 embedding
-// 还没开始，所以状态是 accepted 而不是 done。
+// Documents 是成功排队的文档数，Failed 是正文读不回来（文件被移走等）而被标成
+// failed 的文档数。返回时 embedding 还没开始，所以状态是 accepted 而不是 done。
+//
+// Chunks 恒为 0，字段留着是为了不破坏已发布的响应形状：切块在 worker 内完成，
+// 受理这一刻还没有任何分块行，给不出一个真实的数字。想知道实际切了多少块，
+// 走 GET /dataset/:id/documents/:docId 看 chunk_count。
 type ReindexResp {
 	Status    string `json:"status"`
 	Documents int    `json:"documents"`

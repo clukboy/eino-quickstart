@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"encoding/json"
 	"fmt"
@@ -41,24 +42,36 @@ type Document struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the DocumentQuery when eager-loading is set.
 	Edges                      DocumentEdges `json:"edges"`
-	dataset_documents          *uint64
 	knowledge_folder_documents *uint64
 	selectValues               sql.SelectValues
 }
 
 // DocumentEdges holds the relations/edges for other nodes in the graph.
 type DocumentEdges struct {
+	// Dataset holds the value of the dataset edge.
+	Dataset *Dataset `json:"dataset,omitempty"`
 	// Chunks holds the value of the chunks edge.
 	Chunks []*DocumentChunk `json:"chunks,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
+}
+
+// DatasetOrErr returns the Dataset value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e DocumentEdges) DatasetOrErr() (*Dataset, error) {
+	if e.Dataset != nil {
+		return e.Dataset, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: dataset.Label}
+	}
+	return nil, &NotLoadedError{edge: "dataset"}
 }
 
 // ChunksOrErr returns the Chunks value or an error if the edge
 // was not loaded in eager-loading.
 func (e DocumentEdges) ChunksOrErr() ([]*DocumentChunk, error) {
-	if e.loadedTypes[0] {
+	if e.loadedTypes[1] {
 		return e.Chunks, nil
 	}
 	return nil, &NotLoadedError{edge: "chunks"}
@@ -77,9 +90,7 @@ func (*Document) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case document.FieldCreatedAt, document.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case document.ForeignKeys[0]: // dataset_documents
-			values[i] = new(sql.NullInt64)
-		case document.ForeignKeys[1]: // knowledge_folder_documents
+		case document.ForeignKeys[0]: // knowledge_folder_documents
 			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -167,13 +178,6 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			}
 		case document.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for edge-field dataset_documents", value)
-			} else if value.Valid {
-				_m.dataset_documents = new(uint64)
-				*_m.dataset_documents = uint64(value.Int64)
-			}
-		case document.ForeignKeys[1]:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field knowledge_folder_documents", value)
 			} else if value.Valid {
 				_m.knowledge_folder_documents = new(uint64)
@@ -190,6 +194,11 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Document) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryDataset queries the "dataset" edge of the Document entity.
+func (_m *Document) QueryDataset() *DatasetQuery {
+	return NewDocumentClient(_m.config).QueryDataset(_m)
 }
 
 // QueryChunks queries the "chunks" edge of the Document entity.

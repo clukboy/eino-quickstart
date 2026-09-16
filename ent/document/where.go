@@ -355,26 +355,6 @@ func DatasetIDNotIn(vs ...uint64) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldDatasetID, vs...))
 }
 
-// DatasetIDGT applies the GT predicate on the "dataset_id" field.
-func DatasetIDGT(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldGT(FieldDatasetID, v))
-}
-
-// DatasetIDGTE applies the GTE predicate on the "dataset_id" field.
-func DatasetIDGTE(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldGTE(FieldDatasetID, v))
-}
-
-// DatasetIDLT applies the LT predicate on the "dataset_id" field.
-func DatasetIDLT(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldLT(FieldDatasetID, v))
-}
-
-// DatasetIDLTE applies the LTE predicate on the "dataset_id" field.
-func DatasetIDLTE(v uint64) predicate.Document {
-	return predicate.Document(sql.FieldLTE(FieldDatasetID, v))
-}
-
 // FolderIDEQ applies the EQ predicate on the "folder_id" field.
 func FolderIDEQ(v uint64) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldFolderID, v))
@@ -503,6 +483,29 @@ func UpdatedAtLT(v time.Time) predicate.Document {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.Document {
 	return predicate.Document(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// HasDataset applies the HasEdge predicate on the "dataset" edge.
+func HasDataset() predicate.Document {
+	return predicate.Document(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, DatasetTable, DatasetColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDatasetWith applies the HasEdge predicate on the "dataset" edge with a given conditions (other predicates).
+func HasDatasetWith(preds ...predicate.Dataset) predicate.Document {
+	return predicate.Document(func(s *sql.Selector) {
+		step := newDatasetStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // HasChunks applies the HasEdge predicate on the "chunks" edge.

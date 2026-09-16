@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/document/loader/file"
 	"github.com/cloudwego/eino/components/document"
+	einoparser "github.com/cloudwego/eino/components/document/parser"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -48,9 +49,17 @@ func NewFileLoader(ctx context.Context, cfg FileLoaderConfig) (*FileLoader, erro
 	for _, e := range exts {
 		m[strings.ToLower(e)] = struct{}{}
 	}
+	docParser, err := parser.NewParser(ctx, &parser.ParserConfig{
+		Parsers: map[string]einoparser.Parser{
+			"product": parser.ProductParser{},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("rag: create doc parser: %w", err)
+	}
 	loader, err := file.NewFileLoader(ctx, &file.FileLoaderConfig{
 		UseNameAsID: false,
-		Parser:      parser.ProductParser{},
+		Parser:      docParser,
 	})
 
 	if err != nil {
@@ -61,7 +70,7 @@ func NewFileLoader(ctx context.Context, cfg FileLoaderConfig) (*FileLoader, erro
 
 // Load 实现 eino document.Loader 接口。
 
-func (l *FileLoader) Load(ctx context.Context, src document.Source, _ ...document.LoaderOption) ([]*schema.Document, error) {
+func (l *FileLoader) Load(ctx context.Context, src document.Source, opts ...document.LoaderOption) ([]*schema.Document, error) {
 
 	// [优化] 路径穿越防护：先解析软链再校验前缀
 	abs, err := filepath.Abs(src.URI)
@@ -89,5 +98,5 @@ func (l *FileLoader) Load(ctx context.Context, src document.Source, _ ...documen
 		return nil, fmt.Errorf("rag: file too large: %d > %d", info.Size(), l.maxBytes)
 	}
 
-	return l.loader.Load(ctx, src)
+	return l.loader.Load(ctx, src, opts...)
 }

@@ -216,11 +216,10 @@ var (
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
 		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ready", "indexing", "failed", "deleted"}, Default: "indexing"},
-		{Name: "dataset_id", Type: field.TypeUint64, Default: 0},
 		{Name: "folder_id", Type: field.TypeUint64, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "dataset_documents", Type: field.TypeUint64, Nullable: true},
+		{Name: "dataset_id", Type: field.TypeUint64, Default: 0},
 		{Name: "knowledge_folder_documents", Type: field.TypeUint64, Nullable: true},
 	}
 	// DocumentsTable holds the schema information for the "documents" table.
@@ -231,13 +230,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "documents_datasets_documents",
-				Columns:    []*schema.Column{DocumentsColumns[11]},
+				Columns:    []*schema.Column{DocumentsColumns[10]},
 				RefColumns: []*schema.Column{DatasetsColumns[0]},
-				OnDelete:   schema.SetNull,
+				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "documents_knowledge_folders_documents",
-				Columns:    []*schema.Column{DocumentsColumns[12]},
+				Columns:    []*schema.Column{DocumentsColumns[11]},
 				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

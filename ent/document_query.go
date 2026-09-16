@@ -5,6 +5,7 @@ package ent
 import (
 	"context"
 	"database/sql/driver"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/ent/predicate"
@@ -20,12 +21,13 @@ import (
 // DocumentQuery is the builder for querying Document entities.
 type DocumentQuery struct {
 	config
-	ctx        *QueryContext
-	order      []document.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Document
-	withChunks *DocumentChunkQuery
-	withFKs    bool
+	ctx         *QueryContext
+	order       []document.OrderOption
+	inters      []Interceptor
+	predicates  []predicate.Document
+	withDataset *DatasetQuery
+	withChunks  *DocumentChunkQuery
+	withFKs     bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -60,6 +62,28 @@ func (_q *DocumentQuery) Unique(unique bool) *DocumentQuery {
 func (_q *DocumentQuery) Order(o ...document.OrderOption) *DocumentQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryDataset chains the current query on the "dataset" edge.
+func (_q *DocumentQuery) QueryDataset() *DatasetQuery {
+	query := (&DatasetClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(document.Table, document.FieldID, selector),
+			sqlgraph.To(dataset.Table, dataset.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, document.DatasetTable, document.DatasetColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // QueryChunks chains the current query on the "chunks" edge.
@@ -271,16 +295,28 @@ func (_q *DocumentQuery) Clone() *DocumentQuery {
 		return nil
 	}
 	return &DocumentQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]document.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Document{}, _q.predicates...),
-		withChunks: _q.withChunks.Clone(),
+		config:      _q.config,
+		ctx:         _q.ctx.Clone(),
+		order:       append([]document.OrderOption{}, _q.order...),
+		inters:      append([]Interceptor{}, _q.inters...),
+		predicates:  append([]predicate.Document{}, _q.predicates...),
+		withDataset: _q.withDataset.Clone(),
+		withChunks:  _q.withChunks.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithDataset tells the query-builder to eager-load the nodes that are connected to
+// the "dataset" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *DocumentQuery) WithDataset(opts ...func(*DatasetQuery)) *DocumentQuery {
+	query := (&DatasetClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDataset = query
+	return _q
 }
 
 // WithChunks tells the query-builder to eager-load the nodes that are connected to
@@ -373,7 +409,8 @@ func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Doc
 		nodes       = []*Document{}
 		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
+			_q.withDataset != nil,
 			_q.withChunks != nil,
 		}
 	)
@@ -398,6 +435,12 @@ func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Doc
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withDataset; query != nil {
+		if err := _q.loadDataset(ctx, query, nodes, nil,
+			func(n *Document, e *Dataset) { n.Edges.Dataset = e }); err != nil {
+			return nil, err
+		}
+	}
 	if query := _q.withChunks; query != nil {
 		if err := _q.loadChunks(ctx, query, nodes,
 			func(n *Document) { n.Edges.Chunks = []*DocumentChunk{} },
@@ -408,6 +451,35 @@ func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Doc
 	return nodes, nil
 }
 
+func (_q *DocumentQuery) loadDataset(ctx context.Context, query *DatasetQuery, nodes []*Document, init func(*Document), assign func(*Document, *Dataset)) error {
+	ids := make([]uint64, 0, len(nodes))
+	nodeids := make(map[uint64][]*Document)
+	for i := range nodes {
+		fk := nodes[i].DatasetID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(dataset.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "dataset_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *DocumentQuery) loadChunks(ctx context.Context, query *DocumentChunkQuery, nodes []*Document, init func(*Document), assign func(*Document, *DocumentChunk)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[uint64]*Document)
@@ -464,6 +536,9 @@ func (_q *DocumentQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != document.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withDataset != nil {
+			_spec.Node.AddColumnOnce(document.FieldDatasetID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

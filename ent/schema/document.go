@@ -38,16 +38,11 @@ func (Document) Fields() []ent.Field {
 // Edges of the Document.
 func (Document) Edges() []ent.Edge {
 	return []ent.Edge{
-		//edge.From("dataset", Dataset.Type).
-		//	Ref("documents").
-		//	Field("dataset_id").
-		//	Unique().
-		//	Required(),
-		//
-		//edge.From("folder", KnowledgeFolder.Type).
-		//	Ref("documents").
-		//	Field("folder_id").
-		//	Unique(),
+		edge.From("dataset", Dataset.Type).
+			Ref("documents").
+			Field("dataset_id").
+			Unique().
+			Required(),
 
 		edge.To("chunks", DocumentChunk.Type),
 	}

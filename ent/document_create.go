@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
 	"errors"
@@ -137,6 +138,11 @@ func (_c *DocumentCreate) SetNillableUpdatedAt(v *time.Time) *DocumentCreate {
 	return _c
 }
 
+// SetDataset sets the "dataset" edge to the Dataset entity.
+func (_c *DocumentCreate) SetDataset(v *Dataset) *DocumentCreate {
+	return _c.SetDatasetID(v.ID)
+}
+
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by IDs.
 func (_c *DocumentCreate) AddChunkIDs(ids ...uint64) *DocumentCreate {
 	_c.mutation.AddChunkIDs(ids...)
@@ -249,6 +255,9 @@ func (_c *DocumentCreate) check() error {
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Document.updated_at"`)}
 	}
+	if len(_c.mutation.DatasetIDs()) == 0 {
+		return &ValidationError{Name: "dataset", err: errors.New(`ent: missing required edge "Document.dataset"`)}
+	}
 	return nil
 }
 
@@ -299,10 +308,6 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
 	}
-	if value, ok := _c.mutation.DatasetID(); ok {
-		_spec.SetField(document.FieldDatasetID, field.TypeUint64, value)
-		_node.DatasetID = value
-	}
 	if value, ok := _c.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)
 		_node.FolderID = &value
@@ -314,6 +319,23 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(document.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := _c.mutation.DatasetIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   document.DatasetTable,
+			Columns: []string{document.DatasetColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.DatasetID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ChunksIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

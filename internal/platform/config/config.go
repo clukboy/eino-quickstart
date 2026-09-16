@@ -29,7 +29,11 @@ type Config struct {
 	Maintenance MaintenanceConfig `yaml:"maintenance"`
 	Retrieval   RetrievalConfig   `yaml:"retrieval"`
 	Indexer     IndexerConfig     `yaml:"indexer"`
-	QueueConfig QueueConfig       `yaml:"queue"`
+
+	// Asynq 是文档索引的异步队列。它取代了早期的 queue 段：那时 AsynqConf
+	// 只有连接参数，而队列名、重试上限、关闭超时都散在别处，两套配置只有
+	// 一套在生效。现在连接参数与队列语义收在同一个段里，见 validateAsynq。
+	Asynq AsynqConfig `yaml:"asynq"`
 }
 
 type ServerConfig struct {
@@ -182,14 +186,14 @@ type RetrievalConfig struct {
 	MaxRerankCandidates int  `yaml:"maxRerankCandidates"`
 }
 
-// IndexerConfig 控制进程内的文档索引 worker。
+// IndexerConfig 控制文档索引的切块与 embedding 批大小。
 //
-// 这里只剩两件事：要不要在本进程跑 worker，以及一次 embedding 送多少段文本。
-// 轮询周期、租约和重试计数都不再属于它 —— 索引改由 asynq 队列驱动，那三件事
-// 由队列自己负责（见 AsynqConfig）。
+// 这里只剩 batchSize 一个旋钮。原先还有个 enabled 开关（控制「本进程要不要起索引
+// worker」），HTTP 与 worker 拆成两个进程后它就失去了含义 —— 是不是索引进程由「跑
+// 的是哪个二进制」决定，不再由配置决定。worker 侧的启停开关统一由 AsynqConfig
+// 的 enabled 表达。
 type IndexerConfig struct {
-	Enabled   bool `yaml:"enabled"`
-	BatchSize int  `yaml:"batchSize"`
+	BatchSize int `yaml:"batchSize"`
 }
 
 // AsynqConfig 是文档索引用的异步队列。
@@ -230,21 +234,12 @@ type AsynqQueueConfig struct {
 	Name   string `yaml:"name"`
 	Weight int    `yaml:"weight"`
 }
+
 type ESConfig struct {
 	Address    []string `yaml:"address"`
 	CaCertPath string   `yaml:"caCertPath"`
 	Username   string   `yaml:"username"`
 	Password   string   `yaml:"password"`
-}
-
-type QueueConfig struct {
-	Enable       bool   `yaml:"enable"`
-	Addr         string `yaml:"addr"`
-	Username     string `yaml:"username"`
-	Pass         string `yaml:"pass"`
-	DB           int    `yaml:"db"`
-	Concurrency  int    `yaml:"concurrency"`
-	SyncInterval int    `yaml:"syncInterval"`
 }
 
 func Load(path string) (*Config, error) {
@@ -278,6 +273,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Storage.PasswordEnv != "" {
 		cfg.Storage.Password = os.Getenv(cfg.Storage.PasswordEnv)
+	}
+	if cfg.Asynq.Redis.PasswordEnv != "" {
+		cfg.Asynq.Redis.Password = os.Getenv(cfg.Asynq.Redis.PasswordEnv)
 	}
 
 	if !filepath.IsAbs(cfg.Workspace.Root) {
@@ -607,6 +605,12 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf(
 			"indexer.batchSize must be greater than zero",
 		)
+	}
+
+	if cfg.Asynq.Enabled {
+		if err := validateAsynq(cfg.Asynq); err != nil {
+			return nil, err
+		}
 	}
 
 	return &cfg, nil

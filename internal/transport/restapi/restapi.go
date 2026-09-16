@@ -9,12 +9,13 @@ import (
 
 	"eino-quickstart/ent"
 	"eino-quickstart/internal/application/agent"
+	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/platform/auth"
+	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/approval"
 	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
-	"eino-quickstart/internal/platform/queue"
 	"eino-quickstart/internal/transport/restapi/internal/config"
 	"eino-quickstart/internal/transport/restapi/internal/handler"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
@@ -40,6 +41,7 @@ type Options struct {
 	ConfigFile string
 
 	Agent     *agent.Harness
+	Knowledge *knowledge.Service
 	Sessions  *session.Store
 	Approvals *approval.Store
 	Runs      *run.Store
@@ -47,7 +49,6 @@ type Options struct {
 	Auth      *auth.Authenticator
 	Logger    *slog.Logger
 	EntClient *ent.Client
-	Queue     queue.Producer
 }
 
 func New(opts Options) (*Server, error) {
@@ -58,6 +59,7 @@ func New(opts Options) (*Server, error) {
 
 	deps := svc.Deps{
 		Agent:     opts.Agent,
+		Knowledge: opts.Knowledge,
 		Sessions:  opts.Sessions,
 		Approvals: opts.Approvals,
 		Runs:      opts.Runs,
@@ -65,11 +67,13 @@ func New(opts Options) (*Server, error) {
 		Auth:      opts.Auth,
 		Logger:    opts.Logger,
 		EntClient: opts.EntClient,
-		Queue:     opts.Queue,
 	}
 
 	if deps.Agent == nil {
 		return nil, errors.New("restapi: agent harness is required")
+	}
+	if deps.Knowledge == nil {
+		return nil, errors.New("restapi: knowledge service is required")
 	}
 	if deps.Sessions == nil {
 		return nil, errors.New("restapi: session store is required")
@@ -161,7 +165,7 @@ func (s *Server) Start() {
 			slog.String("error", err.Error()))
 		return
 	}
-	BridgeLogx(s.Logger)
+	observability.BridgeLogx(s.Logger)
 
 	server, err := s.Engine()
 	if err != nil {
@@ -181,11 +185,4 @@ func (s *Server) Stop() {
 		return
 	}
 	<-stopped
-}
-
-func BridgeLogx(logger *slog.Logger) {
-	if logger == nil {
-		return
-	}
-	installLogxWriter(logger)
 }

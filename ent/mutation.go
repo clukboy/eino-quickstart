@@ -6096,28 +6096,28 @@ func (m *DatasetMutation) ResetEdge(name string) error {
 // DocumentMutation represents an operation that mutates the Document nodes in the graph.
 type DocumentMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uint64
-	source        *string
-	title         *string
-	metadata      *map[string]interface{}
-	owner_subject *string
-	visibility    *document.Visibility
-	status        *document.Status
-	dataset_id    *uint64
-	adddataset_id *int64
-	folder_id     *uint64
-	addfolder_id  *int64
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	chunks        map[uint64]struct{}
-	removedchunks map[uint64]struct{}
-	clearedchunks bool
-	done          bool
-	oldValue      func(context.Context) (*Document, error)
-	predicates    []predicate.Document
+	op             Op
+	typ            string
+	id             *uint64
+	source         *string
+	title          *string
+	metadata       *map[string]interface{}
+	owner_subject  *string
+	visibility     *document.Visibility
+	status         *document.Status
+	folder_id      *uint64
+	addfolder_id   *int64
+	created_at     *time.Time
+	updated_at     *time.Time
+	clearedFields  map[string]struct{}
+	dataset        *uint64
+	cleareddataset bool
+	chunks         map[uint64]struct{}
+	removedchunks  map[uint64]struct{}
+	clearedchunks  bool
+	done           bool
+	oldValue       func(context.Context) (*Document, error)
+	predicates     []predicate.Document
 }
 
 var _ ent.Mutation = (*DocumentMutation)(nil)
@@ -6449,13 +6449,12 @@ func (m *DocumentMutation) ResetStatus() {
 
 // SetDatasetID sets the "dataset_id" field.
 func (m *DocumentMutation) SetDatasetID(u uint64) {
-	m.dataset_id = &u
-	m.adddataset_id = nil
+	m.dataset = &u
 }
 
 // DatasetID returns the value of the "dataset_id" field in the mutation.
 func (m *DocumentMutation) DatasetID() (r uint64, exists bool) {
-	v := m.dataset_id
+	v := m.dataset
 	if v == nil {
 		return
 	}
@@ -6479,28 +6478,9 @@ func (m *DocumentMutation) OldDatasetID(ctx context.Context) (v uint64, err erro
 	return oldValue.DatasetID, nil
 }
 
-// AddDatasetID adds u to the "dataset_id" field.
-func (m *DocumentMutation) AddDatasetID(u int64) {
-	if m.adddataset_id != nil {
-		*m.adddataset_id += u
-	} else {
-		m.adddataset_id = &u
-	}
-}
-
-// AddedDatasetID returns the value that was added to the "dataset_id" field in this mutation.
-func (m *DocumentMutation) AddedDatasetID() (r int64, exists bool) {
-	v := m.adddataset_id
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
 // ResetDatasetID resets all changes to the "dataset_id" field.
 func (m *DocumentMutation) ResetDatasetID() {
-	m.dataset_id = nil
-	m.adddataset_id = nil
+	m.dataset = nil
 }
 
 // SetFolderID sets the "folder_id" field.
@@ -6645,6 +6625,33 @@ func (m *DocumentMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// ClearDataset clears the "dataset" edge to the Dataset entity.
+func (m *DocumentMutation) ClearDataset() {
+	m.cleareddataset = true
+	m.clearedFields[document.FieldDatasetID] = struct{}{}
+}
+
+// DatasetCleared reports if the "dataset" edge to the Dataset entity was cleared.
+func (m *DocumentMutation) DatasetCleared() bool {
+	return m.cleareddataset
+}
+
+// DatasetIDs returns the "dataset" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// DatasetID instead. It exists only for internal usage by the builders.
+func (m *DocumentMutation) DatasetIDs() (ids []uint64) {
+	if id := m.dataset; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetDataset resets all changes to the "dataset" edge.
+func (m *DocumentMutation) ResetDataset() {
+	m.dataset = nil
+	m.cleareddataset = false
+}
+
 // AddChunkIDs adds the "chunks" edge to the DocumentChunk entity by ids.
 func (m *DocumentMutation) AddChunkIDs(ids ...uint64) {
 	if m.chunks == nil {
@@ -6752,7 +6759,7 @@ func (m *DocumentMutation) Fields() []string {
 	if m.status != nil {
 		fields = append(fields, document.FieldStatus)
 	}
-	if m.dataset_id != nil {
+	if m.dataset != nil {
 		fields = append(fields, document.FieldDatasetID)
 	}
 	if m.folder_id != nil {
@@ -6908,9 +6915,6 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *DocumentMutation) AddedFields() []string {
 	var fields []string
-	if m.adddataset_id != nil {
-		fields = append(fields, document.FieldDatasetID)
-	}
 	if m.addfolder_id != nil {
 		fields = append(fields, document.FieldFolderID)
 	}
@@ -6922,8 +6926,6 @@ func (m *DocumentMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DocumentMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
-	case document.FieldDatasetID:
-		return m.AddedDatasetID()
 	case document.FieldFolderID:
 		return m.AddedFolderID()
 	}
@@ -6935,13 +6937,6 @@ func (m *DocumentMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DocumentMutation) AddField(name string, value ent.Value) error {
 	switch name {
-	case document.FieldDatasetID:
-		v, ok := value.(int64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddDatasetID(v)
-		return nil
 	case document.FieldFolderID:
 		v, ok := value.(int64)
 		if !ok {
@@ -7027,7 +7022,10 @@ func (m *DocumentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *DocumentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.dataset != nil {
+		edges = append(edges, document.EdgeDataset)
+	}
 	if m.chunks != nil {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -7038,6 +7036,10 @@ func (m *DocumentMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *DocumentMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case document.EdgeDataset:
+		if id := m.dataset; id != nil {
+			return []ent.Value{*id}
+		}
 	case document.EdgeChunks:
 		ids := make([]ent.Value, 0, len(m.chunks))
 		for id := range m.chunks {
@@ -7050,7 +7052,7 @@ func (m *DocumentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *DocumentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.removedchunks != nil {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -7073,7 +7075,10 @@ func (m *DocumentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *DocumentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.cleareddataset {
+		edges = append(edges, document.EdgeDataset)
+	}
 	if m.clearedchunks {
 		edges = append(edges, document.EdgeChunks)
 	}
@@ -7084,6 +7089,8 @@ func (m *DocumentMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *DocumentMutation) EdgeCleared(name string) bool {
 	switch name {
+	case document.EdgeDataset:
+		return m.cleareddataset
 	case document.EdgeChunks:
 		return m.clearedchunks
 	}
@@ -7094,6 +7101,9 @@ func (m *DocumentMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *DocumentMutation) ClearEdge(name string) error {
 	switch name {
+	case document.EdgeDataset:
+		m.ClearDataset()
+		return nil
 	}
 	return fmt.Errorf("unknown Document unique edge %s", name)
 }
@@ -7102,6 +7112,9 @@ func (m *DocumentMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *DocumentMutation) ResetEdge(name string) error {
 	switch name {
+	case document.EdgeDataset:
+		m.ResetDataset()
+		return nil
 	case document.EdgeChunks:
 		m.ResetChunks()
 		return nil
