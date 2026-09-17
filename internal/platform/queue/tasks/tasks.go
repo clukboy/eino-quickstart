@@ -30,6 +30,27 @@ const (
 	QueueIndex = "index"
 )
 
+// IndexMode 说明这次索引是「补齐」还是「重建」。
+//
+// 用字符串而不是布尔：payload 在 Redis 里可读，将来要加第三种模式（比如
+// 「只重建向量」）也不必再改字段形状。零值等价于 IndexModeCatchUp，所以旧
+// payload 不需要迁移 —— 本包开头那条「两侧要按能容忍旧 payload 的顺序发布」
+// 就是靠这个零值约定兑现的。
+type IndexMode string
+
+const (
+	// IndexModeCatchUp 只补还欠着的分块：内容指纹一致就复用已有分块行。
+	// 常规写入（创建文档、改正文）走这条。
+	IndexModeCatchUp IndexMode = ""
+
+	// IndexModeRebuild 忽略内容指纹，按当前解析器与切块配置重新切块。
+	//
+	// 显式 reindex 走这条，因为 reindex 的用途就是「按当前配置重来」：解析器
+	// 或切块参数变了的时候正文**没有变**，只看指纹会把这种修复挡在门外 ——
+	// 结果是分块行里的元数据永远停在旧形态，而重新索引看起来"成功"了。
+	IndexModeRebuild IndexMode = "rebuild"
+)
+
 // KnowledgeIndexPayload 是 TypeKnowledgeIndex 的载荷。
 //
 // 用字符串而不是数值，是为了让 payload 在 Redis 里可读、也能容忍将来的
@@ -37,6 +58,10 @@ const (
 type KnowledgeIndexPayload struct {
 	DatasetID  string `json:"dataset_id"`
 	DocumentID string `json:"document_id"`
+
+	// Mode 留空即 IndexModeCatchUp。omitempty 让常规写入的 payload 与旧版本
+	// 完全一致，回滚到旧 worker 也不会因为多出来的字段而解析失败。
+	Mode IndexMode `json:"mode,omitempty"`
 }
 
 // 默认的投递参数。调用方没有显式覆盖时用这些值。

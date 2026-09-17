@@ -1,4 +1,4 @@
-```yaml
+---
 product_id: "H105P"
 model: "H105P"
 family_prefix: "H105"
@@ -19,7 +19,7 @@ specs_from_doc:
   door_thickness_max_mm: 28
 variants: []
 source_doc: "图特知识库模版铰链-新(1)(1).docx"
-```
+---
 
 ## H105P 二段力小角度偏心轮快装缓冲铰链
 
@@ -52,7 +52,8 @@ H105P 是图特旗下的一款二段力小角度偏心轮快装缓冲铰链，�
 
 ## H105P 产品盖位值计算表
 
-```yaml
+---
+
 product_id: "H105G"
 model: "H105G"
 family_prefix: "H105"
@@ -61,19 +62,20 @@ product_name: "二段力小角度固装缓冲铰链"
 category_l1: "铰链"
 category_l2: "缓冲铰链"
 specs_from_doc:
-  mechanics_type: "二段力"
-  install_type: "固装"
-  adjust_type: "锁尾螺丝"
-  door_material: "木门"
-  base_material: "冷轧钢"
-  surface_finish: "镀钛镍"
-  open_angle_deg: 100
-  cup_diameter_mm: 35
-  door_thickness_min_mm: 15
-  door_thickness_max_mm: 28
+mechanics_type: "二段力"
+install_type: "固装"
+adjust_type: "锁尾螺丝"
+door_material: "木门"
+base_material: "冷轧钢"
+surface_finish: "镀钛镍"
+open_angle_deg: 100
+cup_diameter_mm: 35
+door_thickness_min_mm: 15
+door_thickness_max_mm: 28
 variants: []
 source_doc: "图特知识库模版铰链-新(1)(1).docx"
-```
+
+---
 
 ## H105G 二段力小角度固装缓冲铰链
 
@@ -105,7 +107,8 @@ H105G是图特“图冠”系列的一款二段力小角度固装缓冲铰链，
 
 ## H105G 产品盖位值计算表
 
-```yaml
+---
+
 product_id: "H105S"
 model: "H105S"
 family_prefix: "H105"
@@ -114,19 +117,20 @@ product_name: "二段力小角度快装缓冲铰链"
 category_l1: "铰链"
 category_l2: "缓冲铰链"
 specs_from_doc:
-  mechanics_type: "二段力"
-  install_type: "快装"
-  adjust_type: "锁尾螺丝"
-  door_material: "木门"
-  base_material: "冷轧钢"
-  surface_finish: "镀钛镍"
-  open_angle_deg: 100
-  cup_diameter_mm: 35
-  door_thickness_min_mm: 15
-  door_thickness_max_mm: 28
+mechanics_type: "二段力"
+install_type: "快装"
+adjust_type: "锁尾螺丝"
+door_material: "木门"
+base_material: "冷轧钢"
+surface_finish: "镀钛镍"
+open_angle_deg: 100
+cup_diameter_mm: 35
+door_thickness_min_mm: 15
+door_thickness_max_mm: 28
 variants: []
 source_doc: "图特知识库模版铰链-新(1)(1).docx"
-```
+
+---
 
 ## H105S 二段力小角度快装缓冲铰链
 

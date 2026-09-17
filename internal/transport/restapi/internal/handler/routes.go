@@ -150,6 +150,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/dataset/:id/reindex",
 					Handler: dataset.ReindexDatasetHandler(serverCtx),
 				},
+				{
+					// 数据召回
+					Method:  http.MethodPost,
+					Path:    "/dataset/:id/search",
+					Handler: dataset.SearchDatasetHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1"),

@@ -13,6 +13,7 @@ import (
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/internal/platform/observability"
+	"eino-quickstart/internal/platform/queue/tasks"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
@@ -29,8 +30,12 @@ import (
 // 之所以要在用例层定义而不是在传输层：投递是写文档这件事的一部分 ——
 // 事务提交后必须投出去，投不出去整个写入就不算成功。把端口放在这里，
 // transport 只表达「重建这篇文档的索引」，不感知队列存在。
+//
+// mode 用 tasks.IndexMode 而不是自定义类型：适配器刻意不 import 应用层
+// （靠隐式接口满足依赖倒置），所以跨这条边界的类型必须来自双方都认识的
+// 契约包。
 type IndexTaskQueue interface {
-	EnqueueIndex(ctx context.Context, datasetID, documentID uint64) error
+	EnqueueIndex(ctx context.Context, datasetID, documentID uint64, mode tasks.IndexMode) error
 }
 
 // VectorIndex 是向量库在应用层这边的视图。
@@ -213,7 +218,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (_ *ent.Document, 
 		return nil, fmt.Errorf("knowledge: create document: %w", err)
 	}
 
-	if err := s.enqueue(ctx, created, in.DatasetID); err != nil {
+	if err := s.enqueue(ctx, created, in.DatasetID, tasks.IndexModeCatchUp); err != nil {
 		return nil, err
 	}
 	span.SetAttributes(
@@ -291,7 +296,7 @@ func (s *Service) Update(ctx context.Context, in UpdateInput) (_ *ent.Document, 
 	}
 
 	if reindex {
-		if err := s.enqueue(ctx, saved, in.DatasetID); err != nil {
+		if err := s.enqueue(ctx, saved, in.DatasetID, tasks.IndexModeCatchUp); err != nil {
 			return nil, err
 		}
 	}
@@ -331,7 +336,7 @@ func (s *Service) Reindex(ctx context.Context, datasetID, documentID uint64) (_ 
 		return nil, fmt.Errorf("knowledge: reindex document: %w", err)
 	}
 
-	if err := s.enqueue(ctx, saved, datasetID); err != nil {
+	if err := s.enqueue(ctx, saved, datasetID, tasks.IndexModeRebuild); err != nil {
 		return nil, err
 	}
 	return saved, nil
@@ -391,7 +396,7 @@ func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (_ *Rein
 			}
 			return nil, fmt.Errorf("knowledge: reindex dataset: %w", err)
 		}
-		if err := s.enqueue(ctx, saved, datasetID); err != nil {
+		if err := s.enqueue(ctx, saved, datasetID, tasks.IndexModeRebuild); err != nil {
 			// enqueue 内部已经把文档标成 failed，这里只计数不中断整批。
 			observability.LogWithTrace(ctx, s.logger).Warn("reindex dataset: enqueue failed",
 				slog.Uint64("dataset_id", datasetID),
@@ -547,8 +552,11 @@ func (s *Service) countChunks(
 // 失败时把文档标成 failed 再返回错误，而不是回滚删除：正文文件可能本来就在
 // 托管目录里（更新场景），删掉等于替调用方决定文件去留。标 failed 是更保守
 // 的选择 —— 文档在列表里可见、状态诚实，客户端拿到 5xx，之后可以显式 reindex。
-func (s *Service) enqueue(ctx context.Context, doc *ent.Document, datasetID uint64) error {
-	if err := s.queue.EnqueueIndex(ctx, datasetID, doc.ID); err != nil {
+//
+// mode 由调用方决定：写入路径传 tasks.IndexModeCatchUp（内容变了自然会重切），
+// 显式 reindex 传 tasks.IndexModeRebuild（正文没变也要按当前配置重切）。
+func (s *Service) enqueue(ctx context.Context, doc *ent.Document, datasetID uint64, mode tasks.IndexMode) error {
+	if err := s.queue.EnqueueIndex(ctx, datasetID, doc.ID, mode); err != nil {
 		observability.LogWithTrace(ctx, s.logger).Error("knowledge: enqueue index task failed",
 			slog.Uint64("dataset_id", datasetID),
 			slog.Uint64("document_id", doc.ID),

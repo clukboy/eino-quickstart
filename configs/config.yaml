@@ -132,7 +132,11 @@ embedding:
   apiKeyEnv: "EINO_EMBEDDING_API_KEY"
   model: "qwen3.7-text-embedding"
   dimensions: 1024
-  batchSize: 32
+  # 单次 embedding 请求最多带几段文本 —— 服务方的硬上限，不是调优项。
+  # 超了会回 400「batch size is invalid, it should not be larger than 10」，
+  # 而那一刻向量还没写、检索索引也还没写，整篇文档会什么都索引不上。
+  # DashScope：text-embedding-v3/v4 上限 10，qwen3.7-text-embedding 上限 20。
+  batchSize: 10
 
 milvus:
   address: "10.10.2.90:19530"
@@ -173,6 +177,9 @@ retrieval:
   maxRerankCandidates: 20
 
 indexer:
+  # 一轮从 document_chunks 里取多少 pending 分块做 embedding + 写库。
+  # 只影响批处理粒度，不是单次 embedding 请求的大小 —— 后者由
+  # embedding.batchSize 决定，Embedder 会把请求切到那个上限以内。
   batchSize: 32
 
 asynq:

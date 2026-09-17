@@ -31,13 +31,13 @@ func (dp ProductParser) Parse(ctx context.Context, reader io.Reader, opts ...par
 	opt := parser.GetCommonOptions(&parser.Options{}, opts...)
 
 	for _, content := range products {
-		rest := content[3:]
-		endIdx := strings.Index(rest, "\n---")
+		rest := content[7:]
+		endIdx := strings.Index(rest, "\n```")
 		if endIdx == -1 {
 			// 兼容 --- 后面没有换行的极端情况
-			endIdx = strings.Index(rest, "---")
+			endIdx = strings.Index(rest, "```")
 			if endIdx == -1 {
-				return nil, fmt.Errorf("missing closing front matter delimiter '---'")
+				return nil, fmt.Errorf("missing closing front matter delimiter '```'")
 			}
 		}
 
@@ -45,7 +45,7 @@ func (dp ProductParser) Parse(ctx context.Context, reader io.Reader, opts ...par
 		yamlStr := strings.TrimSpace(rest[:endIdx])
 
 		// 5. 提取 Markdown 部分
-		//    跳过 "\n---" (4字节) 或 "---" (3字节)
+		//    跳过 "\n```yaml" (4字节) 或 "```" (3字节)
 		mdStart := endIdx + 4
 		if mdStart > len(rest) {
 			mdStart = endIdx + 3
@@ -67,7 +67,7 @@ func (dp ProductParser) Parse(ctx context.Context, reader io.Reader, opts ...par
 			MetaData: meta,
 		})
 
-		// 每个文档都写入到 postgresql存储
+		
 	}
 
 	return docs, nil
@@ -111,29 +111,24 @@ func splitProducts(content string) []string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		if trimmed == "---" {
+		if trimmed == "```yaml" {
 			delimiterCount++
 
-			// 奇数次 ---：新产品块的开始
-			if delimiterCount%2 != 0 {
-				// 如果之前已经在收集，说明上一个产品块结束了
-				if inBlock && current.Len() > 0 {
-					results = append(results, strings.TrimSpace(current.String()))
-					current.Reset()
-				}
-				inBlock = true
-				current.WriteString(line + "\n")
-				continue
+			// 如果之前已经在收集，说明上一个产品块结束了
+			if inBlock && current.Len() > 0 {
+				results = append(results, strings.TrimSpace(current.String()))
+				current.Reset()
 			}
-
-			// 偶数次 ---：YAML 结束，Markdown 开始，继续收集
-			current.WriteString(line + "\n")
+			inBlock = true
+			current.WriteString(line)
+			current.WriteString("\n")
 			continue
 		}
 
 		// 只在产品块内收集内容
 		if inBlock {
-			current.WriteString(line + "\n")
+			current.WriteString(line)
+			current.WriteString("\n")
 		}
 	}
 

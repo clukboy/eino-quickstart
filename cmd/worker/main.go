@@ -191,7 +191,9 @@ func runWorker() error {
 		// esClient 为 nil（没配）时 Writer() 返回真正的 nil 接口值，
 		// Indexer 据此走「不写关键词索引」的分支。
 		Keyword: esClient.Writer(),
-		// 一次送多少段文本去 embedding，和 indexer.batchSize 是同一个旋钮。
+		// 一轮从 document_chunks 里取多少 pending 分块。只影响批处理粒度，
+		// 不影响单次 embedding 请求的大小 —— 后者由 embedding.batchSize 决定，
+		// Embedder 会自己把请求切到那个上限以内。
 		BatchSize: cfg.Indexer.BatchSize,
 		Logger:    logger,
 	})
@@ -292,7 +294,7 @@ func newEmbedder(ctx context.Context, cfg *config.Config) (*rag.Embedder, error)
 		BaseURL:    cfg.Embedding.BaseURL,
 		Model:      cfg.Embedding.Model,
 		Dimensions: &cfg.Embedding.Dimensions,
-	})
+	}, rag.WithMaxTextsPerRequest(cfg.Embedding.BatchSize))
 	if err != nil {
 		return nil, fmt.Errorf("init embedder: %w", err)
 	}

@@ -126,17 +126,21 @@ func (i *Indexer) HandleTask(ctx context.Context, payload []byte) error {
 		// payload 坏了，重放多少次都一样：让它失败进归档，而不是无限重试。
 		return fmt.Errorf("knowledge: invalid document id %q in payload: %w", p.DocumentID, err)
 	}
-	return i.IndexDocument(ctx, documentID)
+	return i.IndexDocument(ctx, documentID, p.Mode)
 }
 
 // IndexDocument 让一篇文档的索引追上它的内容。可重放：重复执行只会空转，
 // 不会重复写向量。
 //
+// mode 决定要不要相信内容指纹：CatchUp（零值）在指纹一致时复用已有分块行；
+// Rebuild 一律重新切块，用于显式 reindex —— 解析器或切块配置变了的时候正文
+// 是没变的，只看指纹会把这种修复挡在门外，索引里的元数据就永远停在旧形态。
+//
 // 这是 worker 侧的主 span，也是「HTTP 那条链路」与「向量库那条链路」的接点：
 // 它的父 span 是队列投递 span（跨进程传过来的 traceparent），子 span 是读入、
 // 切块与每个 embedding 批次。埋点只给 err 起名字，任何 `return ..., err` 都会被
 // defer 记进 span。
-func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) (err error) {
+func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tasks.IndexMode) (err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.index_document",
 		oteltrace.WithAttributes(
 			attribute.Int64("knowledge.document_id", int64(documentID)),
@@ -375,13 +379,68 @@ func buildChunks(doc *ent.Document, parsed []*schema.Document) []pendingChunk {
 
 		out = append(out, pendingChunk{
 			index:       index,
-			content:     chunk.Content,
-			headingPath: rag.MetaString(chunk, constant.MetaHeadingPath),
-			metadata:    metadata,
+			content:     sanitizeText(chunk.Content),
+			headingPath: sanitizeText(rag.MetaString(chunk, constant.MetaHeadingPath)),
+			metadata:    sanitizeMetadata(metadata),
 		})
 		index++
 	}
 	return out
+}
+
+// sanitizeText 去掉 PostgreSQL 的文本类型存不下的字符。
+//
+// 0x00（NUL）在 Postgres 的 text / varchar 与 jsonb 字符串里都是非法的，
+// 插进去会让**整批**插入失败：
+//
+//	pq: invalid byte sequence for encoding "UTF8": 0x00 (22021)
+//
+// 一份带 NUL 的正文（PDF 转换产物、混了二进制片段的 Markdown 里都很常见）会让
+// 这篇文档永远索引不上，而报错来自数据库层，很难联想到「文件内容有问题」。
+// 它同时卡在整批上：同一个 bulk insert 里其它正常的分块一起失败。
+//
+// 直接删掉而不是替换成空格：NUL 本来就是不可见的分隔残留，换个空格只会让分词
+// 多出一个空词元，没有意义。
+func sanitizeText(value string) string {
+	if !strings.ContainsRune(value, 0) {
+		return value
+	}
+	return strings.ReplaceAll(value, "\x00", "")
+}
+
+// sanitizeMetadata 递归清掉元数据里字符串值中的 NUL。
+//
+// 必须递归：装文本的是 specs_from_doc 这类嵌套 map 和 variants 这类数组，只处理
+// 顶层会漏掉它们，而 jsonb 同样拒绝 NUL。
+//
+// 就地改而不是复制：调用方传进来的是本层的临时 map（分块自己的那份由 chunker
+// 浅拷贝而来），清洗是幂等的，重复执行结果一致。
+func sanitizeMetadata(metadata map[string]any) map[string]any {
+	for key, value := range metadata {
+		metadata[key] = sanitizeValue(value)
+	}
+	return metadata
+}
+
+func sanitizeValue(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return sanitizeText(typed)
+	case map[string]any:
+		return sanitizeMetadata(typed)
+	case []any:
+		for i, item := range typed {
+			typed[i] = sanitizeValue(item)
+		}
+		return typed
+	case []string:
+		for i, item := range typed {
+			typed[i] = sanitizeText(item)
+		}
+		return typed
+	default:
+		return value
+	}
 }
 
 // embedPending 反复取还 pending 的分块做 embedding，直到没有为止。
@@ -489,7 +548,44 @@ func (i *Indexer) indexChunks(ctx context.Context, doc *ent.Document, chunks []*
 	if i.keywords == nil {
 		return nil
 	}
-	return i.keywords.IndexChunks(ctx, buildChunkDocs(doc, chunks))
+	docs := buildChunkDocs(doc, chunks)
+	i.warnIfNoSearchableMetadata(ctx, doc, docs)
+	return i.keywords.IndexChunks(ctx, docs)
+}
+
+// warnIfNoSearchableMetadata 在一批分块全都没有业务元数据时告警。
+//
+// 这是「ES 里只有基础字段」这个症状唯一直接的证据：索引里的业务字段全部由映射
+// 从元数据取值（见 es.Mapping.Extract），元数据为空就意味着 model / series_name /
+// specs_from_doc 一个都不会出现 —— 而写入本身是成功的，没有任何报错。
+//
+// 两个常见来源，告警里都能一眼区分：
+//   - 数据集 type 没对上解析器注册名（只有一个 "product"），退化成 TextParser，
+//     正文里的产品块 YAML 头没人解析；
+//   - 正文里本来就没有产品块 YAML 头（普通 Markdown 文档走这条路是正常的）。
+func (i *Indexer) warnIfNoSearchableMetadata(ctx context.Context, doc *ent.Document, docs []es.ChunkDoc) {
+	for _, indexed := range docs {
+		if len(indexed.Metadata) > 0 {
+			return
+		}
+	}
+	if len(docs) == 0 {
+		return
+	}
+	datasetType := ""
+	if doc.Edges.Dataset != nil {
+		datasetType = doc.Edges.Dataset.Type
+	}
+	observability.LogWithTrace(ctx, i.logger).Warn(
+		"knowledge: 这批分块没有可检索的业务元数据，检索索引里只会有基础字段",
+		slog.Uint64("document_id", doc.ID),
+		slog.String("source", doc.Source),
+		slog.String("dataset_type", datasetType),
+		slog.Int("chunks", len(docs)),
+		slog.String("hint",
+			"数据集 type 要与解析器注册名一致（产品型录是 product）；"+
+				"普通 Markdown 没有产品块 YAML 头时出现这条属正常"),
+	)
 }
 
 // buildChunkDocs 把分块行整理成检索文档。

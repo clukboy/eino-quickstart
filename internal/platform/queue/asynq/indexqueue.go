@@ -43,9 +43,12 @@ func NewIndexQueue(producer queue.Producer, cfg IndexQueueConfig) *IndexQueue {
 
 // EnqueueIndex 投递一篇文档的索引任务。
 //
+// mode 区分「补齐」与「重建」：常规写入传 tasks.IndexModeCatchUp，显式 reindex
+// 传 tasks.IndexModeRebuild（否则正文没变时会跳过切块，修不回旧的元数据）。
+//
 // 返回值必须被调用方当作请求错误处理：投递失败意味着这篇文档的索引永远
 // 不会发生，静默返回成功会把文档永久留在 indexing 状态而没人知道。
-func (q *IndexQueue) EnqueueIndex(ctx context.Context, datasetID, documentID uint64) error {
+func (q *IndexQueue) EnqueueIndex(ctx context.Context, datasetID, documentID uint64, mode tasks.IndexMode) error {
 	if q == nil || q.producer == nil {
 		return errors.New("asynq: index queue is not configured")
 	}
@@ -62,5 +65,6 @@ func (q *IndexQueue) EnqueueIndex(ctx context.Context, datasetID, documentID uin
 	return tasks.EnqueueKnowledgeIndex(ctx, q.producer, tasks.KnowledgeIndexPayload{
 		DatasetID:  strconv.FormatUint(datasetID, 10),
 		DocumentID: strconv.FormatUint(documentID, 10),
+		Mode:       mode,
 	}, options...)
 }

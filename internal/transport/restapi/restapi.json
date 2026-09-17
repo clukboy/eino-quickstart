@@ -1132,6 +1132,88 @@
         }
       }
     },
+    "/api/v1/dataset/{id}/search": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "数据召回",
+        "operationId": "datasetSearchDataset",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "query"
+              ],
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "chunk_count": {
+                  "type": "integer"
+                },
+                "createdAt": {
+                  "type": "integer"
+                },
+                "dataset_id": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "indexed_chunk_count": {
+                  "type": "integer"
+                },
+                "owner_subject": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "integer"
+                },
+                "visibility": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions": {
       "post": {
         "produces": [
@@ -1211,7 +1293,7 @@
       }
     }
   },
-  "x-date": "2026-09-15 16:25:47",
+  "x-date": "2026-09-17 16:00:50",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

@@ -188,7 +188,19 @@ type EmbeddingConfig struct {
 	APIKeyEnv  string `yaml:"apiKeyEnv"`
 	Model      string `yaml:"model"`
 	Dimensions int    `yaml:"dimensions"`
-	BatchSize  int    `yaml:"batchSize"`
+
+	// BatchSize 是单次 embedding 请求最多带几段文本，由服务方（provider）的
+	// 上限决定，不是性能调优旋钮。
+	//
+	// 超过上限时服务方直接回 400（DashScope：batch size ... larger than 10），
+	// 而这发生在向量写入与检索索引写入**之前**，所以症状是「整篇文档什么都没
+	// 索引上」，与「检索质量差」完全不像。DashScope 的 text-embedding-v3/v4 上限
+	// 是 10，qwen3.7-text-embedding 是 20；保守取 10。
+	//
+	// 它与 indexer.batchSize 是两件事：后者是「一轮处理多少分块」，前者是
+	// 「一次请求能塞多少」。Embedder 会按本值自动切分请求，所以调大
+	// indexer.batchSize 不会踩到服务方上限。
+	BatchSize int `yaml:"batchSize"`
 }
 
 type MilvusConfig struct {

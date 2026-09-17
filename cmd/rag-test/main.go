@@ -205,7 +205,7 @@ func newSearchClients(ctx context.Context, entClient *ent.Client, cfg *config.Co
 		BaseURL:    cfg.Embedding.BaseURL,
 		Model:      cfg.Embedding.Model,
 		Dimensions: &cfg.Embedding.Dimensions,
-	})
+	}, rag.WithMaxTextsPerRequest(cfg.Embedding.BatchSize))
 	if err != nil {
 		return nil, fmt.Errorf("初始化 embedding 客户端: %w", err)
 	}

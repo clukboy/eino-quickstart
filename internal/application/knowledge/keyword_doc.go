@@ -16,13 +16,17 @@ import (
 
 // metadataExcluded 是不进检索索引的键。
 //
-// 排除的理由分两类：
+// 排除的理由分三类：
 //
 //   - 在索引里已经有专门字段（source / title / heading_path），再摊平一遍只会
 //     重复计分。
 //   - 属于链路自身的机制数据（doc_id 是内容 hash、content_hash、chunk_index、
 //     dataset_id）。它们要么是没有检索意义的随机串，要么是枚举值 —— 把
 //     visibility=system 索引进去，搜「system」就会命中全库文档。
+//   - 注入的溯源码（type、以及 loader 写的 _source / _extension / _file_name）。
+//     _source 的值就是文件名，已经有独立字段承载，重复进兜底字段只会让「按文件名
+//     搜」命中两次、并把它挤出 4096 字节的配额。这一类统一按下划线前缀拦，见
+//     isProvenanceKey —— 逐条登记的话，loader 哪天再加一个 _xxx 又会漏。
 //
 // 剔除发生在进入 es 包之前，所以映射文件里的 from 只能指向业务键；这一点在
 // es 包的 mapping.go 里有对应的说明。
@@ -40,6 +44,14 @@ var metadataExcluded = map[string]struct{}{
 	"type": {},
 }
 
+// isProvenanceKey 报告一个键是不是链路注入的溯源码。
+//
+// 约定：下划线开头的是 loader / parser 自己加的（_source / _extension /
+// _file_name），业务元数据不用这个前缀。按下划线整类拦，比逐条登记更耐改。
+func isProvenanceKey(key string) bool {
+	return strings.HasPrefix(key, "_")
+}
+
 // searchableMetadata 合并两层元数据并清洗。
 //
 // 传多层是因为元数据分两处：分块自己那份（产品型录、规格明细，由 parser 从
@@ -54,6 +66,9 @@ func searchableMetadata(layers ...map[string]any) map[string]any {
 	merged := make(map[string]any)
 	for _, metadata := range layers {
 		for key, value := range metadata {
+			if isProvenanceKey(key) {
+				continue
+			}
 			if _, skip := metadataExcluded[key]; skip {
 				continue
 			}

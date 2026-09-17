@@ -125,6 +125,11 @@ type DocumentUploadReq {
 	Visibility string `form:"visibility"`
 }
 
+type SearchDatasetReq {
+	DatasetID uint64 `path:"id"`
+	Query     string `json:"query"`
+}
+
 // 数据集管理全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
@@ -179,5 +184,9 @@ service restapi {
 	@doc "上传文档"
 	@handler UploadDocument
 	post /dataset/:id/documents/upload (DocumentUploadReq) returns (DocumentListResp)
+
+	@doc "数据召回"
+	@handler SearchDataset
+	post /dataset/:id/search (SearchDatasetReq) returns (DocumentResp)
 }
 

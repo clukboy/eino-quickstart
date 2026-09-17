@@ -123,6 +123,11 @@ type ReindexResp struct {
 	Failed    int    `json:"failed"`
 }
 
+type SearchDatasetReq struct {
+	DatasetID uint64 `path:"id"`
+	Query     string `json:"query"`
+}
+
 type StatusResp struct {
 	Status string `json:"status"`
 }

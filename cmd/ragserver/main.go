@@ -68,7 +68,7 @@ func main() {
 		BaseURL:    cfg.Embedding.BaseURL,
 		Model:      cfg.Embedding.Model,
 		Dimensions: &cfg.Embedding.Dimensions,
-	})
+	}, rag.WithMaxTextsPerRequest(cfg.Embedding.BatchSize))
 	if err != nil {
 		slog.Error("init embedder", "err", err)
 		os.Exit(1)
