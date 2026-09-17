@@ -23,48 +23,20 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-// IndexTaskQueue 是应用层定义的窄端口：它只说「把这篇文档排进索引队列」，
-// 队列名、payload 编码、重试次数都由适配器决定。Service 只依赖这个接口，
-// 因此 import 不到 asynq；换 MQ 时改的是适配器，不是用例。
-//
-// 之所以要在用例层定义而不是在传输层：投递是写文档这件事的一部分 ——
-// 事务提交后必须投出去，投不出去整个写入就不算成功。把端口放在这里，
-// transport 只表达「重建这篇文档的索引」，不感知队列存在。
-//
-// mode 用 tasks.IndexMode 而不是自定义类型：适配器刻意不 import 应用层
-// （靠隐式接口满足依赖倒置），所以跨这条边界的类型必须来自双方都认识的
-// 契约包。
 type IndexTaskQueue interface {
 	EnqueueIndex(ctx context.Context, datasetID, documentID uint64, mode tasks.IndexMode) error
 }
 
-// VectorIndex 是向量库在应用层这边的视图。
-//
-// 接口只暴露两个动作：写入（worker 索引用）和删除（删除文档时清理）。检索
-// 不走这里 —— 那是 rag.Retriever 的职责。
 type VectorIndex interface {
 	Upsert(ctx context.Context, chunkIDs []int64, vectors [][]float32) error
 	Delete(ctx context.Context, chunkIDs []int64) error
 }
 
-// KeywordIndex 是关键词检索索引（Elasticsearch / BM25）在应用层这边的视图。
-//
-// 和 VectorIndex 一样只暴露写入与清理：检索不走这里（那是 rag.Store 的职责），
-// 索引的形态与查询 DSL 也不该从用例层透出去。delete 按 document_id 而不是按
-// 分块 ID —— 重新切块时旧分块行先被删掉，那时已经拿不到它们的 ID 了。
-//
-// nil 表示 es.address 没配：此时分块不写索引，关键词通道回落到 PostgreSQL
-// 子串匹配，功能不缺，只是少了词频、IDF 与长度归一化。
 type KeywordIndex interface {
 	IndexChunks(ctx context.Context, docs []es.ChunkDoc) error
 	DeleteByDocument(ctx context.Context, documentID uint64) (int64, error)
 }
 
-// ChunkStat 是一篇文档的分块计数。
-//
-// ent 的 Document 上没有 chunk_count / indexed_chunk_count 字段，这两个数是从
-// document_chunks 实时聚合出来的：切块在 worker 内完成，请求返回时根本没有
-// 一个可以落库的准确值，与其维护一个会漂的冗余列，不如查的时候算。
 type ChunkStat struct {
 	Total   int
 	Indexed int
@@ -86,14 +58,7 @@ type Service struct {
 // 尽力而为的 —— 孤儿向量与孤儿文档取不回来（检索要回到 chunk 行做过滤），
 // 只是白占空间，靠后续全量重建收拾。所以外部存储没配或连不上都不该挡住
 // 「删文档」这件事本身。
-func NewService(
-	client *ent.Client,
-	content *rag.ContentStore,
-	queue IndexTaskQueue,
-	vectors VectorIndex,
-	keywords KeywordIndex,
-	logger *slog.Logger,
-) (*Service, error) {
+func NewService(client *ent.Client, content *rag.ContentStore, queue IndexTaskQueue, vectors VectorIndex, keywords KeywordIndex, logger *slog.Logger) (*Service, error) {
 	if client == nil {
 		return nil, errors.New("knowledge: ent client is required")
 	}
@@ -116,11 +81,6 @@ func NewService(
 	}, nil
 }
 
-// CreateInput 是新建文档的输入。
-//
-// Content 与 Source 二选一：
-//   - Content 非空 -> 正文写进托管目录（Source 若填写只能指向托管目录内的位置）
-//   - Content 为空 -> 注册 Source 指向的既有文件，Title 可省略（从文件名推断）
 type CreateInput struct {
 	DatasetID    uint64
 	Title        string
@@ -131,16 +91,6 @@ type CreateInput struct {
 	Metadata     map[string]string
 }
 
-// Create 落正文、建文档行、投递索引任务。
-//
-// 注意这里**不切块**：文件里到底有几个产品、每篇多长，要等 worker 内联的
-// parse 之后才知道，请求内算不出来。所以文档行建出来时计数是 0、状态是
-// indexing，客户端要轮询 GET 等它变 ready。
-//
-// 埋点只给 err 起名字、结果位留空。这样任何一处 `return ..., err` 都会被下面
-// 这个 defer 记进 span，不用在每个错误返回点手写一遍（手写一定会漏，而漏掉的
-// 往往就是最需要看见的那条路径）。反过来如果连结果也起名，函数体里原本的
-// `base, err := ...` 会因为「:= 左侧没有新变量」而编译不过。
 func (s *Service) Create(ctx context.Context, in CreateInput) (_ *ent.Document, err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.create_document",
 		oteltrace.WithAttributes(

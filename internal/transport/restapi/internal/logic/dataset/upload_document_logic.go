@@ -85,8 +85,6 @@ func (l *UploadDocumentLogic) UploadDocument(req *types.DocumentUploadReq) (resp
 			OwnerSubject: subject,
 		})
 		if err != nil {
-			// 中途失败就整批报错：此前建好的文档还在（状态诚实、可以 reindex），
-			// 但调用方必须知道这一批没全成功。
 			return nil, documentFail(err)
 		}
 		docs = append(docs, doc)
@@ -99,11 +97,6 @@ func (l *UploadDocumentLogic) UploadDocument(req *types.DocumentUploadReq) (resp
 	return &types.DocumentListResp{Data: list}, nil
 }
 
-// readUploadedFile 读一个上传文件的全部内容。
-//
-// 不落临时文件：正文马上要交给 ContentStore 写进它自己的托管目录，中间再落
-// 一次盘既多余、又多一份要清理的状态。大小上限由 ContentStore 的
-// maxDocumentBytes 把守，超限时 Create 会返回 ErrContentTooLarge。
 func readUploadedFile(header *multipart.FileHeader) (string, error) {
 	file, err := header.Open()
 	if err != nil {

@@ -28,7 +28,7 @@ func NewSearchDatasetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sea
 }
 
 func (l *SearchDatasetLogic) SearchDataset(req *types.SearchDatasetReq) (resp *types.DocumentResp, err error) {
-	// todo: add your logic here and delete this line
+	// l.svcCtx.Knowledge.List()
 
 	return
 }

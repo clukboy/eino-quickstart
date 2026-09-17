@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 )
 
@@ -78,15 +77,24 @@ func (s *ContentStore) Root() string {
 	return s.root
 }
 
-// Create 在托管目录下新建一个正文文件，返回可写入 documents.source 的相对路径。
-//
-// 文件名从标题派生，加上纳秒时间戳保证同一标题可以存在多个文档，且生成的
-// 文件名只含小写字母、数字和连字符，不受调用方输入影响。
+// Exists 报告 source 是否指向一个已存在的文件。
+func (s *ContentStore) Exists(source string) bool {
+	abs, err := s.resolve(source)
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
 func (s *ContentStore) Create(datasetID uint64, title, content string) (string, error) {
 	if err := s.checkSize(content); err != nil {
 		return "", err
 	}
-	name := slugify(title) + "-" + strconv.FormatInt(time.Now().UnixNano(), 36) + ".md"
+	name := slugify(title) + ".md"
 	// 存库统一用正斜杠，避免换操作系统后读不回来。
 	source := ManagedDir + "/" + strconv.FormatUint(datasetID, 10) + "/" + name
 
