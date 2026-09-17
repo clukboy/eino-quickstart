@@ -141,6 +141,19 @@ milvus:
   topKCandidate: 30
   searchTimeoutMS: 3000
 
+es:
+  address:
+    - https://10.4.99.100:30920
+  index: "eino_document_chunks_v1"
+  analyzer: "ik_max_word"
+  username: "elastic"
+  passwordEnv: "EINO_ES_PASSWORD"
+  caCertPath: "configs/http_ca.crt"
+  bulkSize: 500
+  # 检索面声明：字段、类型、权重、从元数据的哪个路径取值。
+  # 路径相对进程的工作目录（在仓库根启动时就是仓库根）。
+  mappingFile: "configs/es/chunk_mapping.yaml"
+
 maintenance:
   cleanupIntervalSeconds: 300
   approvalRetentionHours: 168
@@ -149,30 +162,19 @@ maintenance:
   cleanupBatchSize: 100
 
 retrieval:
-  # 产品检索：
-  # Exact > Keyword > Vector
   exactWeight: 3.0
   keywordWeight: 1.5
   vectorWeight: 1.0
-
   rrfSmoothing: 60
-
   exactCandidateLimit: 20
   keywordCandidateLimit: 30
   vectorCandidateLimit: 30
-
   enableRerank: false
   maxRerankCandidates: 20
 
-# 索引链路的切块/embedding 参数。这里没有 enabled 开关：是不是索引进程由「跑的是
-# cmd/worker 还是 cmd/restapi」决定，worker 侧的启停统一看下面的 asynq.enabled。
 indexer:
-  # 一次送多少段文本去 embedding（单请求条数有上限，分批是硬需求）。
   batchSize: 32
 
-# 文档索引的异步队列。HTTP 进程只投递，cmd/worker 只消费，两边连同一个 Redis。
-# enabled=false 时索引任务无处投递，写文档的请求会直接失败 —— 只在「明知索引
-# 链路整体停摆也要让 HTTP 起来」的排障场景下才关它。
 asynq:
   enabled: true
   redis:
@@ -180,18 +182,11 @@ asynq:
     username: ""
     passwordEnv: ""
     db: 0
-  # 队列名到权重的映射，权重越高被拉取得越频繁。索引任务走 index 队列，
-  # 与将来的短任务分开，避免长任务占满并发槽。
   queues:
     - name: "index"
       weight: 1
-  # 同时处理的任务数。索引任务大部分时间在等 embedding 的网络往返，
-  # 所以这个值可以远大于 CPU 核数。
   concurrency: 10
-  # 单个任务的重试次数上限，含首次共执行 maxRetries+1 次。
-  # 每次重跑只挑 pending 的分块，重试天然续跑。耗尽后剩余分块与文档标 failed。
   maxRetries: 5
   retryDelaySeconds: 30
   maxRetryDelaySeconds: 900
-  # 优雅关闭上限：已开始的任务最多再跑这么久，超时的退回队列由下个实例重新领取。
   shutdownTimeoutSeconds: 300

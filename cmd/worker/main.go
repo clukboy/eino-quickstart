@@ -1,20 +1,3 @@
-// Command worker runs the async task consumer as its own process.
-//
-// HTTP 与消费端拆分后，cmd/restapi 只负责接收请求并投递任务；本进程只负责
-// 消费。两个进程之间没有函数调用，连接方式是：
-//
-//	共享的 Redis 队列（asynq broker，configs/config.yaml 的 asynq 段）
-//	+ internal/platform/queue/tasks 里的任务契约（类型常量与 payload 结构）。
-//
-// 本进程装配的是「文档索引」这条链路的全部重活：读正文 → 按内容拆出产品块 →
-// 切块 → embedding → 写向量库。其中「读入 → 拆分 → 切块」这一段走
-// internal/rag 的 Pipeline（与 cmd/ragserver 共用同一份实现），落库与分块
-// 状态机留在 internal/application/knowledge。这些依赖（PostgreSQL、Milvus、
-// embedding 服务）都只在这里构造，HTTP 进程一个都不碰 —— 这正是当初把 worker
-// 拆出去的目的。
-//
-// 新增一种任务：tasks 包里加常量与 payload，HTTP 侧经应用层加投递入口，
-// 本文件的 registerHandlers 里注册 handler，两侧部署顺序要能容忍旧 payload。
 package main
 
 import (
@@ -34,6 +17,7 @@ import (
 	asynqqueue "eino-quickstart/internal/platform/queue/asynq"
 	"eino-quickstart/internal/platform/queue/tasks"
 	"eino-quickstart/internal/platform/storage/entx"
+	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/store/milvus"
 
@@ -93,13 +77,6 @@ func runWorker() error {
 	logx.DisableStat()
 	observability.BridgeLogx(logger)
 
-	// 链路追踪。worker 不走 go-zero 的 rest/rpc，所以没有 ServiceConf.SetUp()
-	// 帮它装 provider，必须自己装：没有 provider 时 otel 的 tracer 是空实现，
-	// 从任务 payload 里恢复出来的 traceparent 无处落地，HTTP 那条 trace 到
-	// worker 就断了 —— 而且断得无声无息，日志里连一个空的 trace 字段都不会有。
-	//
-	// 服务名刻意与 HTTP 进程不同（observability.workerServiceName）：异步那一段
-	// 要能看成一次跨服务调用，而不是「服务自己调自己」。
 	otlpEndpoint := cfg.Observability.OTLPEndpoint
 	shutdownTracing, err := observability.SetupTracing(ctx, observability.TraceConfig{
 		ServiceName: cfg.Observability.WorkerTraceName(),
@@ -173,6 +150,21 @@ func runWorker() error {
 		return fmt.Errorf("ensure vector collection: %w", err)
 	}
 
+	// 关键词检索索引（Elasticsearch / BM25）。
+	//
+	// 配了 es.address 就必须连上、索引必须建得出来：worker 是唯一的索引写入方，
+	// 一个连不上的集群会让每个索引任务都失败一次，而「部分写入」（向量写了、
+	// 关键词索引没写）比直接起不来更糟 —— 它是静默的，表现为某些关键字搜不到。
+	// 没配（address 为空）就是 nil，分块只进向量库，关键词通道回落 PostgreSQL
+	// 子串匹配，索引链路本身仍然完整。
+	esClient, err := es.New(&cfg.ES)
+	if err != nil {
+		return fmt.Errorf("init search index: %w", err)
+	}
+	if err := ensureSearchIndex(ctx, esClient, logger); err != nil {
+		return err
+	}
+
 	// 索引链的前半段（读入 -> 按产品拆分 -> 切块）统一交给 rag.Pipeline，
 	// 与 cmd/ragserver 共用同一份实现，切块规则只有一处定义。
 	//
@@ -196,6 +188,9 @@ func runWorker() error {
 		Pipeline: pipeline,
 		Embedder: embedder,
 		Vectors:  vectorStore,
+		// esClient 为 nil（没配）时 Writer() 返回真正的 nil 接口值，
+		// Indexer 据此走「不写关键词索引」的分支。
+		Keyword: esClient.Writer(),
 		// 一次送多少段文本去 embedding，和 indexer.batchSize 是同一个旋钮。
 		BatchSize: cfg.Indexer.BatchSize,
 		Logger:    logger,
@@ -238,6 +233,7 @@ func runWorker() error {
 		slog.Any("queues", asynqConf.QueuesOrDefault()),
 		slog.String("knowledge_root", contentStore.Root()),
 		slog.String("milvus_collection", cfg.Milvus.Collection),
+		slog.String("search_index", searchIndexName(esClient)),
 	)
 	group.Start()
 	logger.Info("eino worker stopped")
@@ -248,6 +244,35 @@ func runWorker() error {
 // ServeMux 启动后不再安全地写注册表。
 func registerHandlers(c *asynqqueue.AsynqClient, indexer *knowledge.Indexer) {
 	c.Register(tasks.TypeKnowledgeIndex, indexer.HandleTask)
+}
+
+// ensureSearchIndex 让检索索引就绪：连得上、索引在、分词器与配置一致。
+//
+// nil 客户端（es.address 为空）只记一条警告就放行：「ES 没配」和「ES 配了但
+// 连不上」必须是两种不同的结果 —— 前者是设计内的降级（关键词通道回落到
+// PostgreSQL 子串匹配，功能不缺），后者必须让进程起不来。反过来的话，症状是
+// 「某些关键字搜不到」，而不是一个能看出根因的启动失败。
+func ensureSearchIndex(ctx context.Context, client *es.Client, logger *slog.Logger) error {
+	if client == nil {
+		logger.Warn(
+			"search index is not configured, keyword search falls back to PostgreSQL substring matching",
+			slog.String("hint", "填上 configs/config.yaml 的 es.address 即可启用 BM25"),
+		)
+		return nil
+	}
+	if err := client.Health(ctx); err != nil {
+		return fmt.Errorf("search index health check: %w", err)
+	}
+	if err := client.EnsureIndex(ctx); err != nil {
+		return err
+	}
+	// 映射名与索引名一起打出来：排查「按某类词搜不到」时，第一个要确认的就是
+	// 这个进程现在用的是哪份映射 —— 它决定写入哪些字段。
+	logger.Info("search index ready",
+		slog.String("index", client.Index()),
+		slog.String("mapping", client.MappingName()),
+	)
+	return nil
 }
 
 // newEmbedder 构造 embedding 客户端。
@@ -300,4 +325,12 @@ func envOr(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// searchIndexName 把「没配」显示成一句话，而不是一个空字段。
+func searchIndexName(client *es.Client) string {
+	if client == nil {
+		return "disabled (keyword search falls back to PostgreSQL)"
+	}
+	return client.Index()
 }

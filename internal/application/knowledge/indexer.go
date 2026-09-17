@@ -19,6 +19,7 @@ import (
 	"eino-quickstart/internal/platform/queue"
 	"eino-quickstart/internal/platform/queue/tasks"
 	"eino-quickstart/internal/platform/storage/entx"
+	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
 	ragparser "eino-quickstart/internal/rag/parser"
@@ -36,7 +37,7 @@ import (
 // 的条数有上限，分批是硬需求而不是优化。
 const defaultChunkBatchSize = 32
 
-// Indexer 消费 knowledge:index 任务，把一篇文档的内容索引进向量库。
+// Indexer 消费 knowledge:index 任务，把一篇文档的内容索引进向量库与检索索引。
 //
 // 它是 worker 进程侧的唯一入口，职责边界很清楚：只做「让这篇文档的索引追上
 // 它的内容」，不做校验、不做状态展示 —— 那些是 Service 的事。
@@ -44,7 +45,7 @@ const defaultChunkBatchSize = 32
 // 整条链路按下面这条线切开：
 //
 //	rag.Pipeline        读入 -> 按产品拆分 -> 切块（唯一实现，与 ragserver 共用）
-//	Indexer（本文件）   落 pending 行 -> embedding -> 写向量 -> 收敛状态
+//	Indexer（本文件）   落 pending 行 -> embedding -> 写向量与检索索引 -> 收敛状态
 //
 // 后一半没有交给 Pipeline：它的落库尾段不认识 document_chunks 的
 // pending / indexed 状态，也没有 content_hash 的幂等口径，把状态机搬进 rag
@@ -56,6 +57,7 @@ type Indexer struct {
 	pipeline  *rag.Pipeline
 	embedder  *rag.Embedder
 	vectors   VectorIndex
+	keywords  KeywordIndex
 	batchSize int
 	logger    *slog.Logger
 }
@@ -67,12 +69,16 @@ type IndexerConfig struct {
 	Pipeline  *rag.Pipeline
 	Embedder  *rag.Embedder
 	Vectors   VectorIndex
+	Keyword   KeywordIndex
 	BatchSize int
 	Logger    *slog.Logger
 }
 
 // NewIndexer 组装消费端。pipeline 与 embedder 是必需依赖：没有它们索引这件事
 // 根本无法发生，与其等到任务进来才空指针 panic，不如启动时就拒绝。
+//
+// Keyword 是可选的：es.address 没配时它是 nil，此时分块只进向量库，关键词
+// 通道回落到 PostgreSQL 子串匹配 —— 少一半检索能力，但索引链路本身仍然完整。
 func NewIndexer(cfg IndexerConfig) (*Indexer, error) {
 	if cfg.Client == nil {
 		return nil, errors.New("knowledge: ent client is required")
@@ -103,6 +109,7 @@ func NewIndexer(cfg IndexerConfig) (*Indexer, error) {
 		pipeline:  cfg.Pipeline,
 		embedder:  cfg.Embedder,
 		vectors:   cfg.Vectors,
+		keywords:  cfg.Keyword,
 		batchSize: batchSize,
 		logger:    logger,
 	}, nil
@@ -187,7 +194,7 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64) (err err
 		// 而不是每轮都重新切一次块。
 		span.SetAttributes(attribute.Bool("knowledge.rechunk_skipped", true))
 	}
-	return i.embedPending(ctx, documentID)
+	return i.embedPending(ctx, doc)
 }
 
 // alreadyChunked 报告分块是否已经是这份正文的切块结果。
@@ -319,9 +326,11 @@ func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) (
 		return fmt.Errorf("knowledge: rewrite chunks of document %d: %w", doc.ID, err)
 	}
 
-	// 旧向量尽力而为地清掉；清不掉只会留垃圾，不影响正确性（检索要回到
-	// chunk 行做过滤）。
+	// 旧向量与旧检索文档尽力而为地清掉；清不掉只会留垃圾，不影响正确性
+	// （检索要回到 chunk 行做过滤）。检索索引这边必须显式删：分块行是删掉
+	// 重建的，新分块会拿到新的自增 ID，旧的 _id 再也不会被覆盖。
 	i.cleanupVectors(ctx, doc.ID, oldChunkIDs)
+	i.cleanupKeywords(ctx, doc.ID)
 	observability.LogWithTrace(ctx, i.logger).Info("knowledge: document re-chunked",
 		slog.Uint64("document_id", doc.ID),
 		slog.Int("parsed", len(parsed)),
@@ -379,7 +388,11 @@ func buildChunks(doc *ent.Document, parsed []*schema.Document) []pendingChunk {
 //
 // 每轮只挑 pending 是这个设计里最重要的一条：重试因此天然续跑，一个坏段落
 // 不会让整篇文档白跑，重放一个已经跑完的任务也只是空转一次。
-func (i *Indexer) embedPending(ctx context.Context, documentID uint64) error {
+//
+// 整篇文档随参数带下来（而不是只带 ID）：写检索索引要用标题、source、
+// visibility、owner 这些文档级字段，而它们必须以 documents 表的现值为准 ——
+// 分块行上的 metadata 是入库那一刻的快照，文档改名或转私有之后它已经过期了。
+func (i *Indexer) embedPending(ctx context.Context, doc *ent.Document) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -387,36 +400,41 @@ func (i *Indexer) embedPending(ctx context.Context, documentID uint64) error {
 
 		chunks, err := i.client.DocumentChunk.Query().
 			Where(
-				documentchunk.HasDocumentWith(document.IDEQ(documentID)),
+				documentchunk.HasDocumentWith(document.IDEQ(doc.ID)),
 				documentchunk.VectorStatusEQ(documentchunk.VectorStatusPending),
 			).
 			Order(ent.Asc(documentchunk.FieldChunkIndex)).
 			Limit(i.batchSize).
 			All(ctx)
 		if err != nil {
-			return fmt.Errorf("knowledge: load pending chunks of document %d: %w", documentID, err)
+			return fmt.Errorf("knowledge: load pending chunks of document %d: %w", doc.ID, err)
 		}
 		if len(chunks) == 0 {
 			break
 		}
-		if err := i.embedBatch(ctx, documentID, chunks); err != nil {
+		if err := i.embedBatch(ctx, doc, chunks); err != nil {
 			return err
 		}
 	}
 
-	return setDocumentStatus(ctx, i.client, documentID, document.StatusReady)
+	return setDocumentStatus(ctx, i.client, doc.ID, document.StatusReady)
 }
 
-// embedBatch 处理一个批次：embedding -> 向量库 upsert -> 分块标 indexed。
+// embedBatch 处理一个批次：embedding -> 向量库 upsert -> 检索索引写入 -> 分块标 indexed。
 //
-// 一个批次只开一个 span，而不是给 embedding、upsert、标记各开一个：一篇长文档
+// 这个顺序不是随意的，它定义了「半途失败会怎样」：标记 indexed 是最后一步，
+// 前面任一步失败，这批分块就还是 pending，队列重试会原样再跑一遍。两个存储
+// 的写入都是幂等的（向量按 chunk ID upsert、检索文档以 chunk_id 为 _id 覆盖），
+// 所以重跑不会产生重复数据，也不会出现「向量写了、索引没写」的长期不一致。
+//
+// 一个批次只开一个 span，而不是给 embedding、upsert、索引各开一个：一篇长文档
 // 按 batchSize=32 会切出几十个批次，每个批次再套三层 span 会把 trace 淹掉。批次
 // span 上的错误信息本身就区分了失败在哪一段（"embed %d chunks" / "upsert %d
-// vectors"），要定位到具体阶段够用了。
-func (i *Indexer) embedBatch(ctx context.Context, documentID uint64, chunks []*ent.DocumentChunk) (err error) {
+// vectors" / "index %d chunks"），要定位到具体阶段够用了。
+func (i *Indexer) embedBatch(ctx context.Context, doc *ent.Document, chunks []*ent.DocumentChunk) (err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.embed_batch",
 		oteltrace.WithAttributes(
-			attribute.Int64("knowledge.document_id", int64(documentID)),
+			attribute.Int64("knowledge.document_id", int64(doc.ID)),
 			attribute.Int("knowledge.batch_size", len(chunks)),
 			// 批次在文档里的位置：重试时每轮只挑 pending，靠它能看出这轮从哪续跑。
 			attribute.Int("knowledge.first_chunk_index", chunks[0].ChunkIndex),
@@ -438,14 +456,18 @@ func (i *Indexer) embedBatch(ctx context.Context, documentID uint64, chunks []*e
 
 	vectors, err := i.embedder.EmbedStrings(ctx, texts)
 	if err != nil {
-		return i.report(ctx, documentID, fmt.Errorf("embed %d chunks: %w", len(texts), err))
+		return i.report(ctx, doc.ID, fmt.Errorf("embed %d chunks: %w", len(texts), err))
 	}
 	if len(vectors) != len(chunks) {
-		return i.report(ctx, documentID, fmt.Errorf("embed returned %d vectors for %d chunks", len(vectors), len(chunks)))
+		return i.report(ctx, doc.ID, fmt.Errorf("embed returned %d vectors for %d chunks", len(vectors), len(chunks)))
 	}
 
 	if err := i.vectors.Upsert(ctx, vectorIDs, convert.Float64ToFloat32(vectors)); err != nil {
-		return i.report(ctx, documentID, fmt.Errorf("upsert %d vectors: %w", len(vectorIDs), err))
+		return i.report(ctx, doc.ID, fmt.Errorf("upsert %d vectors: %w", len(vectorIDs), err))
+	}
+
+	if err := i.indexChunks(ctx, doc, chunks); err != nil {
+		return i.report(ctx, doc.ID, fmt.Errorf("index %d chunks: %w", len(chunks), err))
 	}
 
 	if _, err := i.client.DocumentChunk.Update().
@@ -456,6 +478,59 @@ func (i *Indexer) embedBatch(ctx context.Context, documentID uint64, chunks []*e
 		return fmt.Errorf("knowledge: mark %d chunks indexed: %w", len(chunkIDs), err)
 	}
 	return nil
+}
+
+// indexChunks 把这一批分块写进检索索引（BM25）。
+//
+// 没配 ES 时是彻底的空操作，连文档级字段都不用取：这里刻意不做任何降级写入，
+// 因为「索引没开」和「索引写失败」必须是两种不同的结果 —— 前者不该让任务失败，
+// 后者必须重试。
+func (i *Indexer) indexChunks(ctx context.Context, doc *ent.Document, chunks []*ent.DocumentChunk) error {
+	if i.keywords == nil {
+		return nil
+	}
+	return i.keywords.IndexChunks(ctx, buildChunkDocs(doc, chunks))
+}
+
+// buildChunkDocs 把分块行整理成检索文档。
+//
+// 文档级字段（标题、source、可见性、归属）一律取自 ent 实体（documents 表的
+// 当前值），不从分块的 metadata 里读：那一列是入库时的快照，文档改名、改可见性、
+// 转私有之后就不再正确，而检索侧要拿这些值做引用与权限判断。
+//
+// 元数据反过来只从 metadata 列读，因为它是**内容的一部分** —— 型号、系列、
+// 规格明细描述的是这一块内容本身，不会因为文档改名而过期。
+//
+// 这里不决定「哪些键变成索引里的哪个字段」：那是映射文件的职责（configs/es/*
+// 与 internal/platform/storage/es 的 mapping.go），由 es.Client 在写入时按映射
+// 取值。这一层只负责把两层元数据合并、剔掉机制键，然后原样交出去。
+func buildChunkDocs(doc *ent.Document, chunks []*ent.DocumentChunk) []es.ChunkDoc {
+	now := time.Now()
+	docs := make([]es.ChunkDoc, 0, len(chunks))
+	for _, chunk := range chunks {
+		headingPath := ""
+		if chunk.HeadingPath != nil {
+			headingPath = *chunk.HeadingPath
+		}
+		indexed := es.ChunkDoc{
+			ChunkID:     strconv.FormatUint(chunk.ID, 10),
+			DocumentID:  strconv.FormatUint(doc.ID, 10),
+			DatasetID:   strconv.FormatUint(doc.DatasetID, 10),
+			ChunkIndex:  chunk.ChunkIndex,
+			Source:      doc.Source,
+			Title:       doc.Title,
+			HeadingPath: headingPath,
+			Content:     chunk.Content,
+			Visibility:  string(doc.Visibility),
+			Owner:       doc.OwnerSubject,
+			IndexedAt:   now,
+			// 分块那份元数据放在后面：它比文档那份更贴近内容，同名键应当由它
+			// 覆盖（上传时带的键是文档级的，产品块的 YAML 头是块级的）。
+			Metadata: searchableMetadata(doc.Metadata, chunk.Metadata),
+		}
+		docs = append(docs, indexed)
+	}
+	return docs
 }
 
 // report 记录一次可重试的失败，并在重试机会用完时落终态。
@@ -528,6 +603,30 @@ func (i *Indexer) cleanupVectors(ctx context.Context, documentID uint64, chunkID
 			slog.Uint64("document_id", documentID),
 			slog.Int("chunks", len(ids)),
 			slog.String("error", err.Error()),
+		)
+	}
+}
+
+// cleanupKeywords 尽力而为地清掉这篇文档在检索索引里的旧分块。
+//
+// 和 cleanupVectors 同一套取舍：清不掉只记警告。命中的分块回到 PostgreSQL
+// 查不到就会被跳过，正确性不受影响，残留要靠后续全量重建收拾。
+func (i *Indexer) cleanupKeywords(ctx context.Context, documentID uint64) {
+	if i.keywords == nil {
+		return
+	}
+	deleted, err := i.keywords.DeleteByDocument(ctx, documentID)
+	if err != nil {
+		observability.LogWithTrace(ctx, i.logger).Warn("knowledge: keyword index cleanup failed, stale documents remain until a full rebuild",
+			slog.Uint64("document_id", documentID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+	if deleted > 0 {
+		observability.LogWithTrace(ctx, i.logger).Info("knowledge: stale keyword documents removed",
+			slog.Uint64("document_id", documentID),
+			slog.Int64("deleted", deleted),
 		)
 	}
 }

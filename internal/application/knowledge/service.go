@@ -14,6 +14,7 @@ import (
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/storage/entx"
+	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
 
@@ -41,6 +42,19 @@ type VectorIndex interface {
 	Delete(ctx context.Context, chunkIDs []int64) error
 }
 
+// KeywordIndex 是关键词检索索引（Elasticsearch / BM25）在应用层这边的视图。
+//
+// 和 VectorIndex 一样只暴露写入与清理：检索不走这里（那是 rag.Store 的职责），
+// 索引的形态与查询 DSL 也不该从用例层透出去。delete 按 document_id 而不是按
+// 分块 ID —— 重新切块时旧分块行先被删掉，那时已经拿不到它们的 ID 了。
+//
+// nil 表示 es.address 没配：此时分块不写索引，关键词通道回落到 PostgreSQL
+// 子串匹配，功能不缺，只是少了词频、IDF 与长度归一化。
+type KeywordIndex interface {
+	IndexChunks(ctx context.Context, docs []es.ChunkDoc) error
+	DeleteByDocument(ctx context.Context, documentID uint64) (int64, error)
+}
+
 // ChunkStat 是一篇文档的分块计数。
 //
 // ent 的 Document 上没有 chunk_count / indexed_chunk_count 字段，这两个数是从
@@ -53,20 +67,26 @@ type ChunkStat struct {
 
 // Service 是知识库用例的入口。
 type Service struct {
-	client  *ent.Client
-	content *rag.ContentStore
-	queue   IndexTaskQueue
-	vectors VectorIndex
-	logger  *slog.Logger
+	client   *ent.Client
+	content  *rag.ContentStore
+	queue    IndexTaskQueue
+	vectors  VectorIndex
+	keywords KeywordIndex
+	logger   *slog.Logger
 }
 
-// NewService 组装用例层。vectors 可以是 nil：删除路径上的向量清理是尽力而为
-// 的，没配向量库时只记警告，不影响删文档本身。
+// NewService 组装用例层。
+//
+// vectors 与 keywords 都可以是 nil：删除路径上的清理由它们承担，而清理是
+// 尽力而为的 —— 孤儿向量与孤儿文档取不回来（检索要回到 chunk 行做过滤），
+// 只是白占空间，靠后续全量重建收拾。所以外部存储没配或连不上都不该挡住
+// 「删文档」这件事本身。
 func NewService(
 	client *ent.Client,
 	content *rag.ContentStore,
 	queue IndexTaskQueue,
 	vectors VectorIndex,
+	keywords KeywordIndex,
 	logger *slog.Logger,
 ) (*Service, error) {
 	if client == nil {
@@ -82,11 +102,12 @@ func NewService(
 		logger = slog.Default()
 	}
 	return &Service{
-		client:  client,
-		content: content,
-		queue:   queue,
-		vectors: vectors,
-		logger:  logger,
+		client:   client,
+		content:  content,
+		queue:    queue,
+		vectors:  vectors,
+		keywords: keywords,
+		logger:   logger,
 	}, nil
 }
 
@@ -435,6 +456,7 @@ func (s *Service) Delete(ctx context.Context, datasetID, documentID uint64) (err
 	}
 
 	s.cleanupVectors(ctx, doc.ID, chunkIDs)
+	s.cleanupKeywordIndex(ctx, doc.ID)
 	if err := s.content.Remove(doc.Source); err != nil {
 		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: remove content file failed",
 			slog.Uint64("document_id", doc.ID),
@@ -612,6 +634,31 @@ func (s *Service) cleanupVectors(ctx context.Context, documentID uint64, chunkID
 			slog.String("error", err.Error()),
 		)
 	}
+}
+
+// cleanupKeywordIndex 尽力而为地清掉这篇文档在检索索引里的分块。
+//
+// 和向量清理同一套取舍：索引删不掉不影响正确性（命中的分块回到 PostgreSQL
+// 查不到就被跳过），只是白占空间。所以失败只记警告，不把删文档本身变成失败。
+func (s *Service) cleanupKeywordIndex(ctx context.Context, documentID uint64) {
+	if s.keywords == nil {
+		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: keyword index cleanup skipped, no search index configured",
+			slog.Uint64("document_id", documentID),
+		)
+		return
+	}
+	deleted, err := s.keywords.DeleteByDocument(ctx, documentID)
+	if err != nil {
+		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: keyword index cleanup failed, stale documents remain until a full rebuild",
+			slog.Uint64("document_id", documentID),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+	observability.LogWithTrace(ctx, s.logger).Info("knowledge: keyword index cleaned up",
+		slog.Uint64("document_id", documentID),
+		slog.Int64("deleted", deleted),
+	)
 }
 
 func parseVisibility(raw string) (document.Visibility, error) {

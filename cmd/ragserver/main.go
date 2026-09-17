@@ -79,12 +79,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	esClient, err := es.NewESClient(nil)
+
+	// 关键词检索索引（ES）。这条演示链的配置是写死的字面量，所以 ES 段默认为空
+	// —— es.New 会返回 nil，检索的词法通道回落到 PostgreSQL 子串匹配。想在这里
+	// 试 BM25，把 configs/config.yaml 的 es 段抄到上面的 cfg 里即可。
+	//
+	// 这里曾经是 es.NewESClient(nil)：它在读 CA 证书时就会空指针 panic，
+	// 也就是说这条演示链此前一次都没跑通过。
+	searchIndex, err := es.New(&cfg.ES)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	store, err := rag.NewStore(ctx, entClient, &cfg, esClient)
+	store, err := rag.NewStore(ctx, entClient, &cfg, searchIndex.Searcher())
 	if err != nil {
 		log.Fatal(err)
 	}

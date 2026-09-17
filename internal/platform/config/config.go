@@ -10,6 +10,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type ESConfig struct {
+	Address     []string `yaml:"address"`
+	Index       string   `yaml:"index"`
+	Analyzer    string   `yaml:"analyzer"`
+	Username    string   `yaml:"username"`
+	Password    string   `yaml:"-"`
+	PasswordEnv string   `yaml:"passwordEnv"`
+	CaCertPath  string   `yaml:"caCertPath"`
+	BulkSize    int      `yaml:"bulkSize"`
+
+	// MappingFile 是检索面的声明文件（JSON 或 YAML），一个索引一份。
+	//
+	// 独立成文件而不是内联在这里，是因为它描述的是字段名、类型、权重与取值
+	// 路径 —— 这些必须与 internal/rag/parser 产出的元数据对齐，改动也常常和
+	// 「换了一套产品线」同时发生，值得单独评审与对照。
+	MappingFile string `yaml:"mappingFile"`
+}
+
+// Enabled 报告 ES 段是否配了集群地址。
+func (c ESConfig) Enabled() bool { return len(c.Address) > 0 }
+
 type Config struct {
 	Server        ServerConfig        `yaml:"server"`
 	Runtime       RuntimeConfig       `yaml:"runtime"`
@@ -27,6 +48,7 @@ type Config struct {
 	Knowledge   KnowledgeConfig   `yaml:"knowledge"`
 	Embedding   EmbeddingConfig   `yaml:"embedding"`
 	Milvus      MilvusConfig      `yaml:"milvus"`
+	ES          ESConfig          `yaml:"es"`
 	Maintenance MaintenanceConfig `yaml:"maintenance"`
 	Retrieval   RetrievalConfig   `yaml:"retrieval"`
 	Indexer     IndexerConfig     `yaml:"indexer"`
@@ -200,20 +222,10 @@ type RetrievalConfig struct {
 	MaxRerankCandidates int  `yaml:"maxRerankCandidates"`
 }
 
-// IndexerConfig 控制文档索引的切块与 embedding 批大小。
-//
-// 这里只剩 batchSize 一个旋钮。原先还有个 enabled 开关（控制「本进程要不要起索引
-// worker」），HTTP 与 worker 拆成两个进程后它就失去了含义 —— 是不是索引进程由「跑
-// 的是哪个二进制」决定，不再由配置决定。worker 侧的启停开关统一由 AsynqConfig
-// 的 enabled 表达。
 type IndexerConfig struct {
 	BatchSize int `yaml:"batchSize"`
 }
 
-// AsynqConfig 是文档索引用的异步队列。
-//
-// Enabled=false 时进程完全不碰 Redis：索引任务无处投递，写文档会直接失败，
-// 因此只在「明知道索引链路整体停摆也要让 HTTP 起来」的排障场景下才关它。
 type AsynqConfig struct {
 	Enabled bool             `yaml:"enabled"`
 	Redis   AsynqRedisConfig `yaml:"redis"`
@@ -247,13 +259,6 @@ type AsynqRedisConfig struct {
 type AsynqQueueConfig struct {
 	Name   string `yaml:"name"`
 	Weight int    `yaml:"weight"`
-}
-
-type ESConfig struct {
-	Address    []string `yaml:"address"`
-	CaCertPath string   `yaml:"caCertPath"`
-	Username   string   `yaml:"username"`
-	Password   string   `yaml:"password"`
 }
 
 func Load(path string) (*Config, error) {
@@ -290,6 +295,10 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Asynq.Redis.PasswordEnv != "" {
 		cfg.Asynq.Redis.Password = os.Getenv(cfg.Asynq.Redis.PasswordEnv)
+	}
+	// 与 storage / asynq 同一口径：集群口令只从环境变量读，不进配置文件。
+	if cfg.ES.PasswordEnv != "" {
+		cfg.ES.Password = os.Getenv(cfg.ES.PasswordEnv)
 	}
 
 	if !filepath.IsAbs(cfg.Workspace.Root) {
@@ -621,6 +630,14 @@ func Load(path string) (*Config, error) {
 		)
 	}
 
+	// ES 段关着（address 为空）时一律不校验：这条降级路径是设计的一部分，
+	// 不该被一段没人用的配置挡住进程启动。
+	if cfg.ES.Enabled() {
+		if err := validateES(cfg.ES); err != nil {
+			return nil, err
+		}
+	}
+
 	if cfg.Asynq.Enabled {
 		if err := validateAsynq(cfg.Asynq); err != nil {
 			return nil, err
@@ -628,6 +645,54 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// validateES 只在 es.address 非空时执行。
+//
+// 校验口径是「配了一半比没配更危险」：地址配上、索引名或口令没配，进程能起来，
+// 但要到第一个分块写不进去、或者第一次关键字查询静默返回空结果时才暴露 ——
+// 那时人已经在排查检索质量了，不会想到是配置缺字段。
+func validateES(cfg ESConfig) error {
+	for _, addr := range cfg.Address {
+		if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+			// 裸 host:port 也能被客户端接受，但会被当成 http，托管集群上会
+			// 以「连接被重置」这种和真实原因无关的方式失败。
+			return fmt.Errorf("es.address %q must start with http:// or https://", addr)
+		}
+	}
+	if cfg.Index == "" {
+		return fmt.Errorf("es.index is required when es.address is set")
+	}
+	if cfg.Analyzer == "" {
+		return fmt.Errorf("es.analyzer is required when es.address is set")
+	}
+	if cfg.BulkSize <= 0 {
+		return fmt.Errorf("es.bulkSize must be greater than zero")
+	}
+	// 映射文件是检索面的唯一定义处：没有它，进程连「该写哪些字段」都不知道。
+	// 在这里拦下来，好过等到 es.New 里报错时还带着一个已经连上的集群连接。
+	if cfg.MappingFile == "" {
+		return fmt.Errorf(
+			"es.mappingFile is required when es.address is set; " +
+				"see configs/es/chunk_mapping.json for a working example",
+		)
+	}
+	if _, err := os.Stat(cfg.MappingFile); err != nil {
+		return fmt.Errorf(
+			"es.mappingFile %q is not readable: %w（路径相对进程的工作目录，通常是仓库根）",
+			cfg.MappingFile, err,
+		)
+	}
+	// basic auth 是 user + password 成对的：只配 user 不配口令只会拿到 401。
+	if cfg.Username != "" {
+		if cfg.PasswordEnv == "" {
+			return fmt.Errorf("es.passwordEnv is required when es.username is set")
+		}
+		if cfg.Password == "" {
+			return fmt.Errorf("environment variable %s is required", cfg.PasswordEnv)
+		}
+	}
+	return nil
 }
 
 // validateAsynq 只在 asynq.enabled=true 时执行：关掉队列意味着整个索引链路

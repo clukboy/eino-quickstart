@@ -1,19 +1,3 @@
-// Command restapi runs the Eino agent harness on the go-zero REST transport.
-//
-// It is the composition root of the HTTP-only process. It builds the
-// application dependencies — tool registry, executor, harness, stores, auth,
-// observability — the same way cmd/server does, then hands them to
-// internal/transport/restapi. Async work is not done here: this process only
-// enqueues tasks onto the shared Redis queue (see internal/platform/queue/tasks);
-// a separate cmd/worker process consumes them.
-//
-// Two config files, one layer each:
-//
-//	EINO_CONFIG       business config (configs/config.yaml), read by the
-//	                  project's own loader: agent, model, storage, auth keys,
-//	                  observability, execution.
-//	EINO_REST_CONFIG  transport config (etc/restapi.yaml), read by go-zero's
-//	                  conf.Load: host, port, body limit, timeout, logging.
 package main
 
 import (
@@ -42,6 +26,7 @@ import (
 	"eino-quickstart/internal/platform/privacy"
 	"eino-quickstart/internal/platform/queue/asynq"
 	"eino-quickstart/internal/platform/storage/entx"
+	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/skill"
@@ -227,6 +212,7 @@ func runServer() error {
 			MaxRetries: cfg.Asynq.MaxRetries,
 		}),
 		newVectorCleaner(ctx, cfg, logger),
+		newKeywordCleaner(ctx, cfg, logger),
 		logger,
 	)
 	if err != nil {
@@ -352,6 +338,41 @@ func newVectorCleaner(
 		return nil
 	}
 	return store
+}
+
+// newKeywordCleaner 给 HTTP 进程准备一个检索索引（ES）清理句柄。
+//
+// 和 newVectorCleaner 完全同构：删除文档时要顺手清掉 ES 里的分块。这条清理
+// 同样是尽力而为的（孤儿文档取不回来，靠后续全量重建收拾），所以连不上集群
+// 只记警告并返回 nil，删除退化成「只摘索引」，不影响删文档本身。
+//
+// 注意这里不建索引：建索引与分词器校验属于索引链路的启动步骤（cmd/worker），
+// 放在 HTTP 进程里会让两个进程对索引形态各有说法。
+func newKeywordCleaner(
+	ctx context.Context,
+	cfg *config.Config,
+	logger *slog.Logger,
+) knowledge.KeywordIndex {
+	client, err := es.New(&cfg.ES)
+	if err != nil {
+		logger.Warn(
+			"search index unavailable, document delete will skip keyword index cleanup",
+			slog.String("error", err.Error()),
+		)
+		return nil
+	}
+	if client == nil {
+		// 没配 ES：不清理是正确的（索引里本来就没有这篇文档的东西）。
+		return nil
+	}
+	if err := client.Health(ctx); err != nil {
+		logger.Warn(
+			"search index unavailable, document delete will skip keyword index cleanup",
+			slog.String("error", err.Error()),
+		)
+		return nil
+	}
+	return client.Writer()
 }
 
 func envOr(key, fallback string) string {

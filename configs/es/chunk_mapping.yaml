@@ -1,0 +1,137 @@
+# 分块索引的检索面声明。
+#
+# 这个文件是「按什么字段检索、各自多重要、值从哪里来」的唯一出处，由
+# internal/platform/storage/es 加载。改这里不需要改代码，改完重启 worker 即生效。
+#
+# 与 internal/rag/parser 的关系：下面每个 from 都必须在 parser 产出的元数据里
+# 真实存在。这条约束由 mapping_contract_test.go 用真实的 ProductParser 输出守着 ——
+# 路径写错不会报错，只会让那个字段永远是空的（表现是「按型号搜不到」）。
+#
+# 权重回答的是一个问题：「同一个词出现在哪里，更能说明这篇文档就是用户要的那篇？」
+# 型号这类业务主键式的值通常只出现在产品块的 YAML 头里、正文里一次都不出现，
+# 所以它们拿比正文高得多的权重；而正文里顺带提到型号的长文档只拿 content 的 ^1。
+#
+# 共有字段（chunk_id / document_id / content / source / title / heading_path /
+# metadata_text / visibility / owner / indexed_at / mapping_rev）不在这里声明：
+# 它们每个索引都一样，由代码提供（见 es/baseFields）。要调它们的权重用下面的
+# baseBoost。
+#
+# 改动的后果：
+#   - 改 name / type / from / keyword / multi / analyzer 会改变索引形态，
+#     已索引的文档需要 reindex 回填（cmd/rag-test 的预检会数出来并提示）。
+#   - 改 boost 或 baseBoost 是查询期的事，不需要重建索引。
+
+name: chunk_v1
+
+fields:
+  # 型号与产品 ID 是最高权重的两个：用户搜「H105G」时，元数据里 model=H105G
+  # 的那一篇几乎必然就是答案。
+  - name: model
+    from: model
+    type: text
+    boost: 5
+    # keyword 子字段保存原样的值，供精确过滤（「只看这个型号」）与回显。
+    keyword: true
+
+  - name: product_id
+    from: product_id
+    type: text
+    boost: 5
+    keyword: true
+
+  - name: product_name
+    from: product_name
+    type: text
+    boost: 4
+    keyword: true
+
+  # 系列名（图冠系列）比品类更具体，权重排在品类之上、产品名之下。
+  - name: series_name
+    from: series_name
+    type: text
+    boost: 3
+    keyword: true
+
+  # family_prefix 是型号前缀（H105），用来把同系列的产品一起捞出来。
+  - name: family_prefix
+    from: family_prefix
+    type: text
+    boost: 2
+    keyword: true
+
+  - name: category_l1
+    from: category_l1
+    type: text
+    boost: 2
+    keyword: true
+
+  - name: category_l2
+    from: category_l2
+    type: text
+    boost: 2
+    keyword: true
+
+  # variants 是数组，必须显式声明 multi：不声明的话只会取到第一个元素，
+  # 而这种截断不会报错。
+  - name: variants
+    from: variants
+    type: text
+    boost: 2
+    keyword: true
+    multi: true
+
+# ── specs_from_doc（规格明细）怎么设定 ────────────────────────────────────────
+#
+# parser 产出的 specs_from_doc 是一个**嵌套对象**，不是一个标量：
+#
+#   specs_from_doc:
+#     mechanics_type / install_type / adjust_type / door_material / base_material
+#     surface_finish / open_angle_deg / cup_diameter_mm
+#     door_thickness_min_mm / door_thickness_max_mm
+#
+# 因此它有两条路，二选一（也可以混着用，提几个、留几个）：
+#
+# 路线 A（默认，当前就是这条）：**不声明**。整块被递归摊平进兜底字段
+#   metadata_text（权重 2），十个规格从写入那一刻起就可检索，零配置。
+#   代价：共享权重、不能单独过滤/排序。
+#
+# 路线 B（某个规格要独立权重，或要被过滤/排序）：**下钻到具体键**，一条一个字段。
+#   字段名不能带点，所以另起一个平铺名；from 用点号下钻。
+#
+#   - name: door_material          # 文本规格：可打分
+#     from: specs_from_doc.door_material
+#     type: text
+#     boost: 3
+#
+#   - name: surface_finish
+#     from: specs_from_doc.surface_finish
+#     type: text
+#     boost: 3
+#     keyword: true                # 想「只看镀钛镍」加精确匹配子字段
+#
+#   - name: open_angle_deg         # 数值规格：只用来过滤/排序
+#     from: specs_from_doc.open_angle_deg
+#     type: integer                # 注意：数值类型**不能**给 boost（Validate 会拒绝）
+#
+# 提成独立字段后，值仍会再进一次 metadata_text —— 两处命中会累积得分，这是有意的
+# （不牺牲召回），不是重复索引的 bug。
+#
+# ⚠️ 不要声明 `from: specs_from_doc`（整块）：
+#
+#   - name: specs_from_doc
+#     from: specs_from_doc          # ✗ 嵌套对象转不成字段值
+#     type: text
+#
+# 这样会得到一个**永远为空的字段**：Extract 对容器值静默跳过，不报错，
+# MissingPaths 也放行（路径确实存在）。症状依然是「按规格搜不到」。
+# 这条由 mapping_contract_test.go 的 TestShippedFieldsResolveToScalars 拦住。
+#
+# 改动的后果：新增/删除字段是原地 PutMapping（不用换索引名），但已有文档要 reindex
+# 才有新字段的值，且 mapping_rev 指纹会变（cmd/rag-test 预检会数出来）。
+# 把已有字段的**类型**从 text 改成 integer 则不在此列 —— 那必须换 es.index 名重建。
+
+# 覆盖共有字段的默认权重。默认值是：
+#   title 3 / source 3 / heading_path 2 / metadata_text 2 / content 1
+#
+# baseBoost:
+#   title: 4

@@ -1,0 +1,48 @@
+// 检索召回金标用例集（JSONL，一行一条；以 // 开头的行是注释）。
+//
+// 怎么用：`go run ./cmd/rag-test`，默认读本文件。-dataset 可指定多个文件，拼成全量。
+//
+// 判定口径
+//   expected_sources          精确的 document.source（相对 knowledge.root），必须命中
+//   expected_source_keywords  召回的 source 里需包含该片段，必须命中
+//   forbidden_sources         不该被召回，命中即越权、该用例直接判失败
+//   min_results               结果条数下限；有答案的用例设 1
+//   scene                     场景分组，报告按它聚合，用来定位退化发生在哪一类查询
+//
+// 为什么用关键词而不是精确 source：托管上传的正文由 ContentStore.Create 用
+// 「slug + 纳秒时间戳」命名，重新上传一次路径就变，写死精确值等于让用例集
+// 活不过一次重传。精确口径留给「自己注册进 knowledge.root 的文件」。
+//
+// 语料前提（dataset_id = 2）
+//   documents/2/h11-二段力滑入式铰链-md-*.md                H105P / H105G / H105S 三个产品
+//   documents/2/阶段一-初步接触-公司背景-实力-信任建立-md-*.md   TUTTI 公司介绍与招商 QA（中英双语）
+//
+// 已知不参与评测的语料：documents/2/海外招商-ai-问答知识库-pdf-*.md 是 PDF 二进制
+// 被当作 .md 上传的，索引出来的正文是压缩流的乱码，语义查询不可能命中。它要用
+// 文本重新上传后才有评测意义，因此这里不为它写用例。
+//
+// 越权（ACL）用例目前为空：语料里 documents.visibility 全是 system，没有私有文档，
+// 写出来的越权用例没有可验证对象。等有 private 语料后，用精确 source 补一组
+// 「属主可读 / 非属主不可读」的对照用例（forbidden_sources 只支持精确匹配）。
+
+{"id":"model-h105p","scene":"型号精确","query":"H105P","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1}
+{"id":"model-h105g","scene":"型号精确","query":"H105G","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1}
+{"id":"model-h105s","scene":"型号精确","query":"H105S","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1}
+{"id":"model-h105p-full","scene":"型号精确","query":"H105P 二段力小角度偏心轮快装缓冲铰链","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1,"note":"型号 + 产品全名，考察精确串与语义的结合"}
+
+{"id":"spec-adjust-type","scene":"规格参数","query":"H105P 铰链用什么方式调节门缝","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1,"note":"正文里写的是「偏心轮调节」，与口语化的「调节门缝」是同义表达"}
+{"id":"spec-door-thickness","scene":"规格参数","query":"这款铰链适合多厚的木门板","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1,"note":"参数是 15-28mm，query 里不含数字"}
+{"id":"spec-open-angle","scene":"规格参数","query":"二段力铰链的开启角度是多少度","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1}
+{"id":"spec-surface","scene":"规格参数","query":"铰链的表面处理和防锈能力怎么样","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1,"note":"正文写「镀钛镍防锈：96小时盐雾10级」，query 里没有这些词"}
+
+{"id":"company-founded","scene":"公司信息","query":"TUTTI 是哪一年成立的","expected_source_keywords":["阶段一-初步接触"],"min_results":1}
+{"id":"company-factory","scene":"公司信息","query":"图特的工厂地址在哪里","expected_source_keywords":["阶段一-初步接触"],"min_results":1}
+{"id":"company-engineers","scene":"公司信息","query":"公司有多少研发工程师","expected_source_keywords":["阶段一-初步接触"],"min_results":1}
+{"id":"company-capacity","scene":"公司信息","query":"年产能和月产量分别是多少","expected_source_keywords":["阶段一-初步接触"],"min_results":1}
+
+{"id":"en-visit","scene":"跨语言","query":"Can customers visit TUTTI?","expected_source_keywords":["阶段一-初步接触"],"min_results":1,"note":"语料是中英双语，考察英文 query 能否召回中文为主的文档"}
+{"id":"en-products","scene":"跨语言","query":"What kind of product do you have?","expected_source_keywords":["阶段一-初步接触"],"min_results":1}
+
+{"id":"boundary-unknown","scene":"边界与无答案","query":"Kubernetes Ingress 如何配置 TLS 证书","min_results":0,"note":"无答案场景：语料里没有这个主题。当前只验证链路不报错，不判召回 —— 项目还没有生成式回答，无法断言「正确地没答」"}
+{"id":"boundary-special-chars","scene":"边界与无答案","query":"H105P 的参数里有 100% 和 _ 吗","min_results":0,"note":"query 含 SQL LIKE 通配符，验证词法通道的转义处理不会报错或宽匹配"}
+{"id":"boundary-long-query","scene":"边界与无答案","query":"我想了解一下图特这个品牌的二段力小角度缓冲铰链在门板厚度适配、开启角度、铰杯规格和表面处理这几方面分别是什么情况","expected_source_keywords":["h11-二段力滑入式铰链"],"min_results":1,"note":"长查询：考察分词与候选截断不会把有效词元挤掉"}
