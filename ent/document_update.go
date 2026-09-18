@@ -58,6 +58,26 @@ func (_u *DocumentUpdate) SetNillableTitle(v *string) *DocumentUpdate {
 	return _u
 }
 
+// SetExternalKey sets the "external_key" field.
+func (_u *DocumentUpdate) SetExternalKey(v string) *DocumentUpdate {
+	_u.mutation.SetExternalKey(v)
+	return _u
+}
+
+// SetNillableExternalKey sets the "external_key" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableExternalKey(v *string) *DocumentUpdate {
+	if v != nil {
+		_u.SetExternalKey(*v)
+	}
+	return _u
+}
+
+// ClearExternalKey clears the value of the "external_key" field.
+func (_u *DocumentUpdate) ClearExternalKey() *DocumentUpdate {
+	_u.mutation.ClearExternalKey()
+	return _u
+}
+
 // SetMetadata sets the "metadata" field.
 func (_u *DocumentUpdate) SetMetadata(v map[string]interface{}) *DocumentUpdate {
 	_u.mutation.SetMetadata(v)
@@ -108,6 +128,20 @@ func (_u *DocumentUpdate) SetStatus(v document.Status) *DocumentUpdate {
 func (_u *DocumentUpdate) SetNillableStatus(v *document.Status) *DocumentUpdate {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetEnabled sets the "enabled" field.
+func (_u *DocumentUpdate) SetEnabled(v bool) *DocumentUpdate {
+	_u.mutation.SetEnabled(v)
+	return _u
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableEnabled(v *bool) *DocumentUpdate {
+	if v != nil {
+		_u.SetEnabled(*v)
 	}
 	return _u
 }
@@ -283,6 +317,12 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.ExternalKey(); ok {
+		_spec.SetField(document.FieldExternalKey, field.TypeString, value)
+	}
+	if _u.mutation.ExternalKeyCleared() {
+		_spec.ClearField(document.FieldExternalKey, field.TypeString)
+	}
 	if value, ok := _u.mutation.Metadata(); ok {
 		_spec.SetField(document.FieldMetadata, field.TypeJSON, value)
 	}
@@ -297,6 +337,9 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Enabled(); ok {
+		_spec.SetField(document.FieldEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)
@@ -432,6 +475,26 @@ func (_u *DocumentUpdateOne) SetNillableTitle(v *string) *DocumentUpdateOne {
 	return _u
 }
 
+// SetExternalKey sets the "external_key" field.
+func (_u *DocumentUpdateOne) SetExternalKey(v string) *DocumentUpdateOne {
+	_u.mutation.SetExternalKey(v)
+	return _u
+}
+
+// SetNillableExternalKey sets the "external_key" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableExternalKey(v *string) *DocumentUpdateOne {
+	if v != nil {
+		_u.SetExternalKey(*v)
+	}
+	return _u
+}
+
+// ClearExternalKey clears the value of the "external_key" field.
+func (_u *DocumentUpdateOne) ClearExternalKey() *DocumentUpdateOne {
+	_u.mutation.ClearExternalKey()
+	return _u
+}
+
 // SetMetadata sets the "metadata" field.
 func (_u *DocumentUpdateOne) SetMetadata(v map[string]interface{}) *DocumentUpdateOne {
 	_u.mutation.SetMetadata(v)
@@ -482,6 +545,20 @@ func (_u *DocumentUpdateOne) SetStatus(v document.Status) *DocumentUpdateOne {
 func (_u *DocumentUpdateOne) SetNillableStatus(v *document.Status) *DocumentUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetEnabled sets the "enabled" field.
+func (_u *DocumentUpdateOne) SetEnabled(v bool) *DocumentUpdateOne {
+	_u.mutation.SetEnabled(v)
+	return _u
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableEnabled(v *bool) *DocumentUpdateOne {
+	if v != nil {
+		_u.SetEnabled(*v)
 	}
 	return _u
 }
@@ -687,6 +764,12 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.ExternalKey(); ok {
+		_spec.SetField(document.FieldExternalKey, field.TypeString, value)
+	}
+	if _u.mutation.ExternalKeyCleared() {
+		_spec.ClearField(document.FieldExternalKey, field.TypeString)
+	}
 	if value, ok := _u.mutation.Metadata(); ok {
 		_spec.SetField(document.FieldMetadata, field.TypeJSON, value)
 	}
@@ -701,6 +784,9 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Enabled(); ok {
+		_spec.SetField(document.FieldEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)

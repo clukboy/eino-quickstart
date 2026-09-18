@@ -568,7 +568,9 @@
                       "chunk_count",
                       "indexed_chunk_count",
                       "createdAt",
-                      "updatedAt"
+                      "updatedAt",
+                      "operation",
+                      "enabled"
                     ],
                     "properties": {
                       "chunk_count": {
@@ -580,11 +582,17 @@
                       "dataset_id": {
                         "type": "integer"
                       },
+                      "enabled": {
+                        "type": "boolean"
+                      },
                       "id": {
                         "type": "integer"
                       },
                       "indexed_chunk_count": {
                         "type": "integer"
+                      },
+                      "operation": {
+                        "type": "string"
                       },
                       "owner_subject": {
                         "type": "string"
@@ -622,7 +630,7 @@
         "schemes": [
           "https"
         ],
-        "summary": "创建文档",
+        "summary": "创建文档（产品型录会按产品拆成多条）",
         "operationId": "datasetCreateDocument",
         "parameters": [
           {
@@ -673,38 +681,67 @@
             "schema": {
               "type": "object",
               "properties": {
-                "chunk_count": {
-                  "type": "integer"
-                },
-                "createdAt": {
-                  "type": "integer"
-                },
-                "dataset_id": {
-                  "type": "integer"
-                },
-                "id": {
-                  "type": "integer"
-                },
-                "indexed_chunk_count": {
-                  "type": "integer"
-                },
-                "owner_subject": {
-                  "type": "string"
-                },
-                "source": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "updatedAt": {
-                  "type": "integer"
-                },
-                "visibility": {
-                  "type": "string"
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "dataset_id",
+                      "source",
+                      "title",
+                      "status",
+                      "visibility",
+                      "owner_subject",
+                      "chunk_count",
+                      "indexed_chunk_count",
+                      "createdAt",
+                      "updatedAt",
+                      "operation",
+                      "enabled"
+                    ],
+                    "properties": {
+                      "chunk_count": {
+                        "type": "integer"
+                      },
+                      "createdAt": {
+                        "type": "integer"
+                      },
+                      "dataset_id": {
+                        "type": "integer"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "indexed_chunk_count": {
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "type": "string"
+                      },
+                      "owner_subject": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "integer"
+                      },
+                      "visibility": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -760,7 +797,9 @@
                       "chunk_count",
                       "indexed_chunk_count",
                       "createdAt",
-                      "updatedAt"
+                      "updatedAt",
+                      "operation",
+                      "enabled"
                     ],
                     "properties": {
                       "chunk_count": {
@@ -772,11 +811,17 @@
                       "dataset_id": {
                         "type": "integer"
                       },
+                      "enabled": {
+                        "type": "boolean"
+                      },
                       "id": {
                         "type": "integer"
                       },
                       "indexed_chunk_count": {
                         "type": "integer"
+                      },
+                      "operation": {
+                        "type": "string"
                       },
                       "owner_subject": {
                         "type": "string"
@@ -844,11 +889,17 @@
                 "dataset_id": {
                   "type": "integer"
                 },
+                "enabled": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "integer"
                 },
                 "indexed_chunk_count": {
                   "type": "integer"
+                },
+                "operation": {
+                  "type": "string"
                 },
                 "owner_subject": {
                   "type": "string"
@@ -945,11 +996,17 @@
                 "dataset_id": {
                   "type": "integer"
                 },
+                "enabled": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "integer"
                 },
                 "indexed_chunk_count": {
                   "type": "integer"
+                },
+                "operation": {
+                  "type": "string"
                 },
                 "owner_subject": {
                   "type": "string"
@@ -1015,6 +1072,163 @@
         }
       }
     },
+    "/api/v1/dataset/{id}/documents/{docId}/content": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "获取文档内容",
+        "operationId": "datasetGetDocumentContent",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "name": "docId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "chunk_count": {
+                  "type": "integer"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "integer"
+                },
+                "dataset_id": {
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "indexed_chunk_count": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "owner_subject": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "integer"
+                },
+                "visibility": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dataset/{id}/documents/{docId}/enabled": {
+      "patch": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "禁用启用文档",
+        "operationId": "datasetEnableDocument",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "name": "docId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "chunk_count": {
+                  "type": "integer"
+                },
+                "createdAt": {
+                  "type": "integer"
+                },
+                "dataset_id": {
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "indexed_chunk_count": {
+                  "type": "integer"
+                },
+                "operation": {
+                  "type": "string"
+                },
+                "owner_subject": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "integer"
+                },
+                "visibility": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dataset/{id}/documents/{docId}/reindex": {
       "post": {
         "consumes": [
@@ -1057,11 +1271,17 @@
                 "dataset_id": {
                   "type": "integer"
                 },
+                "enabled": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "integer"
                 },
                 "indexed_chunk_count": {
                   "type": "integer"
+                },
+                "operation": {
+                  "type": "string"
                 },
                 "owner_subject": {
                   "type": "string"
@@ -1184,11 +1404,17 @@
                 "dataset_id": {
                   "type": "integer"
                 },
+                "enabled": {
+                  "type": "boolean"
+                },
                 "id": {
                   "type": "integer"
                 },
                 "indexed_chunk_count": {
                   "type": "integer"
+                },
+                "operation": {
+                  "type": "string"
                 },
                 "owner_subject": {
                   "type": "string"
@@ -1293,7 +1519,7 @@
       }
     }
   },
-  "x-date": "2026-09-17 16:00:50",
+  "x-date": "2026-09-18 10:32:20",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

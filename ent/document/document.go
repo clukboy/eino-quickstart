@@ -19,6 +19,8 @@ const (
 	FieldSource = "source"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
+	// FieldExternalKey holds the string denoting the external_key field in the database.
+	FieldExternalKey = "external_key"
 	// FieldMetadata holds the string denoting the metadata field in the database.
 	FieldMetadata = "metadata"
 	// FieldOwnerSubject holds the string denoting the owner_subject field in the database.
@@ -27,6 +29,8 @@ const (
 	FieldVisibility = "visibility"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldEnabled holds the string denoting the enabled field in the database.
+	FieldEnabled = "enabled"
 	// FieldDatasetID holds the string denoting the dataset_id field in the database.
 	FieldDatasetID = "dataset_id"
 	// FieldFolderID holds the string denoting the folder_id field in the database.
@@ -62,10 +66,12 @@ var Columns = []string{
 	FieldID,
 	FieldSource,
 	FieldTitle,
+	FieldExternalKey,
 	FieldMetadata,
 	FieldOwnerSubject,
 	FieldVisibility,
 	FieldStatus,
+	FieldEnabled,
 	FieldDatasetID,
 	FieldFolderID,
 	FieldCreatedAt,
@@ -96,6 +102,8 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultOwnerSubject holds the default value on creation for the "owner_subject" field.
 	DefaultOwnerSubject string
+	// DefaultEnabled holds the default value on creation for the "enabled" field.
+	DefaultEnabled bool
 	// DefaultDatasetID holds the default value on creation for the "dataset_id" field.
 	DefaultDatasetID uint64
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
@@ -178,6 +186,11 @@ func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTitle, opts...).ToFunc()
 }
 
+// ByExternalKey orders the results by the external_key field.
+func ByExternalKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExternalKey, opts...).ToFunc()
+}
+
 // ByOwnerSubject orders the results by the owner_subject field.
 func ByOwnerSubject(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOwnerSubject, opts...).ToFunc()
@@ -191,6 +204,11 @@ func ByVisibility(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByEnabled orders the results by the enabled field.
+func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
 }
 
 // ByDatasetID orders the results by the dataset_id field.

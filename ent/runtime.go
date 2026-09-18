@@ -95,19 +95,23 @@ func init() {
 	documentFields := schema.Document{}.Fields()
 	_ = documentFields
 	// documentDescOwnerSubject is the schema descriptor for owner_subject field.
-	documentDescOwnerSubject := documentFields[3].Descriptor()
+	documentDescOwnerSubject := documentFields[4].Descriptor()
 	// document.DefaultOwnerSubject holds the default value on creation for the owner_subject field.
 	document.DefaultOwnerSubject = documentDescOwnerSubject.Default.(string)
+	// documentDescEnabled is the schema descriptor for enabled field.
+	documentDescEnabled := documentFields[7].Descriptor()
+	// document.DefaultEnabled holds the default value on creation for the enabled field.
+	document.DefaultEnabled = documentDescEnabled.Default.(bool)
 	// documentDescDatasetID is the schema descriptor for dataset_id field.
-	documentDescDatasetID := documentFields[6].Descriptor()
+	documentDescDatasetID := documentFields[8].Descriptor()
 	// document.DefaultDatasetID holds the default value on creation for the dataset_id field.
 	document.DefaultDatasetID = documentDescDatasetID.Default.(uint64)
 	// documentDescCreatedAt is the schema descriptor for created_at field.
-	documentDescCreatedAt := documentFields[8].Descriptor()
+	documentDescCreatedAt := documentFields[10].Descriptor()
 	// document.DefaultCreatedAt holds the default value on creation for the created_at field.
 	document.DefaultCreatedAt = documentDescCreatedAt.Default.(func() time.Time)
 	// documentDescUpdatedAt is the schema descriptor for updated_at field.
-	documentDescUpdatedAt := documentFields[9].Descriptor()
+	documentDescUpdatedAt := documentFields[11].Descriptor()
 	// document.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	document.DefaultUpdatedAt = documentDescUpdatedAt.Default.(func() time.Time)
 	// document.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

@@ -10,13 +10,28 @@ syntax = "v1"
 // knowledge.root 里的文件，接口只读不改。正文以文件为唯一真相，所以
 // 「重建索引」就是把文件重新读出来，数据库里不必再存一份。
 //
+// **文档粒度是产品，不是文件。** 产品型录（dataset.type = product）的一份文件
+// 通常包含多个产品块，创建/上传时会在请求内按产品块拆开，**一个产品一条文档、
+// 一份正文文件**（source 形如 documents/<数据集>/<型号>-<短哈希>.md）。这样
+// 每个产品都能单独改、单独重建索引、单独删除，不必重传整份型录。
+// 拆分用的是与 worker 同一个解析器（internal/rag/parser 的 SplitBlocks），
+// 不会出现「上传时看到 10 条、索引后只剩 1 条」这种两边对不上的情况。
+//
+// 查重按型号：documents.external_key 存产品型号（product_id，缺失时退到 model），
+// 同一数据集内唯一。已存在的型号不新建，而是**覆盖正文并重新排队**，所以重传
+// 整份型录是一次增量同步 —— 只有真正改过的产品会重切、重嵌入。返回的每条上的
+// operation 说明这次对它做了什么（created / updated / unchanged）。
+//
+// 一次写入不是原子的，但**幂等**：逐条落库、逐条投递，中间失败时已经落下的那些
+// 保持现状，重传同一份文件会把它们识别成 unchanged 再继续。所以失败后重传就是
+// 修复，不需要先清理半成品。
+//
 // 索引是异步的，而且**切块也在后台**：写操作只做「落正文 + 建文档行 +
 // 投递 asynq 任务」，返回的 status 会是 indexing。为什么切块不在请求内做：
-// 一份文件里有几个产品、每个产品多长，要等 worker 按内容拆出产品块之后才
-// 知道（对应 internal/application/knowledge 的 ProductSplitter），请求内
-// 算不出来。worker 消费该任务完成 parse / 切块 / embedding / 向量写入，
-// 完成后 status 变 ready（失败则为 failed）；期间 chunk_count 从 0 开始、
-// indexed_chunk_count 逐批追上 chunk_count。
+// 每个产品要切几段、长段落怎么滑窗，要等 worker 切完才知道，请求内算不出来。
+// worker 消费该任务完成 parse / 切块 / embedding / 向量写入，完成后 status 变
+// ready（失败则为 failed）；期间 chunk_count 从 0 开始、indexed_chunk_count
+// 逐批追上 chunk_count。
 //
 // 类型归属说明（两组互相引用，是刻意的）：
 //   StatusResp        定义在 common/types.api（创建/删除都返回它）
@@ -67,6 +82,8 @@ type DocumentIDReq {
 // CreateDocumentReq 的 Content 与 Source 二选一：
 //   Content 非空 -> 正文写进托管目录（Source 若填写只能指向托管目录内的位置）
 //   Content 为空 -> 注册 Source 指向的既有文件，标题可省略（从文件名推断）
+//
+// 给 content 且数据集是产品型录时，正文会被拆成多个产品，响应是列表。
 type CreateDocumentReq {
 	ID         uint64            `path:"id"`
 	Title      string            `json:"title"`
@@ -78,6 +95,9 @@ type CreateDocumentReq {
 
 // UpdateDocumentReq 的零值字段表示「不改」。Content 非空会改写正文并重新
 // 索引；只对托管文件有效，注册进来的外部文件不允许由接口覆盖。
+//
+// 一个产品一条文档之后，改单个产品就用这个接口改那一条 —— 不要拿它去改整份
+// 型录，那条文档只包含型录里的第一个产品。
 type UpdateDocumentReq {
 	ID         uint64            `path:"id"`
 	DocID      uint64            `path:"docId"`
@@ -99,6 +119,13 @@ type DocumentResp {
 	IndexedChunkCount int    `json:"indexed_chunk_count"`
 	CreatedAt         int64  `json:"createdAt"`
 	UpdatedAt         int64  `json:"updatedAt"`
+	// Operation 只在写路径上有值：created / updated / unchanged。读路径为空
+	// —— 它描述的是「这次写入对它做了什么」，不是文档自身的属性。
+	//
+	// unchanged 只说明本次正文一字不差、索引也是好的；正文没变但索引不在 ready
+	// 时按 updated 上报（这次请求确实重新排了队，用于重试失败文档）。
+	Operation string `json:"operation,omitempty"`
+	Enabled   bool   `json:"enabled"`
 }
 
 type DocumentListResp {
@@ -130,6 +157,23 @@ type SearchDatasetReq {
 	Query     string `json:"query"`
 }
 
+type DocumentContentResp {
+	ID                uint64                 `json:"id"`
+	DatasetID         uint64                 `json:"dataset_id"`
+	Source            string                 `json:"source"`
+	Title             string                 `json:"title"`
+	Status            string                 `json:"status"`
+	Visibility        string                 `json:"visibility"`
+	OwnerSubject      string                 `json:"owner_subject"`
+	Enabled           bool                   `json:"enabled"`
+	ChunkCount        int                    `json:"chunk_count"`
+	IndexedChunkCount int                    `json:"indexed_chunk_count"`
+	CreatedAt         int64                  `json:"createdAt"`
+	UpdatedAt         int64                  `json:"updatedAt"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	Content           string                 `json:"content"`
+}
+
 // 数据集管理全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
@@ -153,9 +197,9 @@ service restapi {
 	@handler DeleteDataset
 	delete /dataset/:id (DatasetIDReq) returns (StatusResp)
 
-	@doc "创建文档"
+	@doc "创建文档（产品型录会按产品拆成多条）"
 	@handler CreateDocument
-	post /dataset/:id/documents (CreateDocumentReq) returns (DocumentResp)
+	post /dataset/:id/documents (CreateDocumentReq) returns (DocumentListResp)
 
 	@doc "列出数据集文档"
 	@handler ListDocuments
@@ -188,5 +232,13 @@ service restapi {
 	@doc "数据召回"
 	@handler SearchDataset
 	post /dataset/:id/search (SearchDatasetReq) returns (DocumentResp)
+
+	@doc "禁用启用文档"
+	@handler EnableDocument
+	patch /dataset/:id/documents/:docId/enabled (DocumentIDReq) returns (DocumentResp)
+
+	@doc "获取文档内容"
+	@handler GetDocumentContent
+	get /dataset/:id/documents/:docId/content (DocumentIDReq) returns (DocumentContentResp)
 }
 

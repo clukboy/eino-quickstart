@@ -74,6 +74,23 @@ type DatasetResp struct {
 	Type         string `json:"type"`
 }
 
+type DocumentContentResp struct {
+	ID                uint64                 `json:"id"`
+	DatasetID         uint64                 `json:"dataset_id"`
+	Source            string                 `json:"source"`
+	Title             string                 `json:"title"`
+	Status            string                 `json:"status"`
+	Visibility        string                 `json:"visibility"`
+	OwnerSubject      string                 `json:"owner_subject"`
+	Enabled           bool                   `json:"enabled"`
+	ChunkCount        int                    `json:"chunk_count"`
+	IndexedChunkCount int                    `json:"indexed_chunk_count"`
+	CreatedAt         int64                  `json:"createdAt"`
+	UpdatedAt         int64                  `json:"updatedAt"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	Content           string                 `json:"content"`
+}
+
 type DocumentIDReq struct {
 	ID    uint64 `path:"id"`
 	DocID uint64 `path:"docId"`
@@ -95,6 +112,8 @@ type DocumentResp struct {
 	IndexedChunkCount int    `json:"indexed_chunk_count"`
 	CreatedAt         int64  `json:"createdAt"`
 	UpdatedAt         int64  `json:"updatedAt"`
+	Operation         string `json:"operation,omitempty"`
+	Enabled           bool   `json:"enabled"`
 }
 
 type DocumentUploadReq struct {

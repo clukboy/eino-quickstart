@@ -50,6 +50,7 @@ func TestRoutingContract(t *testing.T) {
 		"POST /api/v1/dataset/:id/documents/:docId/reindex": true,
 		"POST /api/v1/dataset/:id/documents/upload":         true,
 		"POST /api/v1/dataset/:id/reindex":                  true,
+		"POST /api/v1/dataset/:id/search":                   true,
 		"GET /api/v1/agents/:subject/dataset":               true,
 		"PUT /api/v1/agents/:subject/dataset/:id":           true,
 		"DELETE /api/v1/agents/:subject/dataset/:id":        true,

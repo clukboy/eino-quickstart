@@ -212,10 +212,12 @@ var (
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "source", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
+		{Name: "external_key", Type: field.TypeString, Nullable: true},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
 		{Name: "visibility", Type: field.TypeEnum, Enums: []string{"system", "private"}, Default: "system"},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ready", "indexing", "failed", "deleted"}, Default: "indexing"},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "folder_id", Type: field.TypeUint64, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
@@ -230,22 +232,27 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "documents_datasets_documents",
-				Columns:    []*schema.Column{DocumentsColumns[10]},
+				Columns:    []*schema.Column{DocumentsColumns[12]},
 				RefColumns: []*schema.Column{DatasetsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "documents_knowledge_folders_documents",
-				Columns:    []*schema.Column{DocumentsColumns[11]},
+				Columns:    []*schema.Column{DocumentsColumns[13]},
 				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
+				Name:    "document_dataset_id_external_key",
+				Unique:  true,
+				Columns: []*schema.Column{DocumentsColumns[12], DocumentsColumns[3]},
+			},
+			{
 				Name:    "document_owner_subject_visibility",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentsColumns[4], DocumentsColumns[5]},
+				Columns: []*schema.Column{DocumentsColumns[5], DocumentsColumns[6]},
 			},
 		},
 	}

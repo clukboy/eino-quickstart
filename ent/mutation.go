@@ -6101,10 +6101,12 @@ type DocumentMutation struct {
 	id             *uint64
 	source         *string
 	title          *string
+	external_key   *string
 	metadata       *map[string]interface{}
 	owner_subject  *string
 	visibility     *document.Visibility
 	status         *document.Status
+	enabled        *bool
 	folder_id      *uint64
 	addfolder_id   *int64
 	created_at     *time.Time
@@ -6290,6 +6292,55 @@ func (m *DocumentMutation) ResetTitle() {
 	m.title = nil
 }
 
+// SetExternalKey sets the "external_key" field.
+func (m *DocumentMutation) SetExternalKey(s string) {
+	m.external_key = &s
+}
+
+// ExternalKey returns the value of the "external_key" field in the mutation.
+func (m *DocumentMutation) ExternalKey() (r string, exists bool) {
+	v := m.external_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExternalKey returns the old "external_key" field's value of the Document entity.
+// If the Document object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentMutation) OldExternalKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExternalKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExternalKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExternalKey: %w", err)
+	}
+	return oldValue.ExternalKey, nil
+}
+
+// ClearExternalKey clears the value of the "external_key" field.
+func (m *DocumentMutation) ClearExternalKey() {
+	m.external_key = nil
+	m.clearedFields[document.FieldExternalKey] = struct{}{}
+}
+
+// ExternalKeyCleared returns if the "external_key" field was cleared in this mutation.
+func (m *DocumentMutation) ExternalKeyCleared() bool {
+	_, ok := m.clearedFields[document.FieldExternalKey]
+	return ok
+}
+
+// ResetExternalKey resets all changes to the "external_key" field.
+func (m *DocumentMutation) ResetExternalKey() {
+	m.external_key = nil
+	delete(m.clearedFields, document.FieldExternalKey)
+}
+
 // SetMetadata sets the "metadata" field.
 func (m *DocumentMutation) SetMetadata(value map[string]interface{}) {
 	m.metadata = &value
@@ -6445,6 +6496,42 @@ func (m *DocumentMutation) OldStatus(ctx context.Context) (v document.Status, er
 // ResetStatus resets all changes to the "status" field.
 func (m *DocumentMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *DocumentMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *DocumentMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the Document entity.
+// If the Document object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *DocumentMutation) ResetEnabled() {
+	m.enabled = nil
 }
 
 // SetDatasetID sets the "dataset_id" field.
@@ -6740,12 +6827,15 @@ func (m *DocumentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DocumentMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.source != nil {
 		fields = append(fields, document.FieldSource)
 	}
 	if m.title != nil {
 		fields = append(fields, document.FieldTitle)
+	}
+	if m.external_key != nil {
+		fields = append(fields, document.FieldExternalKey)
 	}
 	if m.metadata != nil {
 		fields = append(fields, document.FieldMetadata)
@@ -6758,6 +6848,9 @@ func (m *DocumentMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, document.FieldStatus)
+	}
+	if m.enabled != nil {
+		fields = append(fields, document.FieldEnabled)
 	}
 	if m.dataset != nil {
 		fields = append(fields, document.FieldDatasetID)
@@ -6783,6 +6876,8 @@ func (m *DocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.Source()
 	case document.FieldTitle:
 		return m.Title()
+	case document.FieldExternalKey:
+		return m.ExternalKey()
 	case document.FieldMetadata:
 		return m.Metadata()
 	case document.FieldOwnerSubject:
@@ -6791,6 +6886,8 @@ func (m *DocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.Visibility()
 	case document.FieldStatus:
 		return m.Status()
+	case document.FieldEnabled:
+		return m.Enabled()
 	case document.FieldDatasetID:
 		return m.DatasetID()
 	case document.FieldFolderID:
@@ -6812,6 +6909,8 @@ func (m *DocumentMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldSource(ctx)
 	case document.FieldTitle:
 		return m.OldTitle(ctx)
+	case document.FieldExternalKey:
+		return m.OldExternalKey(ctx)
 	case document.FieldMetadata:
 		return m.OldMetadata(ctx)
 	case document.FieldOwnerSubject:
@@ -6820,6 +6919,8 @@ func (m *DocumentMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldVisibility(ctx)
 	case document.FieldStatus:
 		return m.OldStatus(ctx)
+	case document.FieldEnabled:
+		return m.OldEnabled(ctx)
 	case document.FieldDatasetID:
 		return m.OldDatasetID(ctx)
 	case document.FieldFolderID:
@@ -6851,6 +6952,13 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetTitle(v)
 		return nil
+	case document.FieldExternalKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExternalKey(v)
+		return nil
 	case document.FieldMetadata:
 		v, ok := value.(map[string]interface{})
 		if !ok {
@@ -6878,6 +6986,13 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case document.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
 		return nil
 	case document.FieldDatasetID:
 		v, ok := value.(uint64)
@@ -6952,6 +7067,9 @@ func (m *DocumentMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *DocumentMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(document.FieldExternalKey) {
+		fields = append(fields, document.FieldExternalKey)
+	}
 	if m.FieldCleared(document.FieldMetadata) {
 		fields = append(fields, document.FieldMetadata)
 	}
@@ -6972,6 +7090,9 @@ func (m *DocumentMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *DocumentMutation) ClearField(name string) error {
 	switch name {
+	case document.FieldExternalKey:
+		m.ClearExternalKey()
+		return nil
 	case document.FieldMetadata:
 		m.ClearMetadata()
 		return nil
@@ -6992,6 +7113,9 @@ func (m *DocumentMutation) ResetField(name string) error {
 	case document.FieldTitle:
 		m.ResetTitle()
 		return nil
+	case document.FieldExternalKey:
+		m.ResetExternalKey()
+		return nil
 	case document.FieldMetadata:
 		m.ResetMetadata()
 		return nil
@@ -7003,6 +7127,9 @@ func (m *DocumentMutation) ResetField(name string) error {
 		return nil
 	case document.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case document.FieldEnabled:
+		m.ResetEnabled()
 		return nil
 	case document.FieldDatasetID:
 		m.ResetDatasetID()

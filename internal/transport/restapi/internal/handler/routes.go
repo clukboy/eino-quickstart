@@ -103,7 +103,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: dataset.DeleteDatasetHandler(serverCtx),
 				},
 				{
-					// 创建文档
+					// 创建文档（产品型录会按产品拆成多条）
 					Method:  http.MethodPost,
 					Path:    "/dataset/:id/documents",
 					Handler: dataset.CreateDocumentHandler(serverCtx),
@@ -131,6 +131,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodDelete,
 					Path:    "/dataset/:id/documents/:docId",
 					Handler: dataset.DeleteDocumentHandler(serverCtx),
+				},
+				{
+					// 获取文档内容
+					Method:  http.MethodGet,
+					Path:    "/dataset/:id/documents/:docId/content",
+					Handler: dataset.GetDocumentContentHandler(serverCtx),
+				},
+				{
+					// 禁用启用文档
+					Method:  http.MethodPatch,
+					Path:    "/dataset/:id/documents/:docId/enabled",
+					Handler: dataset.EnableDocumentHandler(serverCtx),
 				},
 				{
 					// 重建文档索引

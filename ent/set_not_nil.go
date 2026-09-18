@@ -998,6 +998,30 @@ func (_m *DocumentCreate) SetNotNilTitle(value *string) *DocumentCreate {
 }
 
 // set field if value's pointer is not nil.
+func (_m *DocumentUpdate) SetNotNilExternalKey(value *string) *DocumentUpdate {
+	if value != nil {
+		return _m.SetExternalKey(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentUpdateOne) SetNotNilExternalKey(value *string) *DocumentUpdateOne {
+	if value != nil {
+		return _m.SetExternalKey(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentCreate) SetNotNilExternalKey(value *string) *DocumentCreate {
+	if value != nil {
+		return _m.SetExternalKey(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
 func (_m *DocumentUpdate) SetNotNilMetadata(value *map[string]interface{}) *DocumentUpdate {
 	if value != nil {
 		return _m.SetMetadata(*value)
@@ -1089,6 +1113,30 @@ func (_m *DocumentUpdateOne) SetNotNilStatus(value *document.Status) *DocumentUp
 func (_m *DocumentCreate) SetNotNilStatus(value *document.Status) *DocumentCreate {
 	if value != nil {
 		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentUpdate) SetNotNilEnabled(value *bool) *DocumentUpdate {
+	if value != nil {
+		return _m.SetEnabled(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentUpdateOne) SetNotNilEnabled(value *bool) *DocumentUpdateOne {
+	if value != nil {
+		return _m.SetEnabled(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentCreate) SetNotNilEnabled(value *bool) *DocumentCreate {
+	if value != nil {
+		return _m.SetEnabled(*value)
 	}
 	return _m
 }

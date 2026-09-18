@@ -51,7 +51,7 @@ func NewFileLoader(ctx context.Context, cfg FileLoaderConfig) (*FileLoader, erro
 	}
 	docParser, err := parser.NewParser(ctx, &parser.ParserConfig{
 		Parsers: map[string]einoparser.Parser{
-			"product": parser.ProductParser{},
+			parser.TypeProduct: parser.ProductParser{},
 		},
 	})
 	if err != nil {

@@ -34,6 +34,20 @@ func (_c *DocumentCreate) SetTitle(v string) *DocumentCreate {
 	return _c
 }
 
+// SetExternalKey sets the "external_key" field.
+func (_c *DocumentCreate) SetExternalKey(v string) *DocumentCreate {
+	_c.mutation.SetExternalKey(v)
+	return _c
+}
+
+// SetNillableExternalKey sets the "external_key" field if the given value is not nil.
+func (_c *DocumentCreate) SetNillableExternalKey(v *string) *DocumentCreate {
+	if v != nil {
+		_c.SetExternalKey(*v)
+	}
+	return _c
+}
+
 // SetMetadata sets the "metadata" field.
 func (_c *DocumentCreate) SetMetadata(v map[string]interface{}) *DocumentCreate {
 	_c.mutation.SetMetadata(v)
@@ -78,6 +92,20 @@ func (_c *DocumentCreate) SetStatus(v document.Status) *DocumentCreate {
 func (_c *DocumentCreate) SetNillableStatus(v *document.Status) *DocumentCreate {
 	if v != nil {
 		_c.SetStatus(*v)
+	}
+	return _c
+}
+
+// SetEnabled sets the "enabled" field.
+func (_c *DocumentCreate) SetEnabled(v bool) *DocumentCreate {
+	_c.mutation.SetEnabled(v)
+	return _c
+}
+
+// SetNillableEnabled sets the "enabled" field if the given value is not nil.
+func (_c *DocumentCreate) SetNillableEnabled(v *bool) *DocumentCreate {
+	if v != nil {
+		_c.SetEnabled(*v)
 	}
 	return _c
 }
@@ -205,6 +233,10 @@ func (_c *DocumentCreate) defaults() {
 		v := document.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.Enabled(); !ok {
+		v := document.DefaultEnabled
+		_c.mutation.SetEnabled(v)
+	}
 	if _, ok := _c.mutation.DatasetID(); !ok {
 		v := document.DefaultDatasetID
 		_c.mutation.SetDatasetID(v)
@@ -245,6 +277,9 @@ func (_c *DocumentCreate) check() error {
 		if err := document.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Document.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.Enabled(); !ok {
+		return &ValidationError{Name: "enabled", err: errors.New(`ent: missing required field "Document.enabled"`)}
 	}
 	if _, ok := _c.mutation.DatasetID(); !ok {
 		return &ValidationError{Name: "dataset_id", err: errors.New(`ent: missing required field "Document.dataset_id"`)}
@@ -292,6 +327,10 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
 		_node.Title = value
 	}
+	if value, ok := _c.mutation.ExternalKey(); ok {
+		_spec.SetField(document.FieldExternalKey, field.TypeString, value)
+		_node.ExternalKey = &value
+	}
 	if value, ok := _c.mutation.Metadata(); ok {
 		_spec.SetField(document.FieldMetadata, field.TypeJSON, value)
 		_node.Metadata = value
@@ -307,6 +346,10 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(document.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.Enabled(); ok {
+		_spec.SetField(document.FieldEnabled, field.TypeBool, value)
+		_node.Enabled = value
 	}
 	if value, ok := _c.mutation.FolderID(); ok {
 		_spec.SetField(document.FieldFolderID, field.TypeUint64, value)

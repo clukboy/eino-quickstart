@@ -65,9 +65,19 @@ func Title(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldTitle, v))
 }
 
+// ExternalKey applies equality check predicate on the "external_key" field. It's identical to ExternalKeyEQ.
+func ExternalKey(v string) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldExternalKey, v))
+}
+
 // OwnerSubject applies equality check predicate on the "owner_subject" field. It's identical to OwnerSubjectEQ.
 func OwnerSubject(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldOwnerSubject, v))
+}
+
+// Enabled applies equality check predicate on the "enabled" field. It's identical to EnabledEQ.
+func Enabled(v bool) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldEnabled, v))
 }
 
 // DatasetID applies equality check predicate on the "dataset_id" field. It's identical to DatasetIDEQ.
@@ -220,6 +230,81 @@ func TitleContainsFold(v string) predicate.Document {
 	return predicate.Document(sql.FieldContainsFold(FieldTitle, v))
 }
 
+// ExternalKeyEQ applies the EQ predicate on the "external_key" field.
+func ExternalKeyEQ(v string) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldExternalKey, v))
+}
+
+// ExternalKeyNEQ applies the NEQ predicate on the "external_key" field.
+func ExternalKeyNEQ(v string) predicate.Document {
+	return predicate.Document(sql.FieldNEQ(FieldExternalKey, v))
+}
+
+// ExternalKeyIn applies the In predicate on the "external_key" field.
+func ExternalKeyIn(vs ...string) predicate.Document {
+	return predicate.Document(sql.FieldIn(FieldExternalKey, vs...))
+}
+
+// ExternalKeyNotIn applies the NotIn predicate on the "external_key" field.
+func ExternalKeyNotIn(vs ...string) predicate.Document {
+	return predicate.Document(sql.FieldNotIn(FieldExternalKey, vs...))
+}
+
+// ExternalKeyGT applies the GT predicate on the "external_key" field.
+func ExternalKeyGT(v string) predicate.Document {
+	return predicate.Document(sql.FieldGT(FieldExternalKey, v))
+}
+
+// ExternalKeyGTE applies the GTE predicate on the "external_key" field.
+func ExternalKeyGTE(v string) predicate.Document {
+	return predicate.Document(sql.FieldGTE(FieldExternalKey, v))
+}
+
+// ExternalKeyLT applies the LT predicate on the "external_key" field.
+func ExternalKeyLT(v string) predicate.Document {
+	return predicate.Document(sql.FieldLT(FieldExternalKey, v))
+}
+
+// ExternalKeyLTE applies the LTE predicate on the "external_key" field.
+func ExternalKeyLTE(v string) predicate.Document {
+	return predicate.Document(sql.FieldLTE(FieldExternalKey, v))
+}
+
+// ExternalKeyContains applies the Contains predicate on the "external_key" field.
+func ExternalKeyContains(v string) predicate.Document {
+	return predicate.Document(sql.FieldContains(FieldExternalKey, v))
+}
+
+// ExternalKeyHasPrefix applies the HasPrefix predicate on the "external_key" field.
+func ExternalKeyHasPrefix(v string) predicate.Document {
+	return predicate.Document(sql.FieldHasPrefix(FieldExternalKey, v))
+}
+
+// ExternalKeyHasSuffix applies the HasSuffix predicate on the "external_key" field.
+func ExternalKeyHasSuffix(v string) predicate.Document {
+	return predicate.Document(sql.FieldHasSuffix(FieldExternalKey, v))
+}
+
+// ExternalKeyIsNil applies the IsNil predicate on the "external_key" field.
+func ExternalKeyIsNil() predicate.Document {
+	return predicate.Document(sql.FieldIsNull(FieldExternalKey))
+}
+
+// ExternalKeyNotNil applies the NotNil predicate on the "external_key" field.
+func ExternalKeyNotNil() predicate.Document {
+	return predicate.Document(sql.FieldNotNull(FieldExternalKey))
+}
+
+// ExternalKeyEqualFold applies the EqualFold predicate on the "external_key" field.
+func ExternalKeyEqualFold(v string) predicate.Document {
+	return predicate.Document(sql.FieldEqualFold(FieldExternalKey, v))
+}
+
+// ExternalKeyContainsFold applies the ContainsFold predicate on the "external_key" field.
+func ExternalKeyContainsFold(v string) predicate.Document {
+	return predicate.Document(sql.FieldContainsFold(FieldExternalKey, v))
+}
+
 // MetadataIsNil applies the IsNil predicate on the "metadata" field.
 func MetadataIsNil() predicate.Document {
 	return predicate.Document(sql.FieldIsNull(FieldMetadata))
@@ -333,6 +418,16 @@ func StatusIn(vs ...Status) predicate.Document {
 // StatusNotIn applies the NotIn predicate on the "status" field.
 func StatusNotIn(vs ...Status) predicate.Document {
 	return predicate.Document(sql.FieldNotIn(FieldStatus, vs...))
+}
+
+// EnabledEQ applies the EQ predicate on the "enabled" field.
+func EnabledEQ(v bool) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldEnabled, v))
+}
+
+// EnabledNEQ applies the NEQ predicate on the "enabled" field.
+func EnabledNEQ(v bool) predicate.Document {
+	return predicate.Document(sql.FieldNEQ(FieldEnabled, v))
 }
 
 // DatasetIDEQ applies the EQ predicate on the "dataset_id" field.

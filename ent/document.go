@@ -23,6 +23,8 @@ type Document struct {
 	Source string `json:"source,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
+	// ExternalKey holds the value of the "external_key" field.
+	ExternalKey *string `json:"external_key,omitempty"`
 	// Metadata holds the value of the "metadata" field.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	// OwnerSubject holds the value of the "owner_subject" field.
@@ -31,6 +33,8 @@ type Document struct {
 	Visibility document.Visibility `json:"visibility,omitempty"`
 	// Status holds the value of the "status" field.
 	Status document.Status `json:"status,omitempty"`
+	// Enabled holds the value of the "enabled" field.
+	Enabled bool `json:"enabled,omitempty"`
 	// DatasetID holds the value of the "dataset_id" field.
 	DatasetID uint64 `json:"dataset_id,omitempty"`
 	// FolderID holds the value of the "folder_id" field.
@@ -84,9 +88,11 @@ func (*Document) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case document.FieldMetadata:
 			values[i] = new([]byte)
+		case document.FieldEnabled:
+			values[i] = new(sql.NullBool)
 		case document.FieldID, document.FieldDatasetID, document.FieldFolderID:
 			values[i] = new(sql.NullInt64)
-		case document.FieldSource, document.FieldTitle, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
+		case document.FieldSource, document.FieldTitle, document.FieldExternalKey, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
 			values[i] = new(sql.NullString)
 		case document.FieldCreatedAt, document.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -125,6 +131,13 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Title = value.String
 			}
+		case document.FieldExternalKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field external_key", values[i])
+			} else if value.Valid {
+				_m.ExternalKey = new(string)
+				*_m.ExternalKey = value.String
+			}
 		case document.FieldMetadata:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field metadata", values[i])
@@ -150,6 +163,12 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = document.Status(value.String)
+			}
+		case document.FieldEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field enabled", values[i])
+			} else if value.Valid {
+				_m.Enabled = value.Bool
 			}
 		case document.FieldDatasetID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -235,6 +254,11 @@ func (_m *Document) String() string {
 	builder.WriteString("title=")
 	builder.WriteString(_m.Title)
 	builder.WriteString(", ")
+	if v := _m.ExternalKey; v != nil {
+		builder.WriteString("external_key=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
 	builder.WriteString("metadata=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
 	builder.WriteString(", ")
@@ -246,6 +270,9 @@ func (_m *Document) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(", ")
+	builder.WriteString("enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Enabled))
 	builder.WriteString(", ")
 	builder.WriteString("dataset_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.DatasetID))

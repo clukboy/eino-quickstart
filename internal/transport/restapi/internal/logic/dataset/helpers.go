@@ -95,6 +95,7 @@ func documentDTO(base *ent.Document, stat knowledge.ChunkStat) *types.DocumentRe
 		IndexedChunkCount: stat.Indexed,
 		CreatedAt:         base.CreatedAt.UnixMilli(),
 		UpdatedAt:         base.UpdatedAt.UnixMilli(),
+		Enabled:           base.Enabled,
 	}
 }
 
@@ -104,11 +105,7 @@ func documentDTO(base *ent.Document, stat knowledge.ChunkStat) *types.DocumentRe
 //
 // 计数是实时聚合出来的，不是 documents 上的列：切块在 worker 内完成，请求
 // 返回时根本没有一个可以落库的准确值，维护冗余列只会让它慢慢漂。
-func documentDTOs(
-	ctx context.Context,
-	service *knowledge.Service,
-	docs []*ent.Document,
-) ([]*types.DocumentResp, error) {
+func documentDTOs(ctx context.Context, service *knowledge.Service, docs []*ent.Document) ([]*types.DocumentResp, error) {
 	if len(docs) == 0 {
 		return []*types.DocumentResp{}, nil
 	}
@@ -139,4 +136,56 @@ func documentDTOOne(
 		return nil, err
 	}
 	return list[0], nil
+}
+
+// createResultDTOs 把一次写入的结果铺成响应，并带上每条的动作。
+//
+// 分块计数走 documentDTOs 的批量聚合，不按条查：一次上传可能拆出几十个产品，
+// 逐条查计数会让往返次数跟着产品数涨。
+func createResultDTOs(ctx context.Context, service *knowledge.Service, results []knowledge.CreateResult) ([]*types.DocumentResp, error) {
+	if len(results) == 0 {
+		return []*types.DocumentResp{}, nil
+	}
+
+	docs := make([]*ent.Document, 0, len(results))
+	operations := make(map[uint64]string, len(results))
+	for _, result := range results {
+		docs = append(docs, result.Document)
+		operations[result.Document.ID] = result.Operation
+	}
+
+	list, err := documentDTOs(ctx, service, docs)
+	if err != nil {
+		return nil, err
+	}
+	for _, dto := range list {
+		dto.Operation = operations[dto.ID]
+	}
+	return list, nil
+}
+
+func documentContentOne(ctx context.Context, service *knowledge.Service, doc *ent.Document) (*types.DocumentContentResp, error) {
+	base, err := documentDTOOne(ctx, service, doc)
+	if err != nil {
+		return nil, err
+	}
+	content, err := service.ContentFromSource(ctx, doc.Source)
+	if err != nil {
+		return nil, err
+	}
+	return &types.DocumentContentResp{
+		ID:                base.ID,
+		DatasetID:         base.DatasetID,
+		Source:            base.Source,
+		Title:             base.Title,
+		Status:            string(base.Status),
+		Visibility:        string(base.Visibility),
+		OwnerSubject:      base.OwnerSubject,
+		ChunkCount:        base.ChunkCount,
+		IndexedChunkCount: base.IndexedChunkCount,
+		CreatedAt:         base.CreatedAt,
+		UpdatedAt:         base.UpdatedAt,
+		Enabled:           base.Enabled,
+		Content:           content,
+	}, nil
 }

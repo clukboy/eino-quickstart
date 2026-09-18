@@ -77,24 +77,11 @@ func (s *ContentStore) Root() string {
 	return s.root
 }
 
-// Exists 报告 source 是否指向一个已存在的文件。
-func (s *ContentStore) Exists(source string) bool {
-	abs, err := s.resolve(source)
-	if err != nil {
-		return false
-	}
-	info, err := os.Stat(abs)
-	if err != nil {
-		return false
-	}
-	return !info.IsDir()
-}
-
 func (s *ContentStore) Create(datasetID uint64, title, content string) (string, error) {
 	if err := s.checkSize(content); err != nil {
 		return "", err
 	}
-	name := slugify(title) + ".md"
+	name := Slugify(title) + ".md"
 	// 存库统一用正斜杠，避免换操作系统后读不回来。
 	source := ManagedDir + "/" + strconv.FormatUint(datasetID, 10) + "/" + name
 
@@ -109,6 +96,55 @@ func (s *ContentStore) Create(datasetID uint64, title, content string) (string, 
 		return "", fmt.Errorf("write knowledge content %q: %w", source, err)
 	}
 	return source, nil
+}
+
+// CreateNamed 用调用方给出的文件名主干在托管目录里写一份新正文，返回落库用的
+// source（相对 root 的路径）。
+//
+// 路径由调用方决定而不是从标题派生，是「一个产品一个文件」的前提：文件名必须
+// 与查重键绑定且稳定 —— 标题会改（改标题不该换文件），而且标题撞车很常见
+// （两个型号只差大小写，Slugify 之后是同一个名字，后写的会盖掉先写的）。
+//
+// 主干里只允许出字母、数字、连字符与下划线。调用方拼主干时应当把识别信息放进
+// 去（本仓库的做法是「Slugify(键) + 键的短哈希」），因为截断可能让长键的前半段
+// 相同。
+func (s *ContentStore) CreateNamed(datasetID uint64, stem, content string) (string, error) {
+	if err := checkStem(stem); err != nil {
+		return "", err
+	}
+	if err := s.checkSize(content); err != nil {
+		return "", err
+	}
+	// 存库统一用正斜杠，避免换操作系统后读不回来。
+	source := ManagedDir + "/" + strconv.FormatUint(datasetID, 10) + "/" + stem + ".md"
+
+	abs, err := s.resolve(source)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		return "", fmt.Errorf("create knowledge content dir for %q: %w", source, err)
+	}
+	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("write knowledge content %q: %w", source, err)
+	}
+	return source, nil
+}
+
+// checkStem 拦住会逃出目录或产生不可预期路径的主干。
+//
+// 主干是调用方拼出来的（不是用户直接给的），所以这里失败属于程序错误而不是
+// 输入校验；但仍然必须拦：一个带 / 的主干会让文件写到别的目录去，而
+// resolve 只会检查最终路径是否在 root 内 —— 写到 documents/<别的数据集>/ 下
+// 是「在 root 内」，它拦不住。
+func checkStem(stem string) error {
+	if stem == "" {
+		return errors.New("knowledge content: empty file stem")
+	}
+	if strings.ContainsAny(stem, `/\`) || stem == "." || stem == ".." || strings.HasPrefix(stem, ".") {
+		return fmt.Errorf("knowledge content: unusable file stem %q", stem)
+	}
+	return nil
 }
 
 // Write 覆盖写一个正文文件。只有托管目录内的路径允许改写：调用方自己放进
@@ -271,8 +307,16 @@ func (s *ContentStore) checkSize(content string) error {
 	return nil
 }
 
-// slugify 把标题压成文件名片段：保留字母与数字（含中文），其余折叠成连字符。
-func slugify(title string) string {
+// Slugify 把任意文本压成可做文件名的主干片段：保留字母与数字（含中文），其余
+// 折叠成连字符，最长 64 个字符。
+//
+// 两点必须知道，否则会踩到静默覆盖：
+//   - 结果是小写的，`H105P` 与 `h105p` 压出来是同一个字符串；
+//   - 超过 64 字符会被截断，长键可能截出相同的前缀。
+//
+// 所以它只适合做**可读前缀**，唯一性要靠调用方另补一段（本仓库补的是键的短
+// 哈希，见 application/knowledge 的 productStem）。
+func Slugify(title string) string {
 	var b strings.Builder
 	lastDash := true // 防止开头出现连字符
 	for _, r := range strings.TrimSpace(title) {
