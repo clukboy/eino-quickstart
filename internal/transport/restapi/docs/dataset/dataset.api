@@ -152,9 +152,43 @@ type DocumentUploadReq {
 	Visibility string `form:"visibility"`
 }
 
+// SearchDatasetReq 在数据集范围内做一次召回。
+//
+// TopK 省略时用 knowledge.defaultTopK，超过 knowledge.maxTopK 会被压到上限：
+// 「一次给多少条」是服务端资源与提示词长度的约束，不该由调用方随便放大。
 type SearchDatasetReq {
 	DatasetID uint64 `path:"id"`
 	Query     string `json:"query"`
+	TopK      int    `json:"top_k,omitempty"`
+}
+
+// SearchHitResp 是一条召回结果。
+//
+// 粒度由数据集类型决定（`knowledge.recallGrouping`）：产品型录一篇文档就是一个
+// 产品，按**文档**归并后返回（取命中的最高分块作代表）；普通文档库按**分块**
+// 返回，一篇长文可能命中几十条。调用方只看条数会误判 —— 同一个 top_k，在两种
+// 粒度下的覆盖面差得很远。
+type SearchHitResp {
+	ChunkID     uint64  `json:"chunk_id"`
+	DocumentID  uint64  `json:"document_id"`
+	Source      string  `json:"source"`
+	Title       string  `json:"title"`
+	HeadingPath string  `json:"heading_path"`
+	Content     string  `json:"content"`
+	Score       float64 `json:"score"`
+}
+
+// SearchResp 是一次召回的完整结果。
+//
+// Channels 列出本次真正给出了候选的通道，按优先级排列（exact / keyword / vector）。
+// Degraded 列出降级的通道 —— 它为空表示结果是完整的；非空表示少了一条通道的
+// 贡献，条数偏少或某个型号没搜到可能就是它造成的。没有这个字段时，「通道挂了」
+// 和「确实没有相关内容」在看结果的人眼里完全一样。
+type SearchResp {
+	Data     []*SearchHitResp `json:"data"`
+	Channels []string         `json:"channels"`
+	Degraded []string         `json:"degraded"`
+	TopK     int              `json:"top_k"`
 }
 
 type DocumentContentResp {
@@ -231,7 +265,7 @@ service restapi {
 
 	@doc "数据召回"
 	@handler SearchDataset
-	post /dataset/:id/search (SearchDatasetReq) returns (DocumentResp)
+	post /dataset/:id/search (SearchDatasetReq) returns (SearchResp)
 
 	@doc "禁用启用文档"
 	@handler EnableDocument

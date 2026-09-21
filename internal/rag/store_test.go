@@ -3,6 +3,8 @@ package rag
 import (
 	"strings"
 	"testing"
+
+	"eino-quickstart/internal/platform/config"
 )
 
 func containsTerm(terms []string, want string) bool {
@@ -95,5 +97,56 @@ func TestTokenizeSkipsOverlongPhrase(t *testing.T) {
 	}
 	if !containsTerm(terms, "铰链") {
 		t.Fatalf("2-gram 仍应存在，实际 %v", terms)
+	}
+}
+
+// PolicyFromConfig 必须交出「真正会生效」的那份策略，而不是配置的原始值。
+//
+// 组合根会拿它做装配决策：向量库起不来时把 VectorWeight 置 0 关掉那条通道。如果
+// 权重缺省时这里返回全 0，组合根看到的就是「向量已经是关的」，于是不会去关它；
+// 而检索器侧 normalize 会把默认的 1 补回来 —— 通道又开了，且每次请求都往
+// degraded 里填一条 vector。那条信息本来是给运维看异常的，一旦常驻就等于没有。
+func TestPolicyFromConfigReturnsEffectiveWeights(t *testing.T) {
+	// 配置里整段 retrieval 都省略：三个权重都是零值。
+	policy := PolicyFromConfig(config.RetrievalConfig{})
+
+	if policy.VectorWeight <= 0 {
+		t.Fatalf("缺省权重应当补出默认值，实际 VectorWeight=%v", policy.VectorWeight)
+	}
+	if policy.ExactWeight <= policy.KeywordWeight {
+		t.Errorf("精确通道的权重应当高于关键字通道：exact=%v keyword=%v",
+			policy.ExactWeight, policy.KeywordWeight)
+	}
+	if policy.KeywordWeight <= policy.VectorWeight {
+		t.Errorf("关键字通道的权重应当不低于向量通道：keyword=%v vector=%v",
+			policy.KeywordWeight, policy.VectorWeight)
+	}
+
+	// 候选上限也一并补齐：为零会让每条通道取 0 条候选，融合出来永远是空结果。
+	if policy.ExactCandidateLimit <= 0 ||
+		policy.KeywordCandidateLimit <= 0 ||
+		policy.VectorCandidateLimit <= 0 {
+		t.Errorf("候选上限没有补出默认值：%+v", policy)
+	}
+	if policy.RRFSmoothing <= 0 {
+		t.Errorf("RRF 平滑常数没有补出默认值：%v", policy.RRFSmoothing)
+	}
+
+	// 配置显式给出的值必须原样保留，不能被默认值覆盖。
+	configured := PolicyFromConfig(config.RetrievalConfig{
+		ExactWeight: 9, KeywordWeight: 3, VectorWeight: 0,
+		RRFSmoothing: 12, ExactCandidateLimit: 7,
+		KeywordCandidateLimit: 8, VectorCandidateLimit: 9,
+	})
+	if configured.ExactWeight != 9 {
+		t.Errorf("显式权重被覆盖：ExactWeight=%v，期望 9", configured.ExactWeight)
+	}
+	// 关掉一条通道（权重 0）也要照原样执行，而不是被默认值打开。
+	if configured.VectorWeight != 0 {
+		t.Errorf("显式把向量权重置 0 应当保持关闭，实际 %v", configured.VectorWeight)
+	}
+	// 归一化必须能通过多次调用收敛：组合根改过一个字段后再算一次也应当稳定。
+	if again := configured.normalize(); again != configured {
+		t.Errorf("归一化不是幂等的：%+v → %+v", configured, again)
 	}
 }

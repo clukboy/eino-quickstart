@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+
+	"eino-quickstart/internal/rag/grouping"
 )
 
 // Render 把报告写成人能读的文本。
@@ -18,8 +20,15 @@ import (
 func Render(w io.Writer, report Report) error {
 	summary := report.Summary
 
-	fmt.Fprintf(w, "检索召回评测  %s  TopK=%d\n",
-		report.GeneratedAt.Format("2006-01-02 15:04:05"), report.TopK)
+	// 归并粒度打在表头，和 TopK 并列：同一份用例集在两种粒度下的 Hits 不是同一个
+	// 单位，报告一旦离开当时的上下文，「召回 3 条」是 3 篇文档还是 3 个分块就没人
+	// 知道了。缺省时补上默认值，让老报告与新报告长得一样。
+	granularity := report.Granularity
+	if granularity == "" {
+		granularity = grouping.Default
+	}
+	fmt.Fprintf(w, "检索召回评测  %s  TopK=%d  归并粒度=%s\n",
+		report.GeneratedAt.Format("2006-01-02 15:04:05"), report.TopK, granularity)
 	fmt.Fprintln(w, strings.Repeat("─", 68))
 
 	fmt.Fprintf(w, "用例 %d    通过 %d (%.1f%%)    失败 %d\n",
@@ -62,7 +71,15 @@ func Render(w io.Writer, report Report) error {
 			if result.Note != "" {
 				fmt.Fprintf(w, "      说明: %s\n", result.Note)
 			}
-			fmt.Fprintf(w, "      召回(%d): %s\n", len(result.Retrieved), joinOrDash(result.Retrieved))
+			// 条数的单位跟着粒度走，所以这里不说「篇」也不说「块」——
+			// 说哪一边，另一边就是错的。
+			fmt.Fprintf(w, "      召回 %d 条: %s\n",
+				len(result.Results), joinOrDash(resultSources(result.Results)))
+			// 命中块数明显多于结果条数，说明同一篇文档占了名次里的好几个位置 ——
+			// 那是「条数看着不少、覆盖面却很窄」，只看条数看不见。
+			if result.Chunks > len(result.Results) {
+				fmt.Fprintf(w, "      （共命中 %d 块，按文档归并）\n", result.Chunks)
+			}
 		}
 	}
 
@@ -99,4 +116,13 @@ func joinOrDash(values []string) string {
 		return "（无）"
 	}
 	return strings.Join(values, ", ")
+}
+
+// resultSources 抽出结果明细里的 source，保持名次顺序。
+func resultSources(results []ResultHit) []string {
+	sources := make([]string, 0, len(results))
+	for _, result := range results {
+		sources = append(sources, result.Source)
+	}
+	return sources
 }

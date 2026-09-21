@@ -21,12 +21,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"eino-quickstart/ent"
@@ -38,6 +40,7 @@ import (
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
+	"eino-quickstart/internal/rag/grouping"
 	ragparser "eino-quickstart/internal/rag/parser"
 
 	"github.com/cloudwego/eino-ext/components/embedding/openai"
@@ -69,7 +72,11 @@ func run() error {
 		topK       = flag.Int("topk", 0, "默认 topK，0 表示取 knowledge.defaultTopK")
 		reportPath = flag.String("out", defaultReportPath, "报告 JSON 落盘路径，置空则不落盘")
 		verbose    = flag.Bool("v", false, "打印每条用例的明细")
-		datasets   stringList
+		// 粒度按知识库类型配（configs/config.yaml 的 knowledge.recallGrouping）。
+		// 语料混了好几类库时，逐个类型跑一轮再比，别指望一份数字覆盖两类库。
+		datasetType = flag.String("dataset-type", "",
+			"评测语料的数据集类型，用来查该库的召回归并粒度；留空取 recallGrouping 的 default")
+		datasets stringList
 	)
 	flag.Var(&datasets, "dataset", "金标用例集路径（JSONL），可重复指定，默认 "+defaultDataset)
 	flag.Parse()
@@ -82,6 +89,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("加载配置: %w", err)
 	}
+
+	// 粒度策略在开跑前解析：粒度名写错（"documents"）应当在这里就报出来，
+	// 而不是静默回落成默认粒度 —— 后者会让整轮评测的数字换一个单位，
+	// 却长得和「召回变差」一模一样。
+	groupingPolicy, err := grouping.NewPolicy(cfg.Knowledge.RecallGrouping)
+	if err != nil {
+		return fmt.Errorf("解析 knowledge.recallGrouping: %w", err)
+	}
+	recallGrouping := groupingPolicy.For(*datasetType)
 
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
@@ -121,18 +137,23 @@ func run() error {
 	}
 
 	runner := eval.Runner{
-		Searcher: retrieverSearcher{retriever: clients.retriever},
-		TopK:     effectiveTopK,
-		Logger:   slog.Default(),
+		Searcher:    retrieverSearcher{retriever: clients.retriever},
+		TopK:        effectiveTopK,
+		Granularity: recallGrouping,
+		Logger:      slog.Default(),
 	}
 	report := runner.Run(ctx, cases)
 
-	// 通道必须在报告之前打出来：同一份用例集换一条词法通道，分数会变，
-	// 报告一旦离开这个上下文就没人知道当时跑的是哪条。
-	fmt.Printf("关键词通道: %s\n\n", clients.keywordChannel())
+	// 通道与粒度必须在报告之前打出来：同一份用例集换一条词法通道、换一种归并
+	// 粒度，同一个数字的含义都会变。报告一旦离开这个上下文就没人知道当时跑的是
+	// 哪一套 —— 「召回 3 条」是 3 篇文档还是 3 个分块，差得很远。
+	fmt.Printf("关键词通道: %s\n", clients.keywordChannel())
+	fmt.Printf("召回归并粒度: %s\n\n", groupingPolicy.Describe(*datasetType))
 
 	if *verbose {
-		renderDetail(os.Stdout, report)
+		if err := renderDetail(os.Stdout, report); err != nil {
+			return fmt.Errorf("输出用例明细: %w", err)
+		}
 	}
 	if err := eval.Render(os.Stdout, report); err != nil {
 		return fmt.Errorf("输出报告: %w", err)
@@ -223,9 +244,10 @@ func newSearchClients(ctx context.Context, entClient *ent.Client, cfg *config.Co
 	// 查询 embedding 必须与入库用同一个模型，否则向量空间对不上，
 	// 召回会退化成随机 —— 这一点由两边读同一段 embedding 配置来保证。
 	hybrid, err := rag.NewHybridRetriever(rag.HybridConfig{
-		Store:    store,
-		Embedder: embedder,
-		TopK:     cfg.Knowledge.DefaultTopK,
+		Store:     store,
+		Embedder:  embedder,
+		TopK:      cfg.Knowledge.DefaultTopK,
+		Retrieval: rag.PolicyFromConfig(cfg.Retrieval),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("初始化检索器: %w", err)
@@ -464,18 +486,61 @@ func (s retrieverSearcher) Search(ctx context.Context, query string, topK int) (
 }
 
 // renderDetail 打印每条用例的召回明细，用来人肉判断"差多少"。
-func renderDetail(out *os.File, report eval.Report) {
-	fmt.Fprintln(out, "\n用例明细")
+//
+// 明细按**归并粒度**逐条列出 —— 粒度由知识库类型决定（-dataset-type 配合
+// configs/config.yaml 的 knowledge.recallGrouping）：产品型录一篇文档就是一个
+// 产品，列出一条文档；普通文档库一个分块就是一条内容，逐个分块列出。把同一篇
+// 文档的 8 个命中块摊成 8 行，等于让人自己再做一遍归并；反过来把 200 个分块压成
+// 1 行，人就完全看不出内容被哪一段吃掉了。
+//
+// 每行带得分、命中块数与标题路径：得分用来看「差多远」（0.31 与 0.87 是两种
+// 不同的问题），块数用来看「是不是同一篇文档占掉了好几个名次」，标题路径
+// 用来看「是产品的哪个字段 / 文档的哪一节命中的」。
+func renderDetail(out io.Writer, report eval.Report) error {
+	granularity := report.Granularity
+	if granularity == "" {
+		granularity = grouping.Default
+	}
+	fmt.Fprintf(out, "\n用例明细（召回结果逐条按%s列出）\n", granularity.Label())
 	fmt.Fprintln(out, strings.Repeat("─", 68))
 	for _, result := range report.Cases {
 		mark := "✓"
 		if !result.Passed {
 			mark = "✗"
 		}
-		fmt.Fprintf(out, "  %s %-28s recall=%.2f rank=%d hits=%d %dms  query=%q\n",
-			mark, result.ID, result.Recall, result.FirstHitRank, result.Hits, result.DurationMS, result.Query)
+		fmt.Fprintf(out, "  %s %-24s recall=%.2f rank=%d 结果 %d 条（命中 %d 块）%dms  query=%q\n",
+			mark, result.ID, result.Recall, result.FirstHitRank,
+			len(result.Results), result.Chunks, result.DurationMS, result.Query)
+		if err := renderResults(out, result.Results); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(out)
+	return nil
+}
+
+// renderResults 按名次列出召回到的每一条结果。
+func renderResults(out io.Writer, results []eval.ResultHit) error {
+	if len(results) == 0 {
+		fmt.Fprintln(out, "        （无结果）")
+		return nil
+	}
+	writer := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	for _, result := range results {
+		fmt.Fprintf(writer, "        %d. %s\t%.3f\t%d 块\t%s\n",
+			result.Rank, result.Source, result.Score, result.Chunks,
+			truncateRunes(result.HeadingPath, 36))
+	}
+	return writer.Flush()
+}
+
+// truncateRunes 按字符（不是字节）截断，避免把中文切成半个字。
+func truncateRunes(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit]) + "…"
 }
 
 func firstNonEmpty(values ...string) string {

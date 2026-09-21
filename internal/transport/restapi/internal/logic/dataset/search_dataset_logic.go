@@ -6,6 +6,7 @@ package dataset
 import (
 	"context"
 
+	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -27,8 +28,32 @@ func NewSearchDatasetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sea
 	}
 }
 
-func (l *SearchDatasetLogic) SearchDataset(req *types.SearchDatasetReq) (resp *types.DocumentResp, err error) {
-	// l.svcCtx.Knowledge.List()
+func (l *SearchDatasetLogic) SearchDataset(req *types.SearchDatasetReq) (resp *types.SearchResp, err error) {
+	outcome, err := l.svcCtx.Knowledge.Search(l.ctx, knowledge.SearchInput{
+		DatasetID: req.DatasetID,
+		Query:     req.Query,
+		TopK:      req.TopK,
+	})
+	if err != nil {
+		return nil, documentFail(err)
+	}
 
-	return
+	resp = &types.SearchResp{
+		Data:     make([]*types.SearchHitResp, 0, len(outcome.Hits)),
+		Channels: outcome.Channels,
+		Degraded: outcome.Degraded,
+		TopK:     outcome.TopK,
+	}
+	for _, hit := range outcome.Hits {
+		resp.Data = append(resp.Data, &types.SearchHitResp{
+			ChunkID:     hit.ChunkID,
+			DocumentID:  hit.DocumentID,
+			Source:      hit.Source,
+			Title:       hit.Title,
+			HeadingPath: hit.HeadingPath,
+			Content:     hit.Content,
+			Score:       hit.Score,
+		})
+	}
+	return resp, nil
 }

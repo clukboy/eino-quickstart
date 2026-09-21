@@ -12,15 +12,7 @@ import (
 
 type loggerContextKey struct{}
 
-func NewLogger(
-	level string,
-	serviceName string,
-	environment string,
-	logFilePath string,
-	maxSizeMB int,
-	maxBackups int,
-	maxAgeDays int,
-) (*slog.Logger, error) {
+func NewLogger(level string, serviceName string, environment string, logFilePath string, maxSizeMB int, maxBackups int, maxAgeDays int) (*slog.Logger, error) {
 	if err := os.MkdirAll(
 		filepath.Dir(logFilePath),
 		0755,

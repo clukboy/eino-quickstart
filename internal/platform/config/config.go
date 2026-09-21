@@ -181,6 +181,14 @@ type KnowledgeConfig struct {
 	MaxTopK             int    `yaml:"maxTopK"`
 	MaxQueryCharacters  int    `yaml:"maxQueryCharacters"`
 	MaxResultBytes      int    `yaml:"maxResultBytes"`
+
+	// RecallGrouping 按数据集类型指定召回结果的归并粒度。键是 dataset.type，
+	// "default" 是兜底；取值 chunk / document，见 internal/rag/grouping。
+	//
+	// 放在配置里而不是写死：产品型录一篇文档就是一个产品，召回要归并成文档；
+	// 普通文档库一篇长文切成几百块，归并成一条就什么都拿不到了。同一套检索链路
+	// 服务两类库时，粒度只能是每个库自己说。
+	RecallGrouping map[string]string `yaml:"recallGrouping"`
 }
 
 type EmbeddingConfig struct {

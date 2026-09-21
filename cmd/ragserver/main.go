@@ -103,6 +103,7 @@ func main() {
 		ChunkMaxChars:  cfg.Knowledge.ChunkSizeCharacters,
 		TopK:           cfg.Knowledge.DefaultTopK,
 		ScoreThreshold: 0.5,
+		Retrieval:      rag.PolicyFromConfig(cfg.Retrieval),
 	}, entClient)
 	if err != nil {
 		slog.Error("init pipeline", "err", err)

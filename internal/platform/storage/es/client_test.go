@@ -343,12 +343,104 @@ func TestSearchChunksSendsBM25MultiMatch(t *testing.T) {
 		}
 	}
 
-	// 名次必须原样保留：调用方（RRF 融合）只用名次不用分数绝对值。
+	// 名次必须原样保留：调用方（融合）只用名次不用分数绝对值。
 	if len(hits) != 2 || hits[0].ChunkID != 42 || hits[1].ChunkID != 7 {
 		t.Fatalf("命中解析错误: %+v", hits)
 	}
 	if hits[0].Score <= hits[1].Score {
 		t.Errorf("分数顺序被改动: %+v", hits)
+	}
+}
+
+// TestSearchExactUsesTermOnKeywordSubfields 守住精确通道的查询形状。
+//
+// 它必须是 term（逐字相等）而不是 match（分词）：打在公司名、型号这类值上时，
+// 分词匹配会把「图特」也命中「图特股份」这一类包含关系，那就不是「精确」了。
+func TestSearchExactUsesTermOnKeywordSubfields(t *testing.T) {
+	fake := newFakeES(t, func(method, path string) (int, string) {
+		return http.StatusOK, `{"took":1,"hits":{"hits":[{"_id":"11","_score":4.2},{"_id":"12","_score":1.1}]}}`
+	})
+	client := newTestClient(t, fake.URL)
+
+	hits, err := client.SearchExact(context.Background(), "H105P 铰链", 5)
+	if err != nil {
+		t.Fatalf("精确检索: %v", err)
+	}
+
+	var request struct {
+		Size   *int `json:"size"`
+		Source any  `json:"_source"`
+		Query  struct {
+			Bool struct {
+				Should []struct {
+					Term map[string]struct {
+						Value string  `json:"value"`
+						Boost float64 `json:"boost"`
+					} `json:"term"`
+				} `json:"should"`
+			} `json:"bool"`
+		} `json:"query"`
+	}
+	if err := json.Unmarshal([]byte(fake.lastBody(t)), &request); err != nil {
+		t.Fatalf("解析查询体: %v", err)
+	}
+	if request.Source != false {
+		t.Errorf("_source 是 %v，期望 false", request.Source)
+	}
+
+	// 切成两个词之后，每个词都要对每个精确字段有一条 term 子句 ——
+	// 「H105P 铰链」这种型号混在句子里的输入，整串去比是比不中的。
+	exact := client.mapping.ExactFields()
+	if len(exact) == 0 {
+		t.Fatal("随仓库分发的映射应当声明了 keyword 子字段")
+	}
+	seen := make(map[string]map[string]float64) // 词 -> 字段 -> 权重
+	for _, clause := range request.Query.Bool.Should {
+		for name, term := range clause.Term {
+			if strings.HasSuffix(name, ".keyword") == false {
+				t.Errorf("term 打在了 %s 上，精确匹配必须打 .keyword 子字段", name)
+			}
+			if seen[term.Value] == nil {
+				seen[term.Value] = make(map[string]float64)
+			}
+			seen[term.Value][name] = term.Boost
+		}
+	}
+	for _, word := range []string{"H105P", "铰链"} {
+		if len(seen[word]) != len(exact) {
+			t.Errorf("词 %q 的 term 子句有 %d 条，期望每个精确字段一条（共 %d）",
+				word, len(seen[word]), len(exact))
+		}
+	}
+	for _, field := range exact {
+		if got, ok := seen["H105P"][field.Name]; !ok || got != field.Boost {
+			t.Errorf("字段 %s 的权重是 %v，期望 %v", field.Name, got, field.Boost)
+		}
+	}
+
+	if len(hits) != 2 || hits[0].ChunkID != 11 {
+		t.Fatalf("命中解析错误: %+v", hits)
+	}
+}
+
+// TestSearchExactWithoutKeywordFieldsSkipsRequest 守住「映射没声明 keyword 时
+// 这条通道安静地不参与」。没有可打的字段还发请求，只会换来一次必然为空的往返。
+func TestSearchExactWithoutKeywordFieldsSkipsRequest(t *testing.T) {
+	fake := newFakeES(t, func(method, path string) (int, string) {
+		t.Error("没有精确字段时不该发出请求")
+		return http.StatusOK, "{}"
+	})
+	client := newTestClient(t, fake.URL)
+	client.mapping = &Mapping{Fields: []FieldSpec{
+		{Name: "model", From: "model", Type: FieldText, Boost: 5},
+	}}
+
+	hits, err := client.SearchExact(context.Background(), "H105P", 5)
+	if err != nil {
+		t.Fatalf("精确检索: %v", err)
+	}
+	if len(hits) != 0 {
+		t.Fatalf("不该有命中，实际 %+v", hits)
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
+	"eino-quickstart/internal/rag/grouping"
 	ragparser "eino-quickstart/internal/rag/parser"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -50,34 +51,67 @@ type Service struct {
 	queue    IndexTaskQueue
 	vectors  VectorIndex
 	keywords KeywordIndex
+	searcher Searcher
+	grouping grouping.Policy
+	limits   Limits
 	logger   *slog.Logger
 }
 
-// NewService 组装用例层。
+// ServiceDeps 是知识库用例的全部外部依赖。
 //
-// vectors 与 keywords 都可以是 nil：删除路径上的清理由它们承担，而清理是
-// 尽力而为的 —— 孤儿向量与孤儿文档取不回来（检索要回到 chunk 行做过滤），
-// 只是白占空间，靠后续全量重建收拾。所以外部存储没配或连不上都不该挡住
-// 「删文档」这件事本身。
-func NewService(client *ent.Client, content *rag.ContentStore, queue IndexTaskQueue, vectors VectorIndex, keywords KeywordIndex, logger *slog.Logger) (*Service, error) {
-	if client == nil {
+// 用结构体而不是继续加位置参数：这里面有五六个同类型的接口（队列、向量、检索
+// 索引、召回），位置参数下把其中两个写反不会有编译错误，只会在运行期表现为
+// 「任务投不进队列」或「删除没清干净」——而那种症状离根因很远。
+type ServiceDeps struct {
+	Client  *ent.Client
+	Content *rag.ContentStore
+	Queue   IndexTaskQueue
+
+	// Vectors / Keywords 都可以是 nil：删除路径上的清理由它们承担，而清理是
+	// 尽力而为的 —— 孤儿向量与孤儿文档取不回来（检索要回到 chunk 行做过滤），
+	// 只是白占空间，靠后续全量重建收拾。所以外部存储没配或连不上都不该挡住
+	// 「删文档」这件事本身。
+	Vectors  VectorIndex
+	Keywords KeywordIndex
+
+	// Searcher 是召回能力。nil 表示这个进程不做召回（如 cmd/worker）——
+	// 此时 Search 返回 ErrSearchUnavailable，而不是「什么都搜不到」。
+	Searcher Searcher
+
+	// Grouping 决定召回结果的归并粒度，按数据集类型解析。零值可用：
+	// 没配的类型回落到 grouping.Default（按文档归并）。
+	Grouping grouping.Policy
+
+	// Limits 是召回入口的输入约束，零值会补成默认值。
+	Limits Limits
+
+	Logger *slog.Logger
+}
+
+// NewService 组装用例层。
+func NewService(deps ServiceDeps) (*Service, error) {
+	if deps.Client == nil {
 		return nil, errors.New("knowledge: ent client is required")
 	}
-	if content == nil {
+	if deps.Content == nil {
 		return nil, errors.New("knowledge: content store is required")
 	}
-	if queue == nil {
+	if deps.Queue == nil {
 		return nil, errors.New("knowledge: index queue is required")
 	}
+	logger := deps.Logger
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &Service{
-		client:   client,
-		content:  content,
-		queue:    queue,
-		vectors:  vectors,
-		keywords: keywords,
+		client:   deps.Client,
+		content:  deps.Content,
+		queue:    deps.Queue,
+		vectors:  deps.Vectors,
+		keywords: deps.Keywords,
+		searcher: deps.Searcher,
+		grouping: deps.Grouping,
+		limits:   deps.Limits.withDefaults(),
 		logger:   logger,
 	}, nil
 }

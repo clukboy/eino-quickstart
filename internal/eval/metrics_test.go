@@ -1,7 +1,10 @@
 package eval
 
 import (
+	"strings"
 	"testing"
+
+	"eino-quickstart/internal/rag/grouping"
 )
 
 func hit(source string, score float64) Hit {
@@ -20,7 +23,7 @@ func TestEvaluateCaseMatchesPreciseSourceAndKeyword(t *testing.T) {
 		hit("documents/2/manual.md", 0.8),
 	}
 
-	result := evaluateCase(testCase, hits, 12)
+	result := evaluateCase(testCase, hits, 12, grouping.Document)
 
 	if !result.Passed {
 		t.Fatalf("期望通过，实际失败: %s", result.Error)
@@ -38,7 +41,7 @@ func TestEvaluateCaseKeywordIsCaseInsensitive(t *testing.T) {
 	testCase := Case{ID: "case", Query: "h105p", ExpectedKeywords: []string{"H105P"}}
 	hits := []Hit{hit("documents/2/h105p-manual.md", 1)}
 
-	result := evaluateCase(testCase, hits, 1)
+	result := evaluateCase(testCase, hits, 1, grouping.Document)
 	if !result.Passed {
 		t.Fatalf("关键词匹配应忽略大小写，实际失败: %s", result.Error)
 	}
@@ -60,13 +63,121 @@ func TestEvaluateCaseDedupesBySource(t *testing.T) {
 		hit("documents/2/other.md", 0.7),
 	}
 
-	result := evaluateCase(testCase, hits, 1)
+	result := evaluateCase(testCase, hits, 1, grouping.Document)
 
-	if len(result.Retrieved) != 2 {
-		t.Fatalf("召回应去重到 2 篇，实际 %d: %v", len(result.Retrieved), result.Retrieved)
+	if len(result.Results) != 2 {
+		t.Fatalf("召回应去重到 2 条，实际 %d: %v", len(result.Results), result.Results)
 	}
 	if result.FirstHitRank != 1 {
 		t.Fatalf("FirstHitRank 期望 1，实际 %d", result.FirstHitRank)
+	}
+	// 归并掉的分块数要留着：一篇文档占掉三个名次是切块过碎的信号。
+	if result.Chunks != 4 || result.Hits != 2 {
+		t.Fatalf("分块数 4 / 结果条数 2 才说明归并生效，实际 chunks=%d hits=%d",
+			result.Chunks, result.Hits)
+	}
+}
+
+// 按文档归并时，代表块取得分最高的那一块 —— 它的正文与标题路径最能解释
+// 「为什么命中」，用错块会让排障时看到一段不相干的文字。
+func TestEvaluateCaseDocumentKeepsBestChunkAsRepresentative(t *testing.T) {
+	testCase := Case{ID: "best", Query: "二段力", ExpectedKeywords: []string{"h11"}}
+	hits := []Hit{
+		{Source: "documents/2/h11.md", Score: 0.4, HeadingPath: "低分块", Content: "低分内容"},
+		{Source: "documents/2/h11.md", Score: 0.9, HeadingPath: "高分块", Content: "高分内容"},
+		{Source: "documents/2/h11.md", Score: 0.6, HeadingPath: "中分块", Content: "中分内容"},
+	}
+
+	result := evaluateCase(testCase, hits, 1, grouping.Document)
+
+	if len(result.Results) != 1 {
+		t.Fatalf("应归并成 1 条，实际 %d", len(result.Results))
+	}
+	got := result.Results[0]
+	if got.Score != 0.9 || got.HeadingPath != "高分块" || got.Content != "高分内容" {
+		t.Fatalf("代表块应取最高分的那一块，实际 %+v", got)
+	}
+	if got.Chunks != 3 {
+		t.Fatalf("命中块数期望 3，实际 %d", got.Chunks)
+	}
+}
+
+// chunk 粒度下一条结果就是一个分块，不归并 —— 普通文档库里一篇长文切成几百块，
+// 归并成一条等于什么都没返回。
+func TestEvaluateCaseChunkGranularityKeepsEveryChunk(t *testing.T) {
+	testCase := Case{ID: "chunks", Query: "二段力", ExpectedKeywords: []string{"h11"}}
+	hits := []Hit{
+		{ChunkID: 11, Source: "documents/2/h11.md", Score: 0.9, Content: "第一块"},
+		{ChunkID: 12, Source: "documents/2/h11.md", Score: 0.8, Content: "第二块"},
+		{ChunkID: 13, Source: "documents/2/other.md", Score: 0.7, Content: "另一篇"},
+	}
+
+	result := evaluateCase(testCase, hits, 1, grouping.Chunk)
+
+	if len(result.Results) != 3 {
+		t.Fatalf("chunk 粒度不该归并，期望 3 条，实际 %d", len(result.Results))
+	}
+	if result.Results[1].ChunkID != 12 || result.Results[1].Content != "第二块" {
+		t.Fatalf("chunk 粒度下每条要保留自己的分块身份，实际 %+v", result.Results[1])
+	}
+	if result.Results[1].Chunks != 1 {
+		t.Fatalf("chunk 粒度下每条的块数恒为 1，实际 %d", result.Results[1].Chunks)
+	}
+}
+
+// 质量指标不能跟着归并粒度走：同一份命中在两种粒度下 Recall 与 MRR 必须一致，
+// 否则「把 chunkSize 调小」就能把分数刷上去。
+func TestMetricsIgnoreGranularity(t *testing.T) {
+	testCase := Case{
+		ID:               "same",
+		Query:            "二段力",
+		ExpectedKeywords: []string{"h11"},
+	}
+	hits := []Hit{
+		{Source: "documents/2/other.md", Score: 0.9},
+		{Source: "documents/2/h11.md", Score: 0.8},
+		{Source: "documents/2/h11.md", Score: 0.7},
+	}
+
+	document := evaluateCase(testCase, hits, 1, grouping.Document)
+	chunk := evaluateCase(testCase, hits, 1, grouping.Chunk)
+
+	if document.Recall != chunk.Recall {
+		t.Fatalf("Recall 不该随粒度变: document=%v chunk=%v", document.Recall, chunk.Recall)
+	}
+	if document.FirstHitRank != chunk.FirstHitRank {
+		t.Fatalf("FirstHitRank 不该随粒度变: document=%d chunk=%d",
+			document.FirstHitRank, chunk.FirstHitRank)
+	}
+	if document.ReciprocalRank != chunk.ReciprocalRank {
+		t.Fatalf("MRR 不该随粒度变: document=%v chunk=%v",
+			document.ReciprocalRank, chunk.ReciprocalRank)
+	}
+	// 而条数就该不同 —— 那正是粒度在起作用的地方。
+	if document.Hits != 2 || chunk.Hits != 3 {
+		t.Fatalf("条数应随粒度变化：document=%d chunk=%d", document.Hits, chunk.Hits)
+	}
+}
+
+// MinResults 量的是「调用方拿到几条」，所以它跟粒度走；报错信息里要带单位,
+// 否则看的人会按自己以为的粒度去理解。
+func TestMinResultsFollowsGranularity(t *testing.T) {
+	testCase := Case{ID: "min", Query: "有没有结果", MinResults: 2}
+	// 一篇文档的两个块：chunk 粒度下是 2 条，document 粒度下只有 1 条。
+	hits := []Hit{
+		{Source: "documents/2/a.md", Score: 0.9},
+		{Source: "documents/2/a.md", Score: 0.8},
+	}
+
+	if !evaluateCase(testCase, hits, 1, grouping.Chunk).Passed {
+		t.Fatal("chunk 粒度下有 2 条，应满足 min_results=2")
+	}
+	document := evaluateCase(testCase, hits, 1, grouping.Document)
+	if document.Passed {
+		t.Fatal("document 粒度下只有 1 条，应判失败")
+	}
+	if !strings.Contains(document.Error, "document") {
+		t.Fatalf("条数不足的提示要写清粒度，实际 %q", document.Error)
 	}
 }
 
@@ -82,7 +193,7 @@ func TestEvaluateCaseForbiddenFailsTheCase(t *testing.T) {
 		hit("documents/2/private-roadmap.md", 0.8),
 	}
 
-	result := evaluateCase(testCase, hits, 1)
+	result := evaluateCase(testCase, hits, 1, grouping.Document)
 
 	if result.Passed {
 		t.Fatal("命中 forbidden 必须判失败，即使期望文档也命中了")
@@ -100,7 +211,7 @@ func TestEvaluateCasePartialRecall(t *testing.T) {
 	}
 	hits := []Hit{hit("documents/2/alpha.md", 0.9)}
 
-	result := evaluateCase(testCase, hits, 1)
+	result := evaluateCase(testCase, hits, 1, grouping.Document)
 
 	if result.Recall != 0.5 {
 		t.Fatalf("Recall 期望 0.5，实际 %v", result.Recall)
@@ -116,7 +227,7 @@ func TestEvaluateCasePartialRecall(t *testing.T) {
 // 无期望用例没有「该召回到什么」可谈，Recall 记 1；只有 Forbidden 与 MinResults 能判它。
 func TestEvaluateCaseWithoutExpectationPasses(t *testing.T) {
 	testCase := Case{ID: "no-answer", Query: "Kubernetes Ingress"}
-	result := evaluateCase(testCase, nil, 5)
+	result := evaluateCase(testCase, nil, 5, grouping.Document)
 
 	if !result.Passed {
 		t.Fatalf("无期望用例不应因空结果失败: %s", result.Error)
@@ -128,7 +239,7 @@ func TestEvaluateCaseWithoutExpectationPasses(t *testing.T) {
 
 func TestEvaluateCaseMinResults(t *testing.T) {
 	testCase := Case{ID: "min", Query: "有没有结果", MinResults: 2}
-	result := evaluateCase(testCase, []Hit{hit("documents/2/a.md", 1)}, 1)
+	result := evaluateCase(testCase, []Hit{hit("documents/2/a.md", 1)}, 1, grouping.Document)
 
 	if result.Passed {
 		t.Fatal("结果条数少于 MinResults 应判失败")

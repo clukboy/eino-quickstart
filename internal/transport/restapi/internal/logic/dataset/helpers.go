@@ -60,6 +60,10 @@ func documentFail(err error) error {
 		// 索引任务投不出去。这里**不能**降级成 2xx：文档的索引永远不会发生，
 		// 静默成功只会让它卡在 indexing 而没人知道。
 		return httpx.Unavailable("index queue is unavailable")
+	case errors.Is(err, knowledge.ErrSearchUnavailable):
+		// 这个进程没有装配召回能力（例如 worker 形态）。这是部署问题而不是
+		// 请求错了：调用方重试没用，但运维看状态码就知道该去查装配。
+		return httpx.Unavailable("retrieval is not available in this deployment")
 	case ent.IsNotFound(err):
 		return httpx.NotFound("document not found")
 	case ent.IsConstraintError(err):

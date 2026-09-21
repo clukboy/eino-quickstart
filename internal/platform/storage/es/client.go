@@ -3,7 +3,12 @@
 // 它在链路里只出现两次：
 //
 //	写入  knowledge.Indexer / rag.Store.Add   分块 -> 检索文档（BM25 的可搜索副本）
-//	查询  rag.Store.SearchByText              query -> 按 BM25 名次排好的 chunk ID
+//	查询  rag.Store.SearchBy*                  query -> 按名次排好的 chunk ID
+//
+// 查询侧有两条通道共用这个索引，它们回答不同的问题：
+//
+//	SearchChunks  分词后的 BM25：「哪段文本提到了这些词」（含正文与兜底字段）
+//	SearchExact   结构化字段逐字相等：「哪个产品的型号/系列/品类正好是这个」
 //
 // 有一条边界必须守住：**ES 不参与正确性判定**。它给出的只是名次，命中的分块
 // 还要回 PostgreSQL 取正文、source、visibility、owner，ACL 过滤与引用格式都
@@ -110,8 +115,13 @@ func (c *Client) MappingName() string {
 }
 
 // Searcher 是检索侧要注入的能力，与 rag.KeywordIndex 的方法集一致。
+//
+// 两条方法对应两条独立的关键词通道：SearchChunks 是分词后的 BM25，
+// SearchExact 是结构化字段上的逐字相等。它们在检索策略里各有各的权重与候选
+// 上限，所以是两条方法而不是一条带开关的方法。
 type Searcher interface {
 	SearchChunks(ctx context.Context, query string, topK int) ([]ChunkHit, error)
+	SearchExact(ctx context.Context, query string, topK int) ([]ChunkHit, error)
 }
 
 // Writer 是索引侧要注入的能力，与 knowledge.KeywordIndex 的方法集一致。

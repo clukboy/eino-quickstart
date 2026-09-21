@@ -5,7 +5,87 @@ import (
 	"math"
 	"sort"
 	"strings"
+
+	"eino-quickstart/internal/rag/grouping"
 )
+
+// groupResults 按配置的粒度把分块级命中整理成结果明细。
+//
+// 归并粒度由知识库类型决定（见 grouping.Policy），不在这里假设：产品型录一篇
+// 文档就是一个产品，归并成文档才对；普通文档库一篇长文切成几百块，归并成一条
+// 等于什么都没返回。写死成其中一边，另一类库的评测数字就是错的 —— 而且错得
+// 像质量问题（条数忽多忽少），不像粒度问题。
+func groupResults(hits []Hit, granularity grouping.Granularity) []ResultHit {
+	if granularity == grouping.Chunk {
+		return chunkResults(hits)
+	}
+	return documentResults(hits)
+}
+
+// chunkResults 原样返回每个分块，一条一块。
+func chunkResults(hits []Hit) []ResultHit {
+	results := make([]ResultHit, 0, len(hits))
+	for index, hit := range hits {
+		results = append(results, ResultHit{
+			Rank:        index + 1,
+			Source:      strings.TrimSpace(hit.Source),
+			Title:       hit.Title,
+			ChunkID:     hit.ChunkID,
+			HeadingPath: hit.HeadingPath,
+			Score:       hit.Score,
+			Chunks:      1,
+			Content:     hit.Content,
+		})
+	}
+	return results
+}
+
+// documentResults 把同一篇文档的命中块并成一条。
+//
+// 归并键是 source（去空白后比较，检索实现可能带空格）。名次按**首次出现次序**，
+// 代表块取**得分最高**的那一块：同一篇文档的多个命中块里，分高的最贴近查询，
+// 它的正文与标题路径最能解释「为什么命中」。并列时保留先出现的，保证同样的输入
+// 每次归纳出同样的结果 —— 报告要能两次 run 直接 diff。
+//
+// 命中块数一路带着：一篇文档占掉 TopK 里 6 个位置是「切块过碎、正在挤掉别的内容」
+// 的信号，只看去重后的条数看不到它。
+func documentResults(hits []Hit) []ResultHit {
+	results := make([]ResultHit, 0, len(hits))
+	position := make(map[string]int, len(hits))
+
+	for _, hit := range hits {
+		source := strings.TrimSpace(hit.Source)
+		if at, seen := position[source]; seen {
+			result := &results[at]
+			result.Chunks++
+			if hit.Score > result.Score {
+				result.Score = hit.Score
+				result.Content = hit.Content
+				result.HeadingPath = hit.HeadingPath
+				result.ChunkID = hit.ChunkID
+				// 标题只在代表块确实带了的时候才覆盖：某些检索实现只在首块
+				// 写标题，用空串覆盖会让这条结果凭空少掉身份信息。
+				if hit.Title != "" {
+					result.Title = hit.Title
+				}
+			}
+			continue
+		}
+
+		position[source] = len(results)
+		results = append(results, ResultHit{
+			Rank:        len(results) + 1,
+			Source:      source,
+			Title:       hit.Title,
+			ChunkID:     hit.ChunkID,
+			HeadingPath: hit.HeadingPath,
+			Score:       hit.Score,
+			Chunks:      1,
+			Content:     hit.Content,
+		})
+	}
+	return results
+}
 
 // evaluateCase 把一次召回的原始结果折算成用例结果。
 //
@@ -16,27 +96,38 @@ import (
 //     8 个块就会把那 8 个名次全算成有效召回，MRR 会被切块粒度污染 —— 切得更
 //     碎反而指标更好看，这正是评测最该避免的激励。
 //
+//     注意这一条**与归并粒度无关**：即使按 chunk 粒度输出结果，Recall / MRR
+//     仍然按文档去重。质量指标一旦跟着切块粒度走，调小 chunkSize 就能把分数
+//     刷上去。
+//
 //  2. **越权一票否决**。命中 Forbidden 直接判失败，不让高 Recall 抵消：
 //     泄漏是安全事件，不是质量分项。
 //
 //  3. **无答案用例（Expected 为空）的 Recall 视作 1**。它没有「该召回到什么」
 //     可谈，只有「不该召回什么」（由 Forbidden 表达）。给它记 0 会让均值
 //     随这类用例的条数漂移。
-func evaluateCase(c Case, hits []Hit, latencyMS int64) CaseResult {
+//
+// 明细（Results）按配置粒度整理，MinResults 也跟着那个粒度判 —— 它量的是
+// 「调用方拿到几条」，不是质量分项。
+func evaluateCase(c Case, hits []Hit, latencyMS int64, granularity grouping.Granularity) CaseResult {
+	results := groupResults(hits, granularity)
+
 	result := CaseResult{
 		ID:            c.ID,
 		Scene:         c.Scene,
 		Query:         c.Query,
 		Note:          c.Note,
 		ExpectedCount: len(c.Expected) + len(c.ExpectedKeywords),
-		Hits:          len(hits),
+		Hits:          len(results),
+		Chunks:        len(hits),
 		DurationMS:    latencyMS,
+		Results:       results,
 	}
 
-	// 去重并保留首次出现的名次（1 起）。名次而不是分数决定一切：
-	// 两个通道的量纲完全不同，分数不可比，名次可比。
-	rankOf := make(map[string]int, len(hits))
-	retrieved := make([]string, 0, len(hits))
+	// 判定用的名次表恒按**文档**建（按首次出现次序，1 起）。名次而不是分数
+	// 决定一切：两个通道的量纲完全不同，分数不可比，名次可比。
+	rankOf := make(map[string]int, len(results))
+	retrieved := make([]string, 0, len(results))
 	for _, hit := range hits {
 		source := strings.TrimSpace(hit.Source)
 		if _, seen := rankOf[source]; seen {
@@ -45,7 +136,6 @@ func evaluateCase(c Case, hits []Hit, latencyMS int64) CaseResult {
 		rankOf[source] = len(retrieved) + 1
 		retrieved = append(retrieved, source)
 	}
-	result.Retrieved = retrieved
 
 	// 越权命中
 	for _, forbidden := range c.Forbidden {
@@ -95,8 +185,11 @@ func evaluateCase(c Case, hits []Hit, latencyMS int64) CaseResult {
 	case result.ExpectedCount > 0 && matched < result.ExpectedCount:
 		result.Error = "expected source missing: " + strings.Join(
 			append(append([]string{}, result.Missing...), result.MissingKeywords...), ", ")
-	case c.MinResults > 0 && len(hits) < c.MinResults:
-		result.Error = fmt.Sprintf("got %d results, expected at least %d", len(hits), c.MinResults)
+	case c.MinResults > 0 && len(results) < c.MinResults:
+		// 报条数时把粒度写进去：hits 的「条」在两种粒度下不是同一个东西,
+		// 提示信息里不带单位，看到的人会按自己以为的粒度去理解。
+		result.Error = fmt.Sprintf("got %d %s results, expected at least %d",
+			len(results), granularity, c.MinResults)
 	default:
 		result.Passed = true
 	}

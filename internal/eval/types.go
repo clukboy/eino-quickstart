@@ -8,12 +8,14 @@ package eval
 import (
 	"context"
 	"time"
+
+	"eino-quickstart/internal/rag/grouping"
 )
 
-// Hit 是评测视角下的一条召回结果。
+// Hit 是检索侧原始返回的一条结果 —— 一个分块，不是一篇文档。
 //
-// Source 是判定命中的口径：一篇文档可能被切成几十个块，评测关心的是
-// 「这篇文档有没有被找到」，所以命中按 Source 去重后再判定。
+// 保留分块粒度是必要的：Content 只有分块级才有（正文按块存），检索器也只按块
+// 打分。但**判定与展示都不该停在分块上**，见 ResultHit。
 type Hit struct {
 	ChunkID     int64
 	Source      string
@@ -21,6 +23,35 @@ type Hit struct {
 	HeadingPath string
 	Score       float64
 	Content     string
+}
+
+// ResultHit 是召回结果里的一条明细，粒度由 grouping.Policy 决定（见 types 上的
+// Report.Granularity）。它在两种粒度下含义不同，这是刻意的：
+//
+//   - document：一条 = 一篇文档，Chunks 是归并掉的分块数，ChunkID 取代表块。
+//   - chunk：一条 = 一个分块，Chunks 恒为 1，ChunkID 就是它自己。
+//
+// 为什么不把粒度写死成文档：产品型录一篇文档就是一个产品，归并成文档才对；普通
+// 文档库里一篇长文切成几百块，归并成一条等于什么都没返回。同一个评测工具要能
+// 评这两类库，粒度就必须是可配的。
+//
+// 归并到文档时的代表块取**得分最高**的那一块（正文、标题路径、ChunkID 都取它），
+// 另一并把命中块数带上：带上是为了不丢排障信息 ——「这篇文档进了 TopK」和
+// 「这篇文档占掉了 TopK 里的 6 个位置」是两回事，后者说明切块过碎、正在挤掉
+// 别的内容。
+type ResultHit struct {
+	// Rank 是按首次出现次序定的名次（1 起）。
+	Rank        int     `json:"rank"`
+	Source      string  `json:"source"`
+	Title       string  `json:"title,omitempty"`
+	ChunkID     int64   `json:"chunk_id,omitempty"`
+	HeadingPath string  `json:"heading_path,omitempty"`
+	Score       float64 `json:"score"`
+	// Chunks 是这一条聚合掉的分块数：document 粒度下是这篇文档的命中块数，
+	// chunk 粒度下恒为 1。
+	Chunks int `json:"chunks"`
+	// Content 是代表块的正文。document 粒度下是得分最高那一块。
+	Content string `json:"content,omitempty"`
 }
 
 // Searcher 是评测对检索侧的全部依赖。
@@ -49,6 +80,8 @@ type Case struct {
 	Forbidden        []string `json:"forbidden_sources,omitempty"`
 
 	// MinResults 是「至少要有这么多条结果」的下限，用来表达"这个问题应该有答案"。
+	// 单位是**文档**而不是分块：切块粒度是配置项（chunk_size），把它当条数会让
+	// 同一个问题在调小分块后就"有答案"了。
 	// 无答案用例把它留空或设 1 —— 项目当前没有生成式回答，暂时无法断言"正确地没答"。
 	MinResults int `json:"min_results,omitempty"`
 
@@ -76,13 +109,22 @@ type CaseResult struct {
 	FirstHitRank   int     `json:"first_hit_rank"`
 	ReciprocalRank float64 `json:"reciprocal_rank"`
 
-	Hits            int      `json:"hits"`
-	DurationMS      int64    `json:"duration_ms"`
-	Retrieved       []string `json:"retrieved_sources,omitempty"`
-	Missing         []string `json:"missing_sources,omitempty"`
-	MissingKeywords []string `json:"missing_keywords,omitempty"`
-	Leaked          []string `json:"leaked_sources,omitempty"`
-	Error           string   `json:"error,omitempty"`
+	// Hits 是**结果条数**（= len(Results)），口径跟着归并粒度走：document 粒度下
+	// 是文档数，chunk 粒度下是分块数。Chunks 恒为原始分块命中数 —— 两个都留,
+	// 是为了在归并之后仍然看得出「切块有没有被同一篇文档挤满」。
+	//
+	// 注意 Recall / MRR / FirstHitRank 的口径**不跟粒度走**，恒按文档去重：
+	// 那是质量指标，让它随切块粒度变化等于奖励切得更碎。
+	Hits       int   `json:"hits"`
+	Chunks     int   `json:"chunks"`
+	DurationMS int64 `json:"duration_ms"`
+
+	// Results 是召回结果明细，按名次排列，粒度见 Report.Granularity。
+	Results         []ResultHit `json:"results,omitempty"`
+	Missing         []string    `json:"missing_sources,omitempty"`
+	MissingKeywords []string    `json:"missing_keywords,omitempty"`
+	Leaked          []string    `json:"leaked_sources,omitempty"`
+	Error           string      `json:"error,omitempty"`
 
 	// Note 从用例带过来。失败明细里显示它，是为了让读到报告的人知道这条用例
 	// 的意图 —— 尤其那些探针性质的用例（明知可能失败，用来观察趋势）。
@@ -112,11 +154,17 @@ type Summary struct {
 
 // Report 是落盘与展示的完整结果。
 type Report struct {
-	GeneratedAt time.Time    `json:"generated_at"`
-	TopK        int          `json:"top_k"`
-	Summary     Summary      `json:"summary"`
-	Scenes      []SceneStat  `json:"scenes,omitempty"`
-	Cases       []CaseResult `json:"cases"`
+	GeneratedAt time.Time `json:"generated_at"`
+	TopK        int       `json:"top_k"`
+
+	// Granularity 是这一轮召回结果的归并粒度。它必须落进报告：同一份用例集在
+	// 两种粒度下的 Hits 不是同一个单位，报告离开当时的上下文之后，
+	// 「hits=3」是 3 篇文档还是 3 个分块就没人知道了。
+	Granularity grouping.Granularity `json:"granularity"`
+
+	Summary Summary      `json:"summary"`
+	Scenes  []SceneStat  `json:"scenes,omitempty"`
+	Cases   []CaseResult `json:"cases"`
 
 	// Violations 是未达标的阈值项；为空表示通过门禁。
 	Violations []string `json:"violations,omitempty"`

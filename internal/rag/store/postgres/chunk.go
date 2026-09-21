@@ -48,8 +48,11 @@ func (l *Postgres) ChunksByIDs(ctx context.Context, ids []int64) ([]*ent.Documen
 // 在文件名或标题里，只搜正文会漏。命中数在调用方按词元去重后重新打分排序，
 // 所以这里的 limit 是候选上限而非最终条数。
 //
-// 只取 vector_status=indexed：没进向量库的分块不该被召回，否则检索结果会与
-// 向量库内容不一致（chunk 在 PG 里是可见的，但它的向量并不存在）。
+// 这里**不按 vector_status 过滤**。词法召回回答的是「哪段文本匹配这个查询」，
+// 与这段文本进没进向量库无关。早先这里要求 indexed，等于把关键词召回绑在向量
+// 链路的进度上：向量批次失败的文档会连关键词都搜不到，而症状与「召回质量差」
+// 一模一样，只看报告看不出来。可见性、属主与启用状态由调用方按 document 的
+// 现值判定（见 rag.Store 的 Filter.allows）。
 func (l *Postgres) SearchChunks(
 	ctx context.Context,
 	terms []string,
@@ -74,10 +77,7 @@ func (l *Postgres) SearchChunks(
 		return nil, nil
 	}
 	return l.client.DocumentChunk.Query().
-		Where(
-			documentchunk.VectorStatusEQ(documentchunk.VectorStatusIndexed),
-			documentchunk.Or(predicates...),
-		).
+		Where(documentchunk.Or(predicates...)).
 		WithDocument(func(q *ent.DocumentQuery) {
 			q.WithDataset()
 		}).

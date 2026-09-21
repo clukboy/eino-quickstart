@@ -15,12 +15,14 @@
 里的任务契约，所以它们可以分别部署、分别重启。拆分带来的一个必要依赖：**Redis 不可用
 时文档写请求会直接失败**（这是刻意的，避免文档静默卡在 `indexing`）。
 
-检索链路（向量 + 词法两个通道，RRF 融合）已经实现，`cmd/rag-test` 跑的就是它；
-词法通道配了 `es.address` 时走 Elasticsearch BM25（产品型号、系列、品类等元数据字段
-是主要命中面），没配则回落 PostgreSQL 子串匹配。**检索面由一份映射声明驱动**
+检索链路（精确 + 关键字 + 向量三个通道，加权 RRF 融合）已经实现，`cmd/rag-test` 跑的就是它；
+关键字通道配了 `es.address` 时走 Elasticsearch BM25（产品型号、系列、品类等元数据字段
+是主要命中面），没配则回落 PostgreSQL 子串匹配；精确通道走 ES 的 `term`，对型号这类
+逐字查询按独立权重优先，未配 ES 时该通道降级并在响应里标注。**检索面由一份映射声明驱动**
 （`es.mappingFile`，默认 `configs/es/chunk_mapping.yaml`）：索引里有哪些业务字段、各自
 权重、值从元数据的哪个路径取，都在这一处声明 —— 换产品线改文件即可，不用改代码。
-对话侧的 `search_knowledge` 仍是 bindings 版本、尚未接上，见 [待完善项](docs/known-gaps.md)。
+HTTP 侧的 `GET /api/v1/dataset/:id/search` 已接通这条链路；对话侧的 `search_knowledge`
+仍是 bindings 版本、尚未接上，见 [待完善项](docs/known-gaps.md)。
 
 维护清理（过期审批、检查点、对话轮次）的实现在 `internal/maintenance`，目前**没有**
 入口进程把它接起来。

@@ -186,10 +186,10 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 
 	// content_hash 是幂等的关键，同时也是「要不要惊动 Pipeline」的开关：
 	// 哈希一致就直接跳到「补还欠着的分块」，重试时不会把上一轮已经切好的
-	// 产品块推倒重来。
+	// 产品块推倒重来。唯一的例外是显式 reindex，见 shouldRechunk。
 	hash := contentHash(content)
 	span.SetAttributes(attribute.String("knowledge.content_hash", hash))
-	if !i.alreadyChunked(ctx, doc, hash) {
+	if shouldRechunk(mode, i.alreadyChunked(ctx, doc, hash)) {
 		if err := i.rechunk(ctx, doc, hash); err != nil {
 			return err
 		}
@@ -199,6 +199,22 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 		span.SetAttributes(attribute.Bool("knowledge.rechunk_skipped", true))
 	}
 	return i.embedPending(ctx, doc)
+}
+
+// shouldRechunk 说明这次索引要不要重新走一遍切块。
+//
+// 常规写入（IndexModeCatchUp，零值）信任内容指纹：正文没变就复用已有分块行，
+// 重试时不会把上一轮已经切好的块推倒重来。
+//
+// 显式 reindex（IndexModeRebuild）不看指纹 —— 它的用途恰恰是「正文一个字没改，
+// 但解析器、切块参数或检索映射变了」。所以这个区别必须真的落在判断里：收下 mode
+// 却不读它，reindex 就成了一次静默空转 —— 分块行、向量、检索文档一个都不会重写，
+// 而文档状态会诚实地变回 ready，从外部完全看不出来「索引其实一个字没变」。
+//
+// 切出来单独一个函数是为了能直接度量：这条分支的两种意图只差一个 mode，
+// 而它们的后果（重新 embedding 整个语料 vs. 什么都不做）差得很远。
+func shouldRechunk(mode tasks.IndexMode, alreadyChunked bool) bool {
+	return mode == tasks.IndexModeRebuild || !alreadyChunked
 }
 
 // alreadyChunked 报告分块是否已经是这份正文的切块结果。

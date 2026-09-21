@@ -25,11 +25,17 @@ import (
 // 这个是入库时由应用层补写的业务归属，检索侧只有影子定义（应用层是字面量）。
 const metaKeyDatasetID = "dataset_id"
 
-// candidateMultiplier 是单通道候选的放大倍数。
+// datasetScopeMultiplier 是带数据集范围时对候选数的放大倍数。
 //
-// 两个通道各自多取一些，给 ACL 过滤和 RRF 融合留余量：过滤是在检索之后做的，
-// 只取 topK 条的话，前面被过滤掉几条，最终结果就不足 topK 了。
-const candidateMultiplier = 4
+// 范围过滤与可见性过滤都发生在候选之后（索引只给名次，能不能给出去一律回
+// PostgreSQL 按现值判定，见包注释），所以跨数据集的语料下，取回来的候选里有
+// 相当一部分属于别的数据集，过滤完就不足 topK 了 —— 表现是「明明有答案，却
+// 少给了几条」，与「召回质量差」很难区分。
+//
+// 这是一个启发式倍数而不是精确值：要精确就得把数据集条件下推到索引侧，那会
+// 破坏「索引只提供名次、不参与判定」这条边界（见 es 包注释）。等语料里的数据集
+// 数量增长到放大也补不回来时，再考虑下推。
+const datasetScopeMultiplier = 3
 
 // Hit 是一次检索命中。
 type Hit struct {
@@ -37,31 +43,65 @@ type Hit struct {
 	Score float64
 }
 
-// Filter 描述检索侧的元数据过滤条件（ACL 等）。
+// Filter 描述一次检索的范围与可见性条件。零值表示「不限」，此时只受文档自身
+// 的启用状态约束。
 type Filter struct {
+	// DatasetID 非 0 时只返回这个数据集下的分块。数据集范围的检索入口
+	// （POST /dataset/:id/search）必须带上它，否则会跨数据集串味。
+	DatasetID  uint64
 	Visibility string // 为空表示不过滤
 	Owner      string // 为空表示不过滤
 }
 
-func (f Filter) allow(d *schema.Document) bool {
-	if f.Visibility != "" && MetaString(d, constant.MetaVisibility) != f.Visibility {
+// allows 判断一个分块当前是否可以被召回。
+//
+// 一律读 PostgreSQL 的现值，不看索引里的副本 —— 这是「外部索引不参与正确性
+// 判定」落地的地方：Milvus 里根本没有这些标量字段，ES 里的是写入那一刻的快照，
+// 文档转私有、改归属或停用之后它就是过期的，拿它放行等于越权、拿它拦截等于漏召。
+func (f Filter) allows(chunk *ent.DocumentChunk) bool {
+	doc := chunk.Edges.Document
+	if doc == nil {
 		return false
 	}
-	if f.Owner != "" && MetaString(d, constant.MetaOwner) != f.Owner {
+	if f.DatasetID != 0 && doc.DatasetID != f.DatasetID {
 		return false
 	}
-	return true
+	if f.Visibility != "" && string(doc.Visibility) != f.Visibility {
+		return false
+	}
+	if f.Owner != "" && doc.OwnerSubject != f.Owner {
+		return false
+	}
+	// 停用（PATCH /dataset/:id/documents/:docId/enabled）表达的是「别让它出现在
+	// 召回里」。少了这一条，那个开关只是个摆设：关掉的文档照样被搜出来。
+	return doc.Enabled
 }
 
-// KeywordIndex 是词法通道背后的检索索引（Elasticsearch / BM25）。
+// candidates 把「最终要 topK 条」折算成「该向通道要多少候选」。
+//
+// 放大取候选是通道自己的事，调用方只说最终要几条。限定数据集时再放大一档：
+// 过滤发生在检索之后，不放大就会在别的数据集上白花名额（见 datasetScopeMultiplier）。
+func candidates(topK int, filter Filter) int {
+	if filter.DatasetID != 0 {
+		return topK * datasetScopeMultiplier
+	}
+	return topK
+}
+
+// KeywordIndex 是关键词通道背后的检索索引（Elasticsearch / BM25）。
 //
 // 这里只声明检索能力：索引的写入属于索引链路（internal/application/knowledge
 // 的 Indexer 在分块落库后写），检索侧不该也不需要拿到写权限。
 //
-// nil 表示 es.address 没配，此时词法通道回落到 PostgreSQL 子串匹配 ——
-// 功能不缺，只是没有词频、IDF 与长度归一化。
+// 两条方法对应两条独立通道（分词 BM25 / 结构化字段逐字相等），各有各的权重与
+// 候选上限（见配置的 retrieval 段），所以是两条方法而不是一条带开关的方法。
+//
+// nil 表示 es.address 没配，此时关键词通道回落到 PostgreSQL 子串匹配 ——
+// 功能不缺，只是没有词频、IDF 与长度归一化；精确通道随之不可用（PG 那侧没有
+// 结构化字段的逐字比较口径）。
 type KeywordIndex interface {
 	SearchChunks(ctx context.Context, query string, topK int) ([]es.ChunkHit, error)
+	SearchExact(ctx context.Context, query string, topK int) ([]es.ChunkHit, error)
 }
 
 type Store struct {
@@ -88,6 +128,29 @@ func NewStore(ctx context.Context, entClient *ent.Client, cfg *config.Config, ke
 		MilvusStore: milvusStore,
 		Keyword:     keyword,
 	}, nil
+}
+
+// PolicyFromConfig 把配置文件的 retrieval 段翻成检索策略。
+//
+// 放在这里而不是各调用点自己拼：三个组合根（restapi / rag-test / ragserver）各
+// 拼一遍的话，漏掉一个字段的表现是「配置改了但那条通道的权重没生效」，而它不会
+// 报错，只会让评测结果和预期对不上。
+//
+// 返回值是**归一化之后**的策略，调用方拿到的是真正会生效的那一份。这一点很要紧：
+// 组合根会拿它做装配决策（比如「向量库起不来就把 VectorWeight 置 0」），如果这里
+// 交出的是原始值，而权重缺省（全 0）要靠 normalize 里的默认值兜底，就会出现
+// 「组合根看到 0、以为向量已关；检索器看到默认的 1，又把通道打开」—— 结果是每次
+// 请求都往 degraded 里填一条 vector，那条信息就不再指示任何异常了。
+func PolicyFromConfig(cfg config.RetrievalConfig) RetrievalPolicy {
+	return RetrievalPolicy{
+		ExactWeight:           cfg.ExactWeight,
+		KeywordWeight:         cfg.KeywordWeight,
+		VectorWeight:          cfg.VectorWeight,
+		RRFSmoothing:          cfg.RRFSmoothing,
+		ExactCandidateLimit:   cfg.ExactCandidateLimit,
+		KeywordCandidateLimit: cfg.KeywordCandidateLimit,
+		VectorCandidateLimit:  cfg.VectorCandidateLimit,
+	}.normalize()
 }
 
 func (s *Store) Add(ctx context.Context, docs []*schema.Document, vecs [][]float64) error {
@@ -128,21 +191,21 @@ func (s *Store) DeleteBySource(ctx context.Context, source string) error {
 //
 // 返回顺序沿用 Milvus 给出的相似度顺序，不做重排：调用方（RRF 融合）只用
 // 名次不用分数，重排会白白丢掉服务端已经算好的距离信息。
-func (s *Store) SearchByVector(ctx context.Context, vec []float64, topK int, filter Filter) ([]Hit, error) {
+func (s *Store) SearchByVector(ctx context.Context, vec []float64, limit int, filter Filter) ([]Hit, error) {
 	if s.MilvusStore == nil {
 		return nil, errors.New("rag: vector search requires a Milvus store")
 	}
 	if len(vec) == 0 {
 		return nil, errors.New("rag: vector search requires a non-empty query vector")
 	}
-	if topK <= 0 {
-		return nil, errors.New("rag: search topK must be greater than zero")
+	if limit <= 0 {
+		return nil, errors.New("rag: vector candidate limit must be greater than zero")
 	}
 
 	results, err := s.MilvusStore.Search(
 		ctx,
 		convert.Float64ToFloat32([][]float64{vec})[0],
-		topK*candidateMultiplier,
+		candidates(limit, filter),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("rag: vector search: %w", err)
@@ -166,12 +229,15 @@ type rankedID struct {
 
 // reload 按给定顺序把候选回填成检索结果。
 //
-// 这是两个通道共用的收尾动作，也是「ES / Milvus 都不参与正确性判定」这条
-// 规则落地的地方：外部索引只提供 ID 与名次，正文、source、visibility、owner
-// 一律取 PostgreSQL 的现值，ACL 过滤在这里做。索引里的可见性是写入那一刻的
-// 快照，拿它判权限，文档转私有之后就成了一次越权。
+// 这是三条通道共用的收尾动作，也是「ES / Milvus 都不参与正确性判定」这条
+// 规则落地的地方：外部索引只提供 ID 与名次，正文、source、可见性、属主、
+// 启用状态一律取 PostgreSQL 的现值，范围与可见性过滤在这里做（见 Filter.allows）。
 //
-// channel 只用于错误信息（"vector" / "bm25"），让人一眼看出是哪条通路失败的。
+// 它同时也是「关键词通道不要求向量已就绪」的兑现处：候选只按行是否存在判定，
+// 不看 vector_status —— 一段文本能不能被关键词搜到，与它有没有进向量库无关。
+//
+// channel 只用于错误信息（"vector" / "bm25" / "exact"），让人一眼看出是哪条
+// 通路失败的。
 func (s *Store) reload(ctx context.Context, ranked []rankedID, filter Filter, channel string) ([]Hit, error) {
 	if len(ranked) == 0 {
 		return nil, nil
@@ -200,34 +266,67 @@ func (s *Store) reload(ctx context.Context, ranked []rankedID, filter Filter, ch
 			// 跳过而不是报错 —— 一条脏索引记录不该让整个查询失败。
 			continue
 		}
-		hit := chunkHit(chunk, item.score)
-		if !filter.allow(hit.Doc) {
+		if !filter.allows(chunk) {
 			continue
 		}
-		out = append(out, hit)
+		out = append(out, chunkHit(chunk, item.score))
 	}
 	return out, nil
 }
 
-// SearchByText 是词法通道：产品型号、产品名这类关键字查询走的就是这里。
+// SearchByText 是分词通道：产品型号、产品描述这类关键字查询走的就是这里。
 //
-// 两条实现，输出契约完全一致（按相关性降序的 []Hit），上层 RRF 融合不需要知道
-// 走的是哪一条：
+// limit 是**候选数**（配置的 retrieval.keywordCandidateLimit），不是最终条数：
+// 候选要在融合与范围过滤之后才截断到 topK，取少了会在过滤后凑不满。这一点由
+// 配置校验兜着（候选上限必须不小于 knowledge.maxTopK）。
+//
+// 两条实现，输出契约完全一致（按相关性降序的 []Hit），上层融合不需要知道走的是
+// 哪一条：
 //
 //	配了 ES     BM25 多字段检索（词频 + IDF + 长度归一化，中文走配置的分词器）
 //	没配 ES     PostgreSQL 子串匹配（见 searchBySubstring 的取舍说明）
 //
-// 两者的分数口径不同，但 RRF 只消费名次不消费绝对值，所以换实现不会改变融合
+// 两者的分数口径不同，但融合只消费名次不消费绝对值，所以换实现不会改变融合
 // 结果的结构 —— 这正是当初把「通道」和「通道的实现」分开的目的。
-func (s *Store) SearchByText(ctx context.Context, query string, topK int, filter Filter) ([]Hit, error) {
-	if topK <= 0 {
-		return nil, errors.New("rag: search topK must be greater than zero")
+func (s *Store) SearchByText(ctx context.Context, query string, limit int, filter Filter) ([]Hit, error) {
+	if limit <= 0 {
+		return nil, errors.New("rag: keyword candidate limit must be greater than zero")
 	}
-	candidateK := topK * candidateMultiplier
+	candidateK := candidates(limit, filter)
 	if s.Keyword != nil {
 		return s.searchByBM25(ctx, query, candidateK, filter)
 	}
 	return s.searchBySubstring(ctx, query, candidateK, filter)
+}
+
+// SearchByExact 是精确通道：结构化字段（型号、产品 ID、系列、品类）与查询词
+// 逐字相等。
+//
+// 与 SearchByText 的分工是刻意的：那一条回答「哪段文本提到了这些词」，这一条
+// 回答「哪个产品的型号**正好是**这个词」。产品型录里型号只出现在产品块的 YAML
+// 头里、正文一次都不出现，所以两者打的是完全不同的目标 —— 混在一条通道里就
+// 只能靠调权重去挤，分开之后各有各的权重与候选上限。
+//
+// 没配 ES 时这条通道不可用（返回空而不是报错）：PostgreSQL 那侧只有子串匹配，
+// 用 `LIKE %词%` 去近似「逐字相等」会让「精确」名不副实 —— 命中集被放宽得不
+// 可预期，排序反而更乱。缺一条通道是降级，给一条名不副实的通道是误导。
+func (s *Store) SearchByExact(ctx context.Context, query string, limit int, filter Filter) ([]Hit, error) {
+	if limit <= 0 {
+		return nil, errors.New("rag: exact candidate limit must be greater than zero")
+	}
+	if s.Keyword == nil {
+		return nil, nil
+	}
+	hits, err := s.Keyword.SearchExact(ctx, query, candidates(limit, filter))
+	if err != nil {
+		return nil, fmt.Errorf("rag: exact search: %w", err)
+	}
+
+	ranked := make([]rankedID, 0, len(hits))
+	for _, hit := range hits {
+		ranked = append(ranked, rankedID{chunkID: hit.ChunkID, score: hit.Score})
+	}
+	return s.reload(ctx, ranked, filter, "exact")
 }
 
 // searchByBM25 用检索索引做 BM25 检索。
@@ -274,10 +373,10 @@ func (s *Store) searchBySubstring(ctx context.Context, query string, candidateK 
 	}
 	ranked := make([]scoredHit, 0, len(chunks))
 	for _, chunk := range chunks {
-		hit := chunkHit(chunk, 0)
-		if !filter.allow(hit.Doc) {
+		if !filter.allows(chunk) {
 			continue
 		}
+		hit := chunkHit(chunk, 0)
 		matches := countTermMatches(hit, chunk, terms)
 		if matches == 0 {
 			continue

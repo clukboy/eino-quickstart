@@ -5,13 +5,20 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"eino-quickstart/internal/rag/grouping"
 )
 
 // Runner 逐条跑用例并汇总。
 type Runner struct {
 	Searcher Searcher
 	TopK     int
-	Logger   *slog.Logger
+
+	// Granularity 是召回结果的归并粒度。零值取 grouping.Default，
+	// 由组合根按知识库类型解析后传进来（见 grouping.Policy）。
+	Granularity grouping.Granularity
+
+	Logger *slog.Logger
 }
 
 // Run 执行一轮评测。
@@ -20,6 +27,11 @@ type Runner struct {
 // 而跑完能得到"多少条坏了、坏在哪一类场景" —— 后者才是修复需要的输入。
 // 失败的用例会以 Error 落进结果并计入 Failed，指标不会被静静地跳过。
 func (r Runner) Run(ctx context.Context, cases []Case) Report {
+	granularity := r.Granularity
+	if granularity == "" {
+		granularity = grouping.Default
+	}
+
 	results := make([]CaseResult, 0, len(cases))
 
 	for _, item := range cases {
@@ -52,12 +64,13 @@ func (r Runner) Run(ctx context.Context, cases []Case) Report {
 			continue
 		}
 
-		results = append(results, evaluateCase(item, hits, latencyMS))
+		results = append(results, evaluateCase(item, hits, latencyMS, granularity))
 	}
 
 	report := Report{
 		GeneratedAt: time.Now(),
 		TopK:        r.TopK,
+		Granularity: granularity,
 		Cases:       results,
 		Summary:     summarize(results),
 	}

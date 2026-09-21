@@ -75,7 +75,7 @@ auth:
       keyEnv: "EINO_API_KEY_ADMIN"
 
 runtime:
-  readTimeoutSeconds: 15
+  readTimeoutSeconds: 600
   writeTimeoutSeconds: 120
   idleTimeoutSeconds: 60
   maxRequestBodyBytes: 5242880
@@ -123,9 +123,21 @@ knowledge:
   chunkOverlapCharacters: 200
   maxChunksPerDocument: 2000
   defaultTopK: 5
-  maxTopK: 10
+  maxTopK: 200
   maxQueryCharacters: 2000
   maxResultBytes: 32768
+  # 召回结果的归并粒度，按数据集类型（dataset.type）配置。
+  #   document：一条结果 = 一篇文档（取命中的最高分块作代表）—— 产品型录用这个，
+  #             一篇文档就是一个产品，型号/系列/规格与正文都在那一篇里。
+  #   chunk   ：一条结果 = 一个分块 —— 普通文档库用这个，长文切成上百块，
+  #             归并成一条等于什么都没返回。
+  # default 是类型没配过时的兜底；未配置整体时也取 document。
+  recallGrouping:
+    default: document
+    product: document
+    # 例：普通 Markdown 文档库（type 留空或为 text）按分块返回
+    # "": chunk
+    # text: chunk
 
 embedding:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -170,9 +182,9 @@ retrieval:
   keywordWeight: 1.5
   vectorWeight: 1.0
   rrfSmoothing: 60
-  exactCandidateLimit: 20
-  keywordCandidateLimit: 30
-  vectorCandidateLimit: 30
+  exactCandidateLimit: 200
+  keywordCandidateLimit: 300
+  vectorCandidateLimit: 300
   enableRerank: false
   maxRerankCandidates: 20
 

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"eino-quickstart/internal/rag/grouping"
 )
 
 type fakeSearcher struct {
@@ -124,4 +126,44 @@ type topKCapturingSearcher struct {
 func (s topKCapturingSearcher) Search(_ context.Context, _ string, topK int) ([]Hit, error) {
 	s.captured <- topK
 	return nil, nil
+}
+
+// 报告必须带上归并粒度：同一份用例集在两种粒度下「召回 3 条」不是一个单位，
+// 报告一旦离开当时的上下文，就没人知道那 3 是 3 篇文档还是 3 个分块。
+func TestReportRecordsGranularity(t *testing.T) {
+	report := Runner{
+		Searcher:    fakeSearcher{byQuery: map[string][]Hit{"q": {hit("documents/2/a.md", 1)}}},
+		TopK:        5,
+		Granularity: grouping.Chunk,
+	}.Run(context.Background(), []Case{{ID: "c", Query: "q"}})
+
+	if report.Granularity != grouping.Chunk {
+		t.Fatalf("报告应记下粒度，实际 %q", report.Granularity)
+	}
+	var out bytes.Buffer
+	if err := Render(&out, report); err != nil {
+		t.Fatalf("渲染失败: %v", err)
+	}
+	if !strings.Contains(out.String(), "归并粒度=chunk") {
+		t.Fatalf("报告表头应写明粒度:\n%s", out.String())
+	}
+}
+
+// 零值粒度取默认（按文档归并）。「零值 = 不做这件事」是最容易被误读的一种默认,
+// 而这里的零值含义是「按最保守的方式归并」，必须有一条测试钉住。
+func TestRunnerZeroGranularityFallsBackToDefault(t *testing.T) {
+	report := Runner{
+		Searcher: fakeSearcher{byQuery: map[string][]Hit{"q": {
+			hit("documents/2/a.md", 0.9),
+			hit("documents/2/a.md", 0.8),
+		}}},
+		TopK: 5,
+	}.Run(context.Background(), []Case{{ID: "c", Query: "q"}})
+
+	if report.Granularity != grouping.Default {
+		t.Fatalf("零值应取默认粒度 %q，实际 %q", grouping.Default, report.Granularity)
+	}
+	if got := len(report.Cases[0].Results); got != 1 {
+		t.Fatalf("默认粒度下同一篇文档应归并成 1 条，实际 %d", got)
+	}
 }

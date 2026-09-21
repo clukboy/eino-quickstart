@@ -145,6 +145,24 @@ type ReindexResp struct {
 type SearchDatasetReq struct {
 	DatasetID uint64 `path:"id"`
 	Query     string `json:"query"`
+	TopK      int    `json:"top_k,omitempty"`
+}
+
+type SearchHitResp struct {
+	ChunkID     uint64  `json:"chunk_id"`
+	DocumentID  uint64  `json:"document_id"`
+	Source      string  `json:"source"`
+	Title       string  `json:"title"`
+	HeadingPath string  `json:"heading_path"`
+	Content     string  `json:"content"`
+	Score       float64 `json:"score"`
+}
+
+type SearchResp struct {
+	Data     []*SearchHitResp `json:"data"`
+	Channels []string         `json:"channels"`
+	Degraded []string         `json:"degraded"`
+	TopK     int              `json:"top_k"`
 }
 
 type StatusResp struct {

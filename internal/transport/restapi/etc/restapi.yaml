@@ -1,69 +1,19 @@
-# go-zero 传输层配置（rest.RestConf）。业务配置在 configs/config.yaml，
-# 由 cmd/restapi 用项目的 config.Load 读取，两者各管一层：
-# 这里只有监听、请求体上限、超时和日志。
-#
-# 用 goctl 生成/更新代码时不要覆盖本文件：
-#   make gen-api            （契约入口是 docs/restapi.api）
-
 Name: eino-quickstart-restapi
-
 Host: 0.0.0.0
-
-# 与业务配置里的 server.port（8080）区分开，避免两个监听撞端口。
 Port: 8090
-
-# 单请求体上限，与 configs/config.yaml 的 runtime.maxRequestBodyBytes 一致。
-# 上传文档走 HTTP，所以这个值决定了单篇文件的上限。
 MaxBytes: 52428800
-
-# 毫秒，与 runtime.readTimeoutSeconds=15 对齐。SSE 路由用 rest.WithSSE() 标记，
-# go-zero 会清掉写超时，且带 Accept: text/event-stream 的请求跳过 Timeout 中间件。
-Timeout: 15000
-
-# logx 的输出去向由 observability.BridgeLogx 接管，统一写进项目的 slog（JSON 文件）。
-# 注意 BridgeLogx 必须在 ServiceConf.SetUp() 之后调用：SetUp 会重配 logx，
-# 顺序反了会把桥接覆盖掉。Run() 已处理，见 restapi.go。
-#
-# 这个桥接和 cmd/worker 用的是同一个函数，所以两个进程的日志落在同一个观测面上，
-# 排查「请求投递了但没被消费」时可以用 trace 字段把两边串起来。
+Timeout: 15000000
 Log:
   Mode: console
   Level: info
-
-# 这里**故意不写 Middlewares 块**：各字段默认值都是 true，即整条链路全部使用
-# go-zero 自带的中间件，按 rest/engine.go 的固定顺序逐路由装配：
-#
-#   Trace      -> handler.TraceHandler        （otel span，注入 traceparent）
-#   Log        -> handler.LogHandler          （logx 访问日志）
-#   Prometheus -> handler.PrometheusHandler   （记录请求指标）
-#   MaxConns / Breaker / Shedding / Timeout
-#   Recover    -> handler.RecoverHandler
-#   Metrics / MaxBytes / Gunzip
-#
-# 本项目自己写的中间件只剩鉴权，因为 go-zero 的 handler.Authorize 是 HMAC 签名
-# 鉴权，不是 Bearer API key。
-
-# trace id 的来源。**这个块不能省**：go-zero 的 trace.startAgent 即使 Endpoint
-# 为空，也会安装一个真实的 SDK TracerProvider（只是没有 exporter），trace id 才
-# 有效；不配的话全局 provider 是 noop 的，trace id 恒为空字符串，
-# 响应头 X-Trace-ID 和错误体里的 request_id 都会是空的。
 Telemetry:
   Name: eino-quickstart-restapi
   # Sampler: 1.0          # 默认全采样
   Endpoint: 10.10.2.90:4317 # 填上才开始真正导出 span（Batcher 默认 otlpgrpc）
 
-# 进程关闭的时间预算。**这个块必须留**，默认值会杀死还没关完的进程：
-# core/proc 收到 SIGTERM/SIGINT 后先跑 wrap up 监听器，等 WrapUpTime，再跑
-# shutdown 监听器（HTTP 的优雅排空在这里），最后再等 WaitTime - WrapUpTime，
-# 然后 syscall.Kill 自己。默认 WaitTime 只有 5.5s，够不上一个稍慢的写请求。
-#
-# 这里的 WaitTime 只需要覆盖 **HTTP 进程自己的**同步工作：索引任务早就拆到
-# cmd/worker 了，它们的排空预算是那边的 asynq.shutdownTimeoutSeconds，与这个值
-# 无关（两者不再需要互相大于）。
 Shutdown:
   WrapUpTime: 1s
   WaitTime: 30s
-
 
 # go-zero 原生 Prometheus agent：**独立端口**暴露，与上面的 8090 分开。
 # 由 Start() 里的 ServiceConf.SetUp() 启动 —— go-zero 的 rest 自己不会调 SetUp，

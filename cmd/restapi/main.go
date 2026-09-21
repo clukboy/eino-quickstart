@@ -28,6 +28,7 @@ import (
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
+	"eino-quickstart/internal/rag/grouping"
 	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/skill"
 	"eino-quickstart/internal/tool"
@@ -205,16 +206,35 @@ func runServer() error {
 
 	// 知识库用例是 HTTP 侧唯一的索引入口：它落正文、建行、投递任务。
 	// transport 只调它，不认识队列。
-	knowledgeService, err := knowledge.NewService(
-		entClient,
-		contentStore,
-		asynq.NewIndexQueue(asynqQueue, asynq.IndexQueueConfig{
+	//
+	// 召回也在这里装配：这个进程既要能写（上传、重建索引）也要能读
+	// （POST /dataset/:id/search）。装配是分级的 —— 向量库或 embedding 没配
+	// 只会关掉对应通道，关键词与精确通道照常工作，见 newRetrievalSearcher。
+	// 召回结果的归并粒度按数据集类型配（knowledge.recallGrouping）。在这里解析
+	// 一次并注入：粒度名写错要在启动时就报出来，而不是等某个数据集被搜到时静默
+	// 回落成默认粒度 —— 后者只会表现为「条数不太对」，没人会联想到配置。
+	recallGrouping, err := grouping.NewPolicy(cfg.Knowledge.RecallGrouping)
+	if err != nil {
+		return fmt.Errorf("解析 knowledge.recallGrouping: %w", err)
+	}
+
+	knowledgeService, err := knowledge.NewService(knowledge.ServiceDeps{
+		Client:  entClient,
+		Content: contentStore,
+		Queue: asynq.NewIndexQueue(asynqQueue, asynq.IndexQueueConfig{
 			MaxRetries: cfg.Asynq.MaxRetries,
 		}),
-		newVectorCleaner(ctx, cfg, logger),
-		newKeywordCleaner(ctx, cfg, logger),
-		logger,
-	)
+		Vectors:  newVectorCleaner(ctx, cfg, logger),
+		Keywords: newKeywordCleaner(ctx, cfg, logger),
+		Searcher: newRetrievalSearcher(ctx, cfg, entClient, logger),
+		Grouping: recallGrouping,
+		Limits: knowledge.Limits{
+			DefaultTopK:        cfg.Knowledge.DefaultTopK,
+			MaxTopK:            cfg.Knowledge.MaxTopK,
+			MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
+		},
+		Logger: logger,
+	})
 	if err != nil {
 		return fmt.Errorf("init knowledge service: %w", err)
 	}

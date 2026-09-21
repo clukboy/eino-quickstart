@@ -31,7 +31,10 @@ type Config struct {
 
 	TopK           int
 	ScoreThreshold float64
-	Timeout        time.Duration // [优化] 每次调用的默认超时
+	// Retrieval 是三条通道的权重、融合平滑与候选上限（配置的 retrieval 段）。
+	// 零值表示用内置默认策略。
+	Retrieval RetrievalPolicy
+	Timeout   time.Duration // [优化] 每次调用的默认超时
 }
 
 // Pipeline 封装 ingest / retrieve 两条 eino Chain。
@@ -76,6 +79,7 @@ func NewPipeline(ctx context.Context, cfg Config, entClient *ent.Client) (*Pipel
 		hybrid, err := NewHybridRetriever(HybridConfig{
 			Store: cfg.Store, Embedder: cfg.Embedder, Reranker: cfg.Reranker,
 			TopK: cfg.TopK, ScoreThreshold: cfg.ScoreThreshold,
+			Retrieval: cfg.Retrieval,
 		})
 		if err != nil {
 			return nil, err

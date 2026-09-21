@@ -6,7 +6,10 @@
 //   expected_sources          精确的 document.source（相对 knowledge.root），必须命中
 //   expected_source_keywords  召回的 source 里需包含该片段，必须命中
 //   forbidden_sources         不该被召回，命中即越权、该用例直接判失败
-//   min_results               结果条数下限；有答案的用例设 1
+//   min_results               结果条数下限；有答案的用例设 1。单位是**归并后的
+//                             条数**（knowledge.recallGrouping 决定一条 = 一篇文档
+//                             还是一个分块），所以同一份用例集在不同粒度下单条
+//                             用例可能一过一不过 —— 换粒度要连着看一遍这条
 //   scene                     场景分组，报告按它聚合，用来定位退化发生在哪一类查询
 //
 // 为什么用关键词而不是精确 source：托管上传的正文由 ContentStore.Create 用

@@ -334,7 +334,7 @@ func propertyFor(kind FieldType, keyword bool, analyzer string) (types.Property,
 		}
 		if keyword {
 			property.Fields = map[string]types.Property{
-				"keyword": types.KeywordProperty{IgnoreAbove: intPtr(maxKeywordLength)},
+				keywordSubfield: types.KeywordProperty{IgnoreAbove: intPtr(maxKeywordLength)},
 			}
 		}
 		return property, nil
@@ -425,6 +425,43 @@ func weightedField(name string, boost float64) string {
 	return name + "^" + strconv.FormatFloat(boost, 'f', -1, 64)
 }
 
+// keywordSubfield 是 text 字段上 .keyword 子字段的名字（见 propertyFor）。
+//
+// 它存的是**原样的整值**，所以 term 查询它只有在「查询串与字段值逐字相等」时
+// 才命中 —— 这正是 ExactFields 想要的性质。
+const keywordSubfield = "keyword"
+
+// ExactField 是参与逐字精确匹配的一个字段。
+type ExactField struct {
+	// Name 是完整的 ES 字段名（已带 .keyword 后缀）。
+	Name string
+	// Boost 沿用字段自身的权重。
+	//
+	// 「精确命中比词元命中更值钱」这件事不在这里表达，而是由检索策略里独立的一条
+	// 通道权重表达（配置的 retrieval.exactWeight）。两处都放大等于把同一个判断
+	// 算两遍，调的时候没人说得清最后是几倍。
+	Boost float64
+}
+
+// ExactFields 返回参与逐字精确匹配的字段。
+//
+// 只包含声明了 keyword 的字段。没声明的字段不能出现在这里：对不存在的子字段做
+// term 查询，ES 不报错、只是永远不命中，于是「精确匹配没生效」会表现为「排序
+// 不够好」，没人能看出来。
+func (m *Mapping) ExactFields() []ExactField {
+	fields := make([]ExactField, 0, len(m.Fields))
+	for _, spec := range m.Fields {
+		if !spec.Keyword || spec.Boost <= 0 {
+			continue
+		}
+		fields = append(fields, ExactField{
+			Name:  spec.Name + "." + keywordSubfield,
+			Boost: spec.Boost,
+		})
+	}
+	return fields
+}
+
 // Extract 按字段声明从元数据里取值。
 //
 // 取不到、取到空值、取到的值转不成声明的类型，一律跳过这个字段：索引里缺一个
@@ -474,6 +511,17 @@ func (m *Mapping) MissingPaths(metadata map[string]any) []string {
 	return missing
 }
 
+// fallbackShapeRev 是兜底字段（metadata_text）的写入口径版本。
+//
+// 它不是 mapping 声明的一部分，却一样决定「索引里到底存了什么」：改变了哪些值
+// 会被收进兜底字段，已有文档的内容就与新口径不一致了。把它算进指纹，是为了让
+// 这种改动也被预检当成「需要 reindex」报出来 —— 否则改完只有新文档是干净的，
+// 老文档继续带着旧的重复文本参与排序，表现是「改了半天没效果」，而没有任何
+// 地方提示要重建索引。
+//
+// 改动这个字段的规则：只要 Project 的产出对同一份元数据可能不同，就 +1。
+const fallbackShapeRev = "v2-no-promoted-dupes"
+
 // fingerprint 是映射在索引期的形态指纹。
 //
 // 它取代了手写的「形态版本号」：映射从代码搬到配置文件之后，那个版本号就成了
@@ -481,12 +529,22 @@ func (m *Mapping) MissingPaths(metadata map[string]any) []string {
 // 东西，而预检不会提示需要 reindex。指纹由声明本身算出来，改了就变。
 //
 // 指纹只覆盖**索引期**的形态：分词器、动态映射策略、字段名/类型/取值路径/
-// 是否挂 keyword 子字段。权重被排除在外 —— 它是查询期的东西（multi_match 的
-// boost），改权重不需要重建索引，把它算进去会让每次调权重都触发一次全量
-// reindex 的假警报。
+// 是否挂 keyword 子字段、兜底字段的写入口径。权重被排除在外 —— 它是查询期的东西
+// （multi_match 的 boost），改权重不需要重建索引，把它算进去会让每次调权重都
+// 触发一次全量 reindex 的假警报。
 func (m *Mapping) fingerprint(analyzer string) string {
+	return m.fingerprintWith(analyzer, fallbackShapeRev)
+}
+
+// fingerprintWith 是 fingerprint 的本体，兜底口径作为参数传入。
+//
+// 拆成两层是为了让「口径版本确实参与计算」这件事可被断言：常量没法在测试里改，
+// 只能把它变成一个入参再喂两个不同的值。少了这条断言，「指纹没把兜底口径算进去」
+// 这种漏改不会有任何表现，直到某次改了兜底字段却发现老文档没被提示重建。
+func (m *Mapping) fingerprintWith(analyzer, fallbackRev string) string {
 	hash := sha256.New()
-	fmt.Fprintf(hash, "analyzer=%s\ndynamic=%s\n", analyzer, indexDynamic.String())
+	fmt.Fprintf(hash, "analyzer=%s\ndynamic=%s\nfallback=%s\n",
+		analyzer, indexDynamic.String(), fallbackRev)
 	for _, field := range baseFields {
 		fmt.Fprintf(hash, "base:%s=%s:keyword=%t\n", field.name, field.kind, field.keyword)
 	}
@@ -763,25 +821,87 @@ func stringKind(value any) (string, bool) {
 // 整段丢弃：前缀里的型号、品牌名通常才是要搜的东西。
 const maxMetadataTextLen = 4096
 
-// FlattenMetadata 把元数据摊平成一段可检索文本，供兜底字段使用。
+// FlattenMetadata 把整份元数据摊平成一段可检索文本。
 //
 // 摊平是「新增元数据键不必改 mapping」这条保证的落点：ES 的 mapping 一旦要改，
 // 就得重建索引、重跑全部文档；把没有单独成列的值汇总进一个 text 字段，新键从
 // 写入那一刻起就可检索，代价只是它们共享一个较低的权重。
 //
+// 它**不做**「哪些值已经单独成列」的排除 —— 那需要知道映射声明，见
+// Mapping.Project。直接拿它对着一份已经按声明取过值的元数据用，会把同一个值
+// 索引两遍。
+//
 // 调用方负责先把链路机制键摘掉（doc_id / content_hash / visibility / …）：
 // 那是业务语义，不该由存储层猜。
 func FlattenMetadata(metadata map[string]any) string {
 	var builder strings.Builder
-	appendMetadataValues(&builder, metadata)
+	appendMetadataValues(&builder, metadata, "", nil)
 	return builder.String()
+}
+
+// Project 按声明把元数据投影成两部分：单独成列的字段，与摊平的兜底文本。
+//
+// 两者必须由同一次判断算出来。让调用方各调一次 Extract 与 FlattenMetadata，
+// 兜底文本就会把已经单独成列的值**再收一遍** —— 同一个词被两个字段索引，而且
+// 是两个不同权重的字段。代价不是「多占一点空间」，而是排序失真：
+//
+// 中文业务词（「铰链」「固装」「图冠系列」）本来靠 IDF 会被压到几乎不影响排序，
+// 因为全库文档都带它们，分辨力为零。重复计入把一部分文档的 tf 抬到别人的两三
+// 倍，凭空造出一个「这篇更相关」的信号 —— 于是「问固装铰链，结果全被拽到只含
+// 铰链的文档上」。同一个值在同一篇文档里出现两次，不增加任何召回，只扰乱排序。
+//
+// 排除只针对**确实取到值**的路径（见 claimedPaths）：声明了 from 但取不到值的
+// 字段在索引里并不存在，把它的路径也算成「已成列」，那个值就会从检索面整体消失
+// —— 配错一个路径不该把内容悄悄抹掉，那种症状比配错本身更难查。
+func (m *Mapping) Project(metadata map[string]any) (map[string]any, string) {
+	columns := m.Extract(metadata)
+	if len(metadata) == 0 {
+		return columns, ""
+	}
+	var builder strings.Builder
+	appendMetadataValues(&builder, metadata, "", m.claimedPaths(metadata))
+	return columns, builder.String()
+}
+
+// claimedPaths 返回已经单独成列的元数据路径（就是声明里的 from）。
+//
+// 复算一遍取值，而不是只看声明里写了 from：Project 的排除面必须与 Extract 的
+// 取值面逐字对应，两处各自判断就会分叉 —— 分叉的表现是「某个字段配了但搜不到」，
+// 而且只在部分文档上出现（取值成功与否取决于该文档有没有那个键）。
+func (m *Mapping) claimedPaths(metadata map[string]any) map[string]struct{} {
+	if len(m.Fields) == 0 {
+		return nil
+	}
+	claimed := make(map[string]struct{}, len(m.Fields))
+	for _, spec := range m.Fields {
+		raw, ok := lookupPath(metadata, spec.From)
+		if !ok {
+			continue
+		}
+		if _, ok := coerce(raw, spec); !ok {
+			continue
+		}
+		claimed[spec.From] = struct{}{}
+	}
+	if len(claimed) == 0 {
+		return nil
+	}
+	return claimed
 }
 
 // appendMetadataValues 摊平一层元数据。
 //
 // 键按字典序处理，而不是 map 的遍历顺序：同一份元数据必须每次拍出同样的文本，
 // 否则索引文档的 _source 会随进程抖动，比对两次写入差异、复现问题都变得困难。
-func appendMetadataValues(builder *strings.Builder, metadata map[string]any) {
+//
+// prefix 是这一层所处的路径，claimed 里是已经单独成列的路径。路径只在 map 逐层
+// 下降时才有意义 —— 映射声明也不认数组下标（见 chunk_mapping.yaml）。
+func appendMetadataValues(
+	builder *strings.Builder,
+	metadata map[string]any,
+	prefix string,
+	claimed map[string]struct{},
+) {
 	keys := make([]string, 0, len(metadata))
 	for key := range metadata {
 		keys = append(keys, key)
@@ -789,19 +909,34 @@ func appendMetadataValues(builder *strings.Builder, metadata map[string]any) {
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		appendMetadataValue(builder, metadata[key])
+		path := key
+		if prefix != "" {
+			path = prefix + "." + key
+		}
+		if _, ok := claimed[path]; ok {
+			continue
+		}
+		appendMetadataValue(builder, metadata[key], path, claimed)
 	}
 }
 
-// appendMetadataValue 递归收集标量值。
+// appendMetadataValue 递归收集标量值。path 是这个值在元数据里的路径。
 //
 // 递归是必需的：规格明细（specs_from_doc）是嵌套一层 map，型号变体（variants）
 // 是数组。只处理顶层字符串的话，「门板材质是拉丝不锈钢」这类最常被搜的内容
 // 反而进不了索引 —— 它们全在嵌套里。
 //
+// 数组元素沿用容器自己的路径：映射声明不认下标，所以「这个数组整体已经成列」
+// 这件事只能落在容器路径上，在调用它的那层就判断掉了。
+//
 // 只收值、不收键：键是 cup_diameter_mm 这类英文标识，不是用户的搜索词。
 // 布尔值也丢掉，true / false 命中「真」「假」之类的查询只会造噪声。
-func appendMetadataValue(builder *strings.Builder, value any) {
+func appendMetadataValue(
+	builder *strings.Builder,
+	value any,
+	path string,
+	claimed map[string]struct{},
+) {
 	if builder.Len() >= maxMetadataTextLen {
 		return
 	}
@@ -813,12 +948,12 @@ func appendMetadataValue(builder *strings.Builder, value any) {
 	case bool:
 		return
 	case map[string]any:
-		appendMetadataValues(builder, typed)
+		appendMetadataValues(builder, typed, path, claimed)
 		return
 	}
 	if items, ok := asSlice(value); ok {
 		for _, item := range items {
-			appendMetadataValue(builder, item)
+			appendMetadataValue(builder, item, path, claimed)
 		}
 		return
 	}

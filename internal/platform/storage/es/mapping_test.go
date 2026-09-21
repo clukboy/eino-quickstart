@@ -302,6 +302,55 @@ func TestSearchFieldsOrderAndBoosts(t *testing.T) {
 	}
 }
 
+// TestExactFieldsOnlyCoversDeclaredKeyword 钉住精确通道的字段来源。
+//
+// 只为声明了 keyword 的字段生成子句：对不存在的子字段做 term 查询，ES 不报错、
+// 只是永远不命中，于是「精确匹配没生效」会伪装成「排序不够好」。
+func TestExactFieldsOnlyCoversDeclaredKeyword(t *testing.T) {
+	mapping := &Mapping{
+		Fields: []FieldSpec{
+			{Name: "model", From: "model", Type: FieldText, Boost: 5, Keyword: true},
+			{Name: "product_name", From: "product_name", Type: FieldText, Boost: 4},
+			{Name: "open_angle_deg", From: "specs.open_angle_deg", Type: FieldInteger},
+			{Name: "zero_boost", From: "x", Type: FieldText, Keyword: true},
+		},
+	}
+	got := mapping.ExactFields()
+	if len(got) != 1 {
+		t.Fatalf("精确字段是 %+v，应当只有 model 一条", got)
+	}
+	// 权重沿用字段自身的值：「精确比词元更值钱」由检索策略里那条独立通道的
+	// 权重表达，这里再放大一遍等于把同一个判断算两次。
+	if got[0].Name != "model.keyword" || got[0].Boost != 5 {
+		t.Errorf("精确字段是 %+v，期望 model.keyword 权重 5", got[0])
+	}
+}
+
+// TestFingerprintTracksKeywordSubfield 说明哪些改动会让已有文档变「陈旧」。
+//
+// keyword 子字段的有无会改变索引形态，必须进指纹；权重只影响查询期排序，不进。
+func TestFingerprintTracksKeywordSubfield(t *testing.T) {
+	mapping := &Mapping{
+		Fields: []FieldSpec{
+			{Name: "model", From: "model", Type: FieldText, Boost: 5, Keyword: true},
+		},
+	}
+	withKeyword := mapping.fingerprint("cjk")
+
+	mapping.Fields[0].Keyword = false
+	withoutKeyword := mapping.fingerprint("cjk")
+
+	if withKeyword == withoutKeyword {
+		t.Fatal("keyword 子字段的有无会改变索引形态，指纹必须不同")
+	}
+
+	mapping.Fields[0].Keyword = true
+	mapping.Fields[0].Boost = 99
+	if mapping.fingerprint("cjk") != withKeyword {
+		t.Error("权重不改变索引形态，指纹不该跟着变")
+	}
+}
+
 // TestFlattenMetadata 守住兜底字段的摊平口径。
 func TestFlattenMetadata(t *testing.T) {
 	text := FlattenMetadata(map[string]any{
@@ -358,6 +407,200 @@ func TestFlattenMetadataTruncates(t *testing.T) {
 	}
 	if text == "" {
 		t.Error("截断不该把内容清空：前缀里的型号通常才是要搜的东西")
+	}
+}
+
+// productMetadataFixture 是一份贴合解析器实际产出的产品元数据。
+//
+// 就用解析器那套键名（见 internal/rag/parser 的 productMetadata.toMap）：诊断
+// 「兜底字段里有什么」必须基于真实形态，手编一份简化版会把问题一起简化掉。
+func productMetadataFixture() map[string]any {
+	return map[string]any{
+		"product_id":    "GZ-H105P",
+		"model":         "H105P",
+		"family_prefix": "H105",
+		"series_name":   "图冠系列",
+		"product_name":  "固装铰链",
+		"category_l1":   "铰链",
+		"category_l2":   "固装铰链",
+		"source_doc":    "图冠五金产品型录.md",
+		"specs_from_doc": map[string]any{
+			"mechanics_type":        "液压缓冲",
+			"install_type":          "固装",
+			"adjust_type":           "三维可调",
+			"door_material":         "拉丝不锈钢",
+			"base_material":         "冷轧钢",
+			"surface_finish":        "镀钛镍",
+			"open_angle_deg":        110,
+			"cup_diameter_mm":       35,
+			"door_thickness_min_mm": 16,
+			"door_thickness_max_mm": 22,
+		},
+		"variants": []any{"H105P-A", "H105P-B"},
+	}
+}
+
+// fallbackTokens 把兜底文本切成词元集合。
+//
+// 断言用词元相等而不是子串包含：兜底文本是把值按空格拼起来的，而值之间会互相
+// 包含（GZ-H105P 里就有 H105P）。用子串判断会把「product_id 没成列、model 成列」
+// 这种正常情况读成「model 重复进了兜底字段」—— 测试自己制造假警报，然后为了
+// 让它闭嘴去改被测代码，是比没有测试更坏的结果。
+func fallbackTokens(text string) map[string]struct{} {
+	tokens := make(map[string]struct{})
+	for _, token := range strings.Fields(text) {
+		tokens[token] = struct{}{}
+	}
+	return tokens
+}
+
+// TestProjectExcludesPromotedValuesFromFallback 是本文件里最重要的一条：
+// 已单独成列的值不许再进兜底字段。
+//
+// 两边都留一份的后果是排序失真，而不是「多占空间」。中文业务词（铰链 / 固装 /
+// 系列名）几乎每篇文档都有，IDF 接近零，本来就不该左右排序；重复计入把它们在
+// 一部分文档里的 tf 抬到别人的两三倍，于是「明明问的是固装铰链，结果全被拽到
+// 只含铰链的文档上」。同一个值在同一篇文档里出现两次，不增加任何召回。
+func TestProjectExcludesPromotedValuesFromFallback(t *testing.T) {
+	mapping, err := LoadMapping(shippedMappingPath)
+	if err != nil {
+		t.Fatalf("加载随仓库发布的映射: %v", err)
+	}
+
+	columns, fallback := mapping.Project(productMetadataFixture())
+	tokens := fallbackTokens(fallback)
+
+	// 声明里成列的值：兜底字段里必须一个都不剩。
+	promoted := []string{
+		"GZ-H105P", "H105P", "H105", "图冠系列", "固装铰链", "铰链", "H105P-A", "H105P-B",
+	}
+	for _, value := range promoted {
+		if _, ok := tokens[value]; ok {
+			t.Errorf("已单独成列的值 %q 又进了兜底字段: %s", value, fallback)
+		}
+	}
+
+	// 反过来的那一半同样重要：没成列的值一个都不能少，否则排除就成了静默丢内容。
+	kept := []string{
+		"液压缓冲", "固装", "三维可调", "拉丝不锈钢", "冷轧钢", "镀钛镍",
+		"110", "35", "16", "22", "图冠五金产品型录.md",
+	}
+	for _, value := range kept {
+		if _, ok := tokens[value]; !ok {
+			t.Errorf("没成列的值 %q 不该从兜底字段消失: %s", value, fallback)
+		}
+	}
+
+	// 成列的字段本身要拿到值：排除的前提是「确实取到了」，不是「声明里写了」。
+	for _, name := range []string{"model", "product_id", "series_name", "category_l2", "variants"} {
+		if _, ok := columns[name]; !ok {
+			t.Errorf("字段 %s 应当取到值，否则它会被误排除出兜底字段", name)
+		}
+	}
+}
+
+// TestProjectKeepsUnresolvableValuesInFallback 守住排除的安全边界。
+//
+// 排除只针对**确实取到值**的路径。如果按「声明里写了 from 就排除」来做，
+// 一个拼错的路径（或该文档恰好没有那个键）会让这个值从检索面整体消失 ——
+// 那是「配错一处配置，内容悄悄搜不到」，比配错本身难查得多。
+func TestProjectKeepsUnresolvableValuesInFallback(t *testing.T) {
+	mapping := &Mapping{Fields: []FieldSpec{
+		{Name: "model", From: "model", Type: FieldText, Boost: 5},
+		// 路径拼错：元数据里叫 series_name，不会取到值。
+		{Name: "series", From: "series_nam", Type: FieldText, Boost: 3},
+		// 类型对不上：variants 是数组，没声明 multi 就取不到（toString 对切片返回 false）。
+		{Name: "variants", From: "variants", Type: FieldText, Boost: 2},
+	}}
+
+	columns, fallback := mapping.Project(productMetadataFixture())
+
+	if _, ok := columns["model"]; !ok {
+		t.Fatal("取到值的字段应当在列里")
+	}
+	if _, ok := columns["series"]; ok {
+		t.Error("路径拼错时不该取到值")
+	}
+	if _, ok := columns["variants"]; ok {
+		t.Error("数组不声明 multi 时不该取到值")
+	}
+
+	tokens := fallbackTokens(fallback)
+	// 这两条路径的内容都要留在兜底字段里。
+	for _, value := range []string{"图冠系列", "H105P-A", "H105P-B"} {
+		if _, ok := tokens[value]; !ok {
+			t.Errorf("取不到值的路径不能连兜底也一起丢：%q 不在 %s", value, fallback)
+		}
+	}
+	// 而确实成列的 model 不许重复出现；product_id 没声明，它的值照旧留着。
+	if _, ok := tokens["H105P"]; ok {
+		t.Errorf("成列的值不该再进兜底字段: %s", fallback)
+	}
+	if _, ok := tokens["GZ-H105P"]; !ok {
+		t.Errorf("没声明成列的 product_id 应当留在兜底字段: %s", fallback)
+	}
+}
+
+// TestProjectWithoutFieldsFlattensEverything 钉住「没配业务字段」这一档。
+//
+// 映射里一个字段都没声明时，兜底字段是元数据唯一的检索面；这时候还去排除的话，
+// 整份元数据都搜不到。
+func TestProjectWithoutFieldsFlattensEverything(t *testing.T) {
+	mapping := &Mapping{}
+
+	columns, fallback := mapping.Project(productMetadataFixture())
+	if len(columns) != 0 {
+		t.Errorf("没有声明字段时不该取到任何列: %v", columns)
+	}
+	for _, value := range []string{"H105P", "固装铰链", "图冠系列", "拉丝不锈钢"} {
+		if !strings.Contains(fallback, value) {
+			t.Errorf("没有业务字段时兜底字段必须兜住 %q: %s", value, fallback)
+		}
+	}
+}
+
+// TestProjectIsDeterministic 钉住 Project 与 FlattenMetadata 一样是确定的。
+//
+// 不确定的话索引文档的 _source 会随进程抖动，比对两次写入的差异、复现问题
+// 都会变得困难。
+func TestProjectIsDeterministic(t *testing.T) {
+	mapping, err := LoadMapping(shippedMappingPath)
+	if err != nil {
+		t.Fatalf("加载随仓库发布的映射: %v", err)
+	}
+
+	_, first := mapping.Project(productMetadataFixture())
+	for i := 0; i < 20; i++ {
+		if _, got := mapping.Project(productMetadataFixture()); got != first {
+			t.Fatalf("第 %d 次投影结果不同:\n  %s\n  %s", i, first, got)
+		}
+	}
+}
+
+// TestFingerprintTracksFallbackShape 钉住「改了兜底口径就必须提示 reindex」。
+//
+// 兜底字段的写入口径不是 mapping 声明的一部分，却一样决定索引里存了什么。
+// 不算进指纹的话，改动之后只有新写入的文档是干净的，老文档继续带着旧的重复文本
+// 参与排序 —— 表现是「改了半天没效果」，而没有任何地方提示要重建索引。
+func TestFingerprintTracksFallbackShape(t *testing.T) {
+	mapping, err := LoadMapping(shippedMappingPath)
+	if err != nil {
+		t.Fatalf("加载随仓库发布的映射: %v", err)
+	}
+
+	rev := mapping.fingerprint("ik_max_word")
+	if rev == "" {
+		t.Fatal("指纹不该为空")
+	}
+
+	// 同一份声明必须拍出同一个指纹，否则每次启动都会报「需要 reindex」。
+	if again := mapping.fingerprint("ik_max_word"); again != rev {
+		t.Errorf("同一份声明的指纹不稳定: %s != %s", rev, again)
+	}
+
+	// 兜底口径版本必须参与计算：改它等于改了索引内容，老文档就该被标为陈旧。
+	if mapping.fingerprintWith("ik_max_word", fallbackShapeRev+"-test") == rev {
+		t.Error("兜底字段的写入口径变了，指纹必须跟着变")
 	}
 }
 

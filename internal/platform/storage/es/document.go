@@ -72,7 +72,11 @@ type ChunkDoc struct {
 	// 会命中全库（见 application/knowledge 的 searchableMetadata）。
 	Metadata map[string]any `json:"-"`
 
-	// MetadataText 是没单独成列的那部分元数据的摊平结果，由写入端填充。
+	// MetadataText 是**没单独成列**的那部分元数据的摊平结果，由写入端填充。
+	//
+	// 「没单独成列」是硬约束：已经进了业务字段的值不再收进来。同一个值同时出现在
+	// 一个高权重字段和一个兜底字段里，除了把 tf 抬高、扰乱排序之外没有任何作用
+	// （见 Mapping.Project）。
 	MetadataText string `json:"metadata_text,omitempty"`
 
 	// MappingRev 是写入时映射的形态指纹，由写入端盖章（见 Mapping.fingerprint），
@@ -124,13 +128,15 @@ func (d ChunkDoc) MarshalJSON() ([]byte, error) {
 // 由写入端（Client.IndexChunks）调用而不是让调用方自己提取：提取规则属于映射，
 // 而映射只有写入端持有 —— 让调用方提取意味着它得先拿到映射，也就意味着
 // 「哪些字段存在」这件事会在多个进程里各有一份理解。
+//
+// 取值与摊平是同一次判断的两面（Mapping.Project）：分成两步做的话，已经单独成列
+// 的值会被兜底字段再收一遍，同一个词在两个权重不同的字段里各记一次，把排序弄坏。
 func (d *ChunkDoc) enrich(mapping *Mapping, rev string) {
 	d.MappingRev = rev
 	if d.Metadata == nil {
 		return
 	}
-	d.extra = mapping.Extract(d.Metadata)
-	if text := FlattenMetadata(d.Metadata); text != "" {
-		d.MetadataText = text
-	}
+	columns, fallback := mapping.Project(d.Metadata)
+	d.extra = columns
+	d.MetadataText = fallback
 }
