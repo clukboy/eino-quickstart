@@ -21,7 +21,7 @@
 | 组合根 | 装配 |
 | --- | --- |
 | `cmd/restapi` | 配置、ent、工具注册表、Agent Harness、知识库用例（含**投递口**）、HTTP 服务 |
-| `cmd/worker` | 配置、ent、正文存储、embedding、Milvus、Elasticsearch、`knowledge.Indexer`、asynq **消费端** |
+| `cmd/worker` | 配置、ent、embedding、Milvus、Elasticsearch、`knowledge.Indexer`、asynq **消费端** |
 
 `cmd/ragserver` 是本地跑 RAG 链路用的调试入口，不属于生产运行形态。
 
@@ -93,7 +93,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/api/v1/dataset` | `admin` | 列出数据集 |
 | `GET` | `/api/v1/dataset/{id}` | `admin` | 获取数据集详情 |
 | `DELETE` | `/api/v1/dataset/{id}` | `admin` | 删除数据集；成功返回 `{"status":"deleted"}` |
-| `POST` | `/api/v1/dataset/{id}/documents` | `admin` | 创建文档；`content` 落 `knowledge.root` 托管文件，只给 `source` 则注册既有文件。返回 `status: indexing` |
+| `POST` | `/api/v1/dataset/{id}/documents` | `admin` | 创建文档；`content` 写进 `documents.content`；产品型录会按产品块拆成多条。返回 `status: indexing` |
 | `GET` | `/api/v1/dataset/{id}/documents` | `admin` | 列出数据集下的文档，含分块数与已索引分块数 |
 | `GET` | `/api/v1/dataset/{id}/documents/{docId}` | `admin` | 获取文档详情 |
 | `PUT` | `/api/v1/dataset/{id}/documents/{docId}` | `admin` | 更新文档；给 `content` 会改写正文并重新索引 |
@@ -106,7 +106,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 
 文档的写操作**不同步等索引**，而且请求内**不切块**。HTTP 侧只做三件事：
 
-1. 把正文落到 `knowledge.root` 下的托管文件；
+1. 把正文写进 `documents.content`；
 2. 写下 `documents` 行，`status=indexing`；
 3. 把「这篇文档要索引」投进 Redis 队列（`knowledge:index` / 队列 `index`）。
 
@@ -135,7 +135,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 
 ```text
 【cmd/restapi · HTTP 进程】只做「接收 + 落库 + 投递」，不碰 embedding 和向量库
-  上传正文 → ContentStore 写 knowledge.root 托管文件
+  上传正文 → 拆产品块（YAML 头进 documents.metadata，正文进 documents.content）
            → INSERT documents (status=indexing)
            → Enqueue(knowledge:index, {dataset_id, document_id, mode})
                     │
@@ -143,10 +143,9 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
                     │              payload: 信封{v, trace, body=KnowledgeIndexPayload}
                     │              trace 里是 W3C traceparent —— 见「链路追踪」
 【cmd/worker · 消费进程】承担全部重活，PostgreSQL / Milvus / ES / embedding 只在这里构造
-  HandleTask → rag.Pipeline 的 ingest 链（与 cmd/ragserver 同一份实现）
-                 FileLoader 按 source 读回正文
-                 → Parser 拆出 N 个产品块（当前是 front-matter 分节）
-                 → MarkdownChunker 切块
+  HandleTask → 从 documents.content 取正文（空则从旧文件导入一次，见下文）
+             → rag.Pipeline.IngestContent（与 cmd/ragserver 同一份切块实现）
+                 TextParser → MarkdownChunker 切块
              → INSERT document_chunks (vector_status=pending)
              → Embedder 批量向量化 → Milvus upsert
              → 写检索索引 ES（_id = chunk_id；未配 es.address 时跳过）
@@ -200,31 +199,46 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 
 文档和切块记录保存在 PostgreSQL；Milvus 仅保存 `chunk_id` 与向量。最终查询会再次按文档可见性过滤，因此向量库的候选结果不能直接暴露给用户。
 
-文档正文以文件为唯一真相，存在 `knowledge.root` 下：接口创建的文档放在
-`documents/` 托管子目录里（`documents.source` 保存相对路径），调用方自己放进
-root 的文件则以 `source` 注册、只读不改。因此「重建索引」就是把文件重新读出来，
-数据库里不再存第二份正文。
+文档正文保存在 `documents.content`，这是正文**唯一的真相**：写进来的是它，索引时
+读的是它，召回补全文读的也是它。产品型录里一块的 YAML 头不进这一列 —— 它在写入
+时就被解析成业务键铺进 `documents.metadata`（型号、系列、品类、规格明细），正文
+只留 Markdown 部分。
+
+`documents.source` 仍然存在，但它是**逻辑标识**而不是磁盘路径：检索结果靠它做引用
+与去重、评测用例集靠它写期望命中的文档、ES 里有它的独立字段。形状沿用
+`documents/<数据集 id>/<主干>.md`，由服务端按标题或型号派生（`rag.DocumentSource`），
+写入之后不再随内容变动 —— 换一次正文不该换一个引用名。
+
+不再有「注册外部文件」这条路径：正文只能从 `content` 字段进来。过去那种「托管目录
+内的可改、root 下的只读」的区分随之消失 —— 它本来就是文件存储的产物。
+
+> **迁移**：正文搬家之前建的文档，`content` 为空而正文还在 `knowledge.root` 下。
+> worker 索引到这种文档时会去旧目录读一次、把正文（去掉 YAML 头）补进库
+> （`Indexer.importLegacyContent`），导入过一轮就不再读文件。这是**一次性**通路：
+> `rag.LegacyContentReader` 只读、不建目录、不写任何东西，等存量文档都导入完之后
+> 它和 `knowledge.root` 那段配置可以整块删掉。旧文件里若有多个产品块，导入会明确
+> 失败并提示重新上传（那份文件对应多条文档，硬塞给一条会把内容算错）。
 
 | 模块 | 单一职责 | 不负责 |
 | --- | --- | --- |
-| `rag.ContentStore` | 在 knowledge root 内安全读写正文文件（含软链与路径穿越校验） | 文档归属、切块、索引 |
-| `rag.FileLoader` | 在受控目录内安全读取支持的文本文件 | 知识库归属、权限和入库 |
-| `rag.Pipeline` | 把「读入 → 按产品拆分 → 切块」串成一条 eino Chain；产品拆分的接缝是 `FileLoader` 里那张 parser 注册表，`Config.Store` 为 nil 时链尾就停在切块（worker 用的就是这一档） | 文档归属、分块状态机、检索授权 |
-| `application/knowledge.Service` | 校验入参、落正文文件、写 `documents` 行、提交后投递索引任务；文档增删改查编排与实时分块统计 | 切块、embedding、写向量 |
-| `knowledge.Indexer` | 消费索引任务：驱动 `rag.Pipeline` 拿分块 → 落 pending 行 → embedding → 写向量 → 写检索索引（ES，未配置则跳过），并维护 chunk/document 的索引状态 | HTTP 入参校验、检索排序 |
+| `rag.LegacyContentReader` | 在 `knowledge.root` 内安全**读取**旧正文文件（含软链与路径穿越校验），只服务存量数据的一次性导入 | 写入、文档归属、切块、索引 |
+| `rag.FileLoader` | 在受控目录内安全读取支持的文本文件（`cmd/ragserver` 的演示链用） | 知识库归属、权限和入库 |
+| `rag.Pipeline` | 把「解析 → 切块」串成一条 eino Chain。两条入口：`IngestContent`（正文已在内存，知识库索引走这条，不需要任何目录）与 `IngestFile`（从 `DocRoot` 读文件，产品拆分的接缝是 `FileLoader` 里那张 parser 注册表）；`Config.Store` 为 nil 时链尾就停在切块 | 文档归属、分块状态机、检索授权 |
+| `application/knowledge.Service` | 校验入参、把正文写进 `documents.content`、写 `documents` 行、提交后投递索引任务；文档增删改查编排与实时分块统计 | 切块、embedding、写向量 |
+| `knowledge.Indexer` | 消费索引任务：取 `documents.content`（空则从旧文件导入一次）→ 驱动 `rag.Pipeline` 切块 → 落 pending 行 → embedding → 写向量 → 写检索索引（ES，未配置则跳过），并维护 chunk/document 的索引状态 | HTTP 入参校验、检索排序 |
 | `platform/queue.Producer` | 把「这篇文档要索引」投进 Redis 队列（HTTP 侧持有的抽象） | 决定索引策略、写向量、消费 |
 | `platform/queue/asynq.IndexQueue` | 把 `Producer` 适配成应用层的 `knowledge.IndexTaskQueue` 端口 | 业务决策 |
 | `platform/queue/asynq.AsynqClient` | 同时是 asynq 的 Producer 与 Consumer（后者实现 `service.Service`，由 `cmd/worker` 单独启停） | 业务处理与存储访问 |
 | `rag.Store` | 检索的三个通道：精确通道（结构化字段逐字相等，走 ES `term`；未配 ES 返回空并标记降级）、关键字通道（配了 ES 走 BM25，没配回落 PG 词元子串匹配）、向量通道（Milvus 取 chunk_id → 回 PostgreSQL 补齐正文与 provenance）；词法/精确通道不再要求 `vector_status=indexed`，向量通道仍只召回已索引分块 | 融合排序、授权决策 |
 | `rag.HybridRetriever` | 把三个通道的结果做**加权** RRF 融合（`Σ weight/(k+rank)`，权重见配置 `retrieval`），按名次而非原始分数量纲定序，套用 `Filter`（数据集范围 + 可见性 + 启用状态）；返回 `Report` 记录各通道成败与降级。**输出恒为分块**，归并按库类型由用例层做 | 决定结果粒度、直接对外格式化回答 |
-| `rag/grouping` | 按 `dataset.type` 解析召回结果的归并粒度（`chunk` / `document`，见「召回结果的归并粒度」） | 判定命中的口径、RRF 融合 |
+| `rag/grouping` | 按 `dataset.type` 解析召回结果的归并粒度（`chunk` / `document`），并把「要 N 条结果」折算成「向检索侧要多少分块」（`FetchPlan`）—— 见「召回结果的归并粒度」与「条数的单位」 | 判定命中的口径、RRF 融合 |
 | `platform/storage/es` | 关键词索引的读写：索引生命周期（建/校验/演进）、按 `_id=chunk_id` 的幂等批量写入、按文档清理、多字段 BM25 查询（`bool.should` 组合 `multi_match` 与各字段 `.keyword` 子字段的 `term`）；精确查走 `SearchExact` | 权限判定、正文存储、向量检索 |
 | `eval` | 离线召回评测：装载金标用例、驱动检索、按配置粒度整理结果明细、折算成 Recall@K/MRR/ACL 泄漏/P95 并按门禁判定。质量指标恒按文档去重，不随粒度变 | 在线检索、生成式回答质量 |
 | `tool.KnowledgeSearch` | 将经过认证的主体和服务端 KB 白名单转换为检索请求并格式化引用（**当前是 bindings 版本，尚未接检索**） | 让模型决定可访问的知识库 |
 
 `application/knowledge` 是这条链路上的**唯一业务入口**：HTTP transport 只认识
 `Service`，不认识队列；`Indexer` 只认识任务 payload，不认识 HTTP。两边各自依赖
-`ContentStore` / `VectorIndex` / parser 注册表这些接口，具体实现在组合根里接线。
+`DocumentContent` / `VectorIndex` / parser 注册表这些接口，具体实现在组合根里接线。
 
 ### 检索通道与元数据检索面
 
@@ -282,7 +296,7 @@ BM25 分、`term` 分与向量距离量纲完全不同，按名次求和天然�
 
 | 粒度 | 一条结果 = | 适合 |
 | --- | --- | --- |
-| `document`（缺省） | 一篇文档，取命中的最高分块作代表 | 产品型录：一篇文档就是一个产品，型号/系列/规格与正文都在那一篇里 |
+| `document`（缺省） | 一篇文档：取命中的最高分块作代表决定名次，`content` 换成**整篇文档**的正文 | 产品型录：一篇文档就是一个产品，型号/系列/规格与正文都在那一篇里 |
 | `chunk` | 一个分块 | 普通文档库：一篇长文切成几百块，归并成一条等于什么都没返回 |
 
 粒度是**按库**选的，不是按系统选的：一条检索链路要同时服务两类库，写死在其中一边，
@@ -293,8 +307,8 @@ BM25 分、`term` 分与向量距离量纲完全不同，按名次求和天然�
 
 | 位置 | 做什么 | 为什么在这一层 |
 | --- | --- | --- |
-| `knowledge.Service.Search` | 按数据集类型解析粒度并归并 | 它是唯一知道数据集类型的地方；且归并写在这里，换一个 `Searcher` 实现也不会漏掉 |
-| `cmd/rag-test` / `internal/eval` | 按 `-dataset-type` 解析粒度，结果明细按它列出 | 评测报的条数必须和接口返回的是同一个单位，否则评测与线上各说各话 |
+| `knowledge.Service.Search` | 按数据集类型解析粒度、折算取数预算、归并、补全整篇正文 | 它是唯一知道数据集类型的地方；且写在这里，换一个 `Searcher` 实现也不会漏掉 |
+| `cmd/rag-test` / `internal/eval` | 按 `-dataset-type` 解析粒度，同一套折算规则取数，结果明细按它列出 | 评测报的条数必须和接口返回的是同一个单位，否则评测与线上各说各话 |
 
 两条容易踩的边界：
 
@@ -302,6 +316,38 @@ BM25 分、`term` 分与向量距离量纲完全不同，按名次求和天然�
    跟着粒度。让质量指标随粒度变，等于「把 chunkSize 调小」就能把分数刷上去。
 2. **归并不重排。** 两种粒度下都保持检索给出的相关性顺序，不按分数重排 —— 重排是
    检索侧（reranker）的职责，在这里顺手排一遍会让「权重改动有没有生效」不可观测。
+
+### 条数的单位：取数与归并的折算
+
+`top_k` 的单位是**结果条数**，而检索侧的单位是**分块** —— 两者只在 `chunk` 粒度下
+碰巧相等。`document` 粒度下直接拿条数当分块数要，得到的结果必然缩水，缩水的倍数
+还由切块密度决定：
+
+```
+top_k=20 → 检索侧给 20 个分块 → 每篇切 5 块 → 归并出 4 篇
+```
+
+这个数字会随着调小 `chunkSize` 自动变大，看起来像召回质量在波动，实际是单位没对齐。
+所以取数是**按预算来的**（`rag/grouping.FetchPlan`）：
+
+| 规则 | 值 | 理由 |
+| --- | --- | --- |
+| 起始预算 | `want × 4`（`document` 粒度） | 一篇文档常见切成 2~4 块，一轮就能取满；预算不能一次拍太大，兑换率事先不知道 |
+| 加码 | 不够则翻倍 | 退化切块（一篇几十块）下小倍数没救，一次拍死要么不够要么白拉几倍候选 |
+| 收手 | 取满 / 检索侧见底 / 预算到顶（512） | 「给不满预算」就是「库里就这么多」，必须立刻停 —— 否则会一路翻倍去问一个已知没有更多内容的池子 |
+| `chunk` 粒度 | 预算 = 条数，只跑一轮 | 那一条结果就是一个分块，放大换不来任何东西 |
+
+同一次召回的 **`matched_chunks`（归并前命中几块）与 `chunk_budget`（实际预算）**
+会随结果一起返回，它们是「为什么只有几条」的现场证据：命中 40 块归并出 4 篇，说明
+库里匹配的就这 4 篇；给满 160 块却只归并出 4 篇，说明切块过碎把候选名额吃光了。
+没有这两个数，两种情况的响应一模一样，而下一步动作完全不同。
+
+`document` 粒度还会把代表块的 `content` 换成**整篇文档的正文**（按命中的
+`document_id` 一次查回 `documents.content`，不是把命中块拼起来 —— 切块是带 overlap
+的滑动窗口，拼回去会重复，还会丢掉没命中的段落）。代表块回答的是「这篇文档为什么
+被召回」，它不是阅读的单位：产品型录里只回一块，等于把一个产品拆开只给一半。整篇
+正文超过 `knowledge.maxResultBytes` 时按 rune 边界截断，并在 `content_truncated` 上
+显式标记 —— 悄悄截断会让下游拿半份规格当全份用。
 
 **检索面是一份显式声明，不是一个写死的 mapping。** 字段分两层：
 

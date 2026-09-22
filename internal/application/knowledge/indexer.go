@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -25,9 +24,6 @@ import (
 	ragparser "eino-quickstart/internal/rag/parser"
 	"eino-quickstart/pkg/convert"
 
-	einodoc "github.com/cloudwego/eino/components/document"
-	"github.com/cloudwego/eino/components/document/parser"
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -44,32 +40,42 @@ const defaultChunkBatchSize = 32
 //
 // 整条链路按下面这条线切开：
 //
-//	rag.Pipeline        读入 -> 按产品拆分 -> 切块（唯一实现，与 ragserver 共用）
+//	rag.Pipeline        正文 -> 解析 -> 切块（唯一实现，与 ragserver 共用）
 //	Indexer（本文件）   落 pending 行 -> embedding -> 写向量与检索索引 -> 收敛状态
 //
 // 后一半没有交给 Pipeline：它的落库尾段不认识 document_chunks 的
 // pending / indexed 状态，也没有 content_hash 的幂等口径，把状态机搬进 rag
 // 会让 RAG 工具包反向依赖 ent 与 dataset / ACL 语义。所以 worker 只借 Pipeline
-// 的前半段，持久化与状态一直留在这一层。
+// 的「解析 -> 切块」，持久化与状态一直留在这一层。
+//
+// 正文从 documents.content 直接取，不经过磁盘：那一列是正文唯一的真相，而
+// 「索引时读到的正文」与「召回时读到的正文」必须是同一份。
 type Indexer struct {
 	client    *ent.Client
-	content   *rag.ContentStore
 	pipeline  *rag.Pipeline
 	embedder  *rag.Embedder
 	vectors   VectorIndex
 	keywords  KeywordIndex
 	batchSize int
 	logger    *slog.Logger
+
+	// legacy 是旧正文文件的只读读取器，只为存量数据的一次性导入而存在。
+	// 可以为 nil —— 那表示这批部署没有文件时代的语料。
+	legacy *rag.LegacyContentReader
 }
 
 // IndexerConfig 是构造 Indexer 的全部依赖。
 type IndexerConfig struct {
-	Client    *ent.Client
-	Content   *rag.ContentStore
-	Pipeline  *rag.Pipeline
-	Embedder  *rag.Embedder
-	Vectors   VectorIndex
-	Keyword   KeywordIndex
+	Client   *ent.Client
+	Pipeline *rag.Pipeline
+	Embedder *rag.Embedder
+	Vectors  VectorIndex
+	Keyword  KeywordIndex
+
+	// LegacyContent 可选：指向历史上存放正文文件的目录，用于把存量文档的
+	// 正文导入 documents.content（见 importLegacyContent）。
+	LegacyContent *rag.LegacyContentReader
+
 	BatchSize int
 	Logger    *slog.Logger
 }
@@ -82,9 +88,6 @@ type IndexerConfig struct {
 func NewIndexer(cfg IndexerConfig) (*Indexer, error) {
 	if cfg.Client == nil {
 		return nil, errors.New("knowledge: ent client is required")
-	}
-	if cfg.Content == nil {
-		return nil, errors.New("knowledge: content store is required")
 	}
 	if cfg.Pipeline == nil {
 		return nil, errors.New("knowledge: rag pipeline is required")
@@ -105,13 +108,13 @@ func NewIndexer(cfg IndexerConfig) (*Indexer, error) {
 	}
 	return &Indexer{
 		client:    cfg.Client,
-		content:   cfg.Content,
 		pipeline:  cfg.Pipeline,
 		embedder:  cfg.Embedder,
 		vectors:   cfg.Vectors,
 		keywords:  cfg.Keyword,
 		batchSize: batchSize,
 		logger:    logger,
+		legacy:    cfg.LegacyContent,
 	}, nil
 }
 
@@ -175,13 +178,14 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 		attribute.String("knowledge.document_status", string(doc.Status)),
 	)
 
-	content, err := i.content.Read(doc.Source)
+	content, err := i.resolveContent(ctx, doc)
 	if err != nil {
-		if errors.Is(err, rag.ErrContentNotFound) {
-			// 正文没了，重试不会让它回来：落终态当作处理完毕，不触发重试。
-			return i.abandon(ctx, documentID, "content is unavailable: "+doc.Source)
+		if errors.Is(err, errNoContent) {
+			// 正文找不回来，重试不会让它出现：落终态当作处理完毕，不触发重试。
+			// 调用方仍可以显式 reindex 再试一次（那时会重新走一遍导入）。
+			return i.abandon(ctx, documentID, err.Error())
 		}
-		return fmt.Errorf("knowledge: read content of document %d: %w", documentID, err)
+		return fmt.Errorf("knowledge: resolve content of document %d: %w", documentID, err)
 	}
 
 	// content_hash 是幂等的关键，同时也是「要不要惊动 Pipeline」的开关：
@@ -190,7 +194,7 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 	hash := contentHash(content)
 	span.SetAttributes(attribute.String("knowledge.content_hash", hash))
 	if shouldRechunk(mode, i.alreadyChunked(ctx, doc, hash)) {
-		if err := i.rechunk(ctx, doc, hash); err != nil {
+		if err := i.rechunk(ctx, doc, hash, content); err != nil {
 			return err
 		}
 	} else {
@@ -199,6 +203,88 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 		span.SetAttributes(attribute.Bool("knowledge.rechunk_skipped", true))
 	}
 	return i.embedPending(ctx, doc)
+}
+
+// errNoContent 表示这篇文档的正文找不回来：库里没有，旧文件也读不到。
+//
+// 单独一个哨兵是为了让调用方能区分「重试也没意义」（正文真的没了）和
+// 「这次没成功但下次可能行」（数据库抖动）。分不开的话，一份正文缺失的文档
+// 会被队列反复重试到把重试次数用光，而每次都是同一件不可能成功的事。
+var errNoContent = errors.New("knowledge: document has no recoverable content")
+
+// resolveContent 取这篇文档的正文。
+//
+// 库里那一列是唯一的真相。只有一种情况会去磁盘上找：这条文档建在正文搬家
+// 之前（content 为空，正文还在旧文件里）。那时把它读回来补进库，存量语料不必
+// 重新上传一遍就能继续用 —— 一次成功之后 content 就有值了，之后每一轮索引
+// 都只读库，磁盘上那份再也不被碰。
+func (i *Indexer) resolveContent(ctx context.Context, doc *ent.Document) (string, error) {
+	if content := doc.Content; strings.TrimSpace(content) != "" {
+		return content, nil
+	}
+	return i.importLegacyContent(ctx, doc)
+}
+
+// importLegacyContent 从旧正文文件里把内容补进 documents.content。
+//
+// 它是**一次性迁移**，不是长期设施：等存量文档都导入过一轮，这个函数连同
+// LegacyContentReader 与 knowledge.root 那段配置就可以整块删掉。
+func (i *Indexer) importLegacyContent(ctx context.Context, doc *ent.Document) (string, error) {
+	if i.legacy == nil {
+		return "", fmt.Errorf("%w: document %d has an empty content column and no legacy content root is configured",
+			errNoContent, doc.ID)
+	}
+	raw, err := i.legacy.Read(doc.Source)
+	if err != nil {
+		return "", fmt.Errorf("%w: document %d: %w", errNoContent, doc.ID, err)
+	}
+	body, err := legacyBody(raw)
+	if err != nil {
+		return "", fmt.Errorf("%w: document %d: %w", errNoContent, doc.ID, err)
+	}
+	if strings.TrimSpace(body) == "" {
+		return "", fmt.Errorf("%w: document %d: legacy content is empty after dropping the front matter", errNoContent, doc.ID)
+	}
+	// 导入失败是可重试的（数据库抖动），所以这一条不裹 errNoContent。
+	if _, err := i.client.Document.UpdateOneID(doc.ID).SetContent(body).Save(ctx); err != nil {
+		return "", fmt.Errorf("knowledge: persist imported content of document %d: %w", doc.ID, err)
+	}
+	doc.Content = body
+	observability.LogWithTrace(ctx, i.logger).Warn(
+		"knowledge: 存量文档的正文已从旧文件导入 documents.content（一次性迁移，之后不再读文件）",
+		slog.Uint64("document_id", doc.ID),
+		slog.String("source", doc.Source),
+		slog.Int("bytes", len(body)),
+	)
+	return body, nil
+}
+
+// legacyBody 把旧文件的原文压成「正文」。
+//
+// 产品块的 YAML 头必须去掉：它在拆块那一刻就已经解析进 documents.metadata 了，
+// 型号、系列、规格那些是**检索面**，留在正文里只会让同一批词在索引里被计两次
+// 词频（见 productDocument.Content）。
+//
+// 一个文件里有多个产品块时返回错误：那是「一份文件对应好几条文档」的旧形态，
+// 而这一行只是其中一条 —— 硬塞进来会把别的产品的正文也算到它头上，而调用方
+// 无从分辨哪一段是谁的。这种情况只能重新上传，让服务端按产品拆成多条。
+func legacyBody(raw string) (string, error) {
+	blocks, err := ragparser.SplitBlocks(raw)
+	if err != nil {
+		return "", fmt.Errorf("parse legacy product blocks: %w", err)
+	}
+	switch len(blocks) {
+	case 0:
+		// 没有产品块就是普通 Markdown，正文原样。
+		return raw, nil
+	case 1:
+		return blocks[0].Content, nil
+	default:
+		return "", fmt.Errorf(
+			"legacy file holds %d product blocks but this row is a single document; re-upload it so it can be split by product",
+			len(blocks),
+		)
+	}
 }
 
 // shouldRechunk 说明这次索引要不要重新走一遍切块。
@@ -240,20 +326,16 @@ func (i *Indexer) alreadyChunked(ctx context.Context, doc *ent.Document, hash st
 	return exists
 }
 
-// ingest 调用 rag.Pipeline 的 ingest 链，拿到「读入 -> 拆分 -> 切块」的结果。
+// ingest 把正文交给 rag.Pipeline 跑「解析 -> 切块」。
 //
-// 传绝对路径：Pipeline 的 FileLoader 会自己再校验一次 root 边界、扩展名与大小，
-// 所以组合根必须把 Pipeline 的 DocRoot 和 ContentStore 的 root 指向同一个目录，
-// 否则这里会以「路径逃出 doc root」失败。
-func (i *Indexer) ingest(ctx context.Context, doc *ent.Document) (_ []*schema.Document, err error) {
+// 正文直接从内存进去，不再写一份到磁盘再让 loader 读回来：那条路上任何一步
+// 出错都会让「索引里的内容」和「库里的正文」分叉，而分叉本身没有任何迹象。
+func (i *Indexer) ingest(ctx context.Context, doc *ent.Document, content string) (_ []*schema.Document, err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.ingest_document",
 		oteltrace.WithAttributes(
 			attribute.Int64("knowledge.document_id", int64(doc.ID)),
 			attribute.String("knowledge.source", doc.Source),
-			// 这个值是 parser 注册表的查表键：产品拆分到底走了 ProductParser
-			// 还是静默退化成 TextParser，全看它。不落到 span 上的话，排查
-			// 「为什么 chunk 元数据里没有 product_id」只能靠猜。
-			attribute.String("knowledge.dataset_type", doc.Edges.Dataset.Type),
+			attribute.Int("knowledge.content_bytes", len(content)),
 		),
 	)
 	defer func() {
@@ -261,18 +343,7 @@ func (i *Indexer) ingest(ctx context.Context, doc *ent.Document) (_ []*schema.Do
 		span.End()
 	}()
 
-	uri := strings.TrimSpace(doc.Source)
-	if uri == "" {
-		return nil, fmt.Errorf("knowledge: document %d has no source", doc.ID)
-	}
-	if !filepath.IsAbs(uri) {
-		uri = filepath.Join(i.content.Root(), filepath.FromSlash(uri))
-	}
-	parsed, err := i.pipeline.IngestFile(ctx, einodoc.Source{URI: uri}, compose.WithLoaderOption(
-		einodoc.WithParserOptions(parser.WithExtraMeta(map[string]any{
-			"type": doc.Edges.Dataset.Type,
-		})),
-	))
+	parsed, err := i.pipeline.IngestContent(ctx, doc.Source, content)
 	if err != nil {
 		return nil, fmt.Errorf("knowledge: ingest document %d: %w", doc.ID, err)
 	}
@@ -280,8 +351,8 @@ func (i *Indexer) ingest(ctx context.Context, doc *ent.Document) (_ []*schema.Do
 	return parsed, nil
 }
 
-// rechunk 让 Pipeline 重切一次，清掉旧行、写回 pending 行，并记下这次的内容指纹。
-func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) (err error) {
+// rechunk 重切一次，清掉旧行、写回 pending 行，并记下这次的内容指纹。
+func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash, content string) (err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.rechunk_document",
 		oteltrace.WithAttributes(
 			attribute.Int64("knowledge.document_id", int64(doc.ID)),
@@ -293,10 +364,10 @@ func (i *Indexer) rechunk(ctx context.Context, doc *ent.Document, hash string) (
 		span.End()
 	}()
 
-	parsed, err := i.ingest(ctx, doc)
+	parsed, err := i.ingest(ctx, doc, content)
 	if err != nil {
-		// 读不回来通常是正文格式或权限的问题，重试不会变好，但正文可能被修好
-		// 之后再 reindex，所以这里返回错误让队列按策略重试，而不是直接判死。
+		// 解析不回来通常是正文格式的问题，重试不会变好，但正文可能被修好之后
+		// 再 reindex，所以这里返回错误让队列按策略重试，而不是直接判死。
 		return err
 	}
 

@@ -149,13 +149,17 @@ type SearchDatasetReq struct {
 }
 
 type SearchHitResp struct {
-	ChunkID     uint64  `json:"chunk_id"`
-	DocumentID  uint64  `json:"document_id"`
-	Source      string  `json:"source"`
-	Title       string  `json:"title"`
-	HeadingPath string  `json:"heading_path"`
-	Content     string  `json:"content"`
-	Score       float64 `json:"score"`
+	ChunkID     uint64 `json:"chunk_id"`
+	DocumentID  uint64 `json:"document_id"`
+	Source      string `json:"source"`
+	Title       string `json:"title"`
+	HeadingPath string `json:"heading_path"`
+	Content     string `json:"content"`
+	// ContentTruncated 表示 content 是按上限（knowledge.maxResultBytes）截断过的。
+	// 被截断的正文与完整的正文在调用方眼里长得一样，不显式带出去，缺失的部分
+	// 就没有任何痕迹。
+	ContentTruncated bool    `json:"content_truncated,omitempty"`
+	Score            float64 `json:"score"`
 }
 
 type SearchResp struct {
@@ -163,6 +167,15 @@ type SearchResp struct {
 	Channels []string         `json:"channels"`
 	Degraded []string         `json:"degraded"`
 	TopK     int              `json:"top_k"`
+	// Granularity 是 data 里每一条的单位：document = 一篇文档，chunk = 一个分块。
+	// 同一个 top_k 在两种粒度下的覆盖面差得很远，不带单位读不出条数的含义。
+	Granularity string `json:"granularity"`
+	// MatchedChunks 是归并前命中的分块数，ChunkBudget 是本次实际向检索侧要的分块
+	// 预算。两者与 len(data) 一起回答「为什么只有几条」：命中 40 块归并出 4 篇，
+	// 说明库里匹配的就这 4 篇；命中 20 块、预算 80 却只归并出 4 篇，说明检索侧
+	// 没能给满（切块过碎或候选上限偏低）。
+	MatchedChunks int `json:"matched_chunks"`
+	ChunkBudget   int `json:"chunk_budget"`
 }
 
 type StatusResp struct {

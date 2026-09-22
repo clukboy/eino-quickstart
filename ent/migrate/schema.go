@@ -212,6 +212,7 @@ var (
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "source", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString},
+		{Name: "content", Type: field.TypeString, Size: 2147483647, Default: ""},
 		{Name: "external_key", Type: field.TypeString, Nullable: true},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 		{Name: "owner_subject", Type: field.TypeString, Default: "system"},
@@ -232,13 +233,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "documents_datasets_documents",
-				Columns:    []*schema.Column{DocumentsColumns[12]},
+				Columns:    []*schema.Column{DocumentsColumns[13]},
 				RefColumns: []*schema.Column{DatasetsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "documents_knowledge_folders_documents",
-				Columns:    []*schema.Column{DocumentsColumns[13]},
+				Columns:    []*schema.Column{DocumentsColumns[14]},
 				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -247,12 +248,12 @@ var (
 			{
 				Name:    "document_dataset_id_external_key",
 				Unique:  true,
-				Columns: []*schema.Column{DocumentsColumns[12], DocumentsColumns[3]},
+				Columns: []*schema.Column{DocumentsColumns[13], DocumentsColumns[4]},
 			},
 			{
 				Name:    "document_owner_subject_visibility",
 				Unique:  false,
-				Columns: []*schema.Column{DocumentsColumns[5], DocumentsColumns[6]},
+				Columns: []*schema.Column{DocumentsColumns[6], DocumentsColumns[7]},
 			},
 		},
 	}

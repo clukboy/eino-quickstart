@@ -50,12 +50,6 @@ func documentFail(err error) error {
 		return httpx.Conflict("document source already exists")
 	case errors.Is(err, knowledge.ErrContentTooLarge):
 		return httpx.TooLarge("document content is too large")
-	case errors.Is(err, knowledge.ErrContentNotManaged):
-		// 注册进来的外部文件不允许由接口覆盖：调用方用错了接口，不是 404。
-		return httpx.BadRequest("document content is not managed by the api")
-	case errors.Is(err, knowledge.ErrContentUnavailable):
-		// 正文文件被移走或删掉了：这是调用方能修的状态，不是服务端故障。
-		return httpx.BadRequest("document content is unavailable")
 	case errors.Is(err, knowledge.ErrQueueUnavailable):
 		// 索引任务投不出去。这里**不能**降级成 2xx：文档的索引永远不会发生，
 		// 静默成功只会让它卡在 indexing 而没人知道。
@@ -168,12 +162,13 @@ func createResultDTOs(ctx context.Context, service *knowledge.Service, results [
 	return list, nil
 }
 
+// documentContentOne 把一篇文档连正文一起返回。
+//
+// 正文直接取 documents.content，不再按 source 去磁盘上读一遍：「列表里能看到
+// 这篇文档」与「能读到它的正文」从此是同一件事 —— 从前它们可以不一致（文件被
+// 移走、被改名、或者压根没落盘成功），而症状是一个 200 带着空正文。
 func documentContentOne(ctx context.Context, service *knowledge.Service, doc *ent.Document) (*types.DocumentContentResp, error) {
 	base, err := documentDTOOne(ctx, service, doc)
-	if err != nil {
-		return nil, err
-	}
-	content, err := service.ContentFromSource(ctx, doc.Source)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +185,6 @@ func documentContentOne(ctx context.Context, service *knowledge.Service, doc *en
 		CreatedAt:         base.CreatedAt,
 		UpdatedAt:         base.UpdatedAt,
 		Enabled:           base.Enabled,
-		Content:           content,
+		Content:           doc.Content,
 	}, nil
 }

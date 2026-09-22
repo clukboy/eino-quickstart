@@ -34,6 +34,20 @@ func (_c *DocumentCreate) SetTitle(v string) *DocumentCreate {
 	return _c
 }
 
+// SetContent sets the "content" field.
+func (_c *DocumentCreate) SetContent(v string) *DocumentCreate {
+	_c.mutation.SetContent(v)
+	return _c
+}
+
+// SetNillableContent sets the "content" field if the given value is not nil.
+func (_c *DocumentCreate) SetNillableContent(v *string) *DocumentCreate {
+	if v != nil {
+		_c.SetContent(*v)
+	}
+	return _c
+}
+
 // SetExternalKey sets the "external_key" field.
 func (_c *DocumentCreate) SetExternalKey(v string) *DocumentCreate {
 	_c.mutation.SetExternalKey(v)
@@ -221,6 +235,10 @@ func (_c *DocumentCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *DocumentCreate) defaults() {
+	if _, ok := _c.mutation.Content(); !ok {
+		v := document.DefaultContent
+		_c.mutation.SetContent(v)
+	}
 	if _, ok := _c.mutation.OwnerSubject(); !ok {
 		v := document.DefaultOwnerSubject
 		_c.mutation.SetOwnerSubject(v)
@@ -258,6 +276,9 @@ func (_c *DocumentCreate) check() error {
 	}
 	if _, ok := _c.mutation.Title(); !ok {
 		return &ValidationError{Name: "title", err: errors.New(`ent: missing required field "Document.title"`)}
+	}
+	if _, ok := _c.mutation.Content(); !ok {
+		return &ValidationError{Name: "content", err: errors.New(`ent: missing required field "Document.content"`)}
 	}
 	if _, ok := _c.mutation.OwnerSubject(); !ok {
 		return &ValidationError{Name: "owner_subject", err: errors.New(`ent: missing required field "Document.owner_subject"`)}
@@ -326,6 +347,10 @@ func (_c *DocumentCreate) createSpec() (*Document, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
 		_node.Title = value
+	}
+	if value, ok := _c.mutation.Content(); ok {
+		_spec.SetField(document.FieldContent, field.TypeString, value)
+		_node.Content = value
 	}
 	if value, ok := _c.mutation.ExternalKey(); ok {
 		_spec.SetField(document.FieldExternalKey, field.TypeString, value)

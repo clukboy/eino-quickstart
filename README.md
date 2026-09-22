@@ -6,8 +6,8 @@
 
 | 能力 | 入口 | 说明 |
 | --- | --- | --- |
-| 对话 + 知识库 API | `go run ./cmd/restapi` | 一个进程同时提供 API Key 认证的 SSE 对话 API 和知识库 admin 接口。**只投递不消费**：收到文档写请求时把正文落盘、建文档行、往 asynq（Redis）投一个索引任务就返回。 |
-| 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后读回正文、拆产品块、切块、调 embedding、写 Milvus、写关键词索引（配了 `es.address` 时），并把文档状态收敛到 `ready` / `failed`。 |
+| 对话 + 知识库 API | `go run ./cmd/restapi` | 一个进程同时提供 API Key 认证的 SSE 对话 API 和知识库 admin 接口。**只投递不消费**：收到文档写请求时把正文写进 `documents.content`、建文档行、往 asynq（Redis）投一个索引任务就返回。 |
+| 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后从库里读正文（空则从旧的托管目录导入一次）、拆产品块、切块、调 embedding、写 Milvus、写关键词索引（配了 `es.address` 时），并把文档状态收敛到 `ready` / `failed`。 |
 | RAG 调试入口 | `go run ./cmd/ragserver` | 本地手动跑一遍 RAG 链路的调试用入口，不是生产运行形态。 |
 | 召回评测 | `go run ./cmd/rag-test` | 拿金标用例集打真实检索链路，输出 Recall@K / MRR / ACL 泄漏 / P95，并按 `internal/eval/thresholds.yaml` 判定退出码 —— 可以直接卡在 CI 或发布流水线里阻断质量回退。用法见 [RAG 本地验证](docs/rag-testing.md#召回评测)。 |
 

@@ -1,8 +1,8 @@
 # RAG 本地验证
 
-本文验证完整的文档索引链路：创建数据集、写入一篇 Markdown、请求内落库并投递任务、
-由独立的 worker 进程切块并异步生成向量写进 Milvus。全程走 REST 接口，不需要往目录里
-手工塞文件。
+本文验证完整的文档索引链路：创建数据集、写入一篇 Markdown（正文直接进
+`documents.content`，不落本地文件）、请求内落库并投递任务、由独立的 worker 进程切块
+并异步生成向量写进 Milvus。全程走 REST 接口，不需要往目录里手工塞文件。
 
 ## 前置条件
 
@@ -41,8 +41,31 @@
    export EINO_ES_PASSWORD=...
    ```
 
-4. 在仓库根目录执行命令。正文落在 `knowledge.root`（`configs/config.yaml` 里当前是
-   `./tests/knowledge`）下的 `documents/` 托管子目录里。
+4. 在仓库根目录执行命令。正文不需要预先准备任何目录 —— 它直接落在
+   `documents.content` 列里（`knowledge.root` 只在存量迁移时被读一次，见「存量迁移」）。
+
+## 正文存在哪
+
+**`documents.content` 是正文的唯一真相**，不再有本地托管文件：
+
+- 写入（`POST /documents`）：请求体里的 `content` 原样进列；`documents.source` 只是
+  逻辑标识（`rag.DocumentSource` 派生），不对应磁盘上的任何文件。
+- 产品块：YAML 头**不进** `content` —— 头里的字段解析进 `documents.metadata`，
+  正文部分才进 `content`。所以召回时 `content` 拿到的是干净的 Markdown，不带 front-matter。
+- 索引（worker 消费）：从库里读 `documents.content`；筛出空的行，用 `source`
+  回到旧托管目录一次性导入（见下），导入后就与文件脱钩。
+- 召回：按命中的 `document_id` 批量查库补正文，不再按 `source` 读文件。
+
+## 存量迁移
+
+早期版本的正文写在 `knowledge.root/documents/<id>/<slug>.md`。这份旧数据由 worker
+在索引时**只读**导入：`documents.content` 为空时，它会带着 `documents.source`
+去旧目录读一次文件、去掉 YAML 头、写回 `content`，之后所有链路都只认库。
+
+- 迁移是幂等的：导入后再也不会读文件；重传/重索引都只看库里的正文。
+- 旧目录里一个文件含多个产品块的，会直接报错要求重传 —— 那种形态在「一篇文档
+  一个 `source`」的新模型里没有对应物。
+- 迁移完成后可以把 `knowledge.root` 配置和 `rag.LegacyContentReader` 一起删掉。
 
 ## 启动服务
 
@@ -62,7 +85,7 @@ go run ./cmd/restapi
 - `cmd/restapi` 监听 `internal/transport/restapi/etc/restapi.yaml` 里的 `Host`/`Port`
   （默认 8090）。
 - 两个进程都会在启动时探一次 Redis，地址或密码不对会直接失败退出。
-- 只起了 HTTP 没起 worker 时，写文档的请求**仍然成功**（正文落盘、任务进队列），
+- 只起了 HTTP 没起 worker 时，写文档的请求**仍然成功**（正文落库、任务进队列），
   文档会一直停在 `indexing` —— 这是最容易误判成 bug 的一种状态。
 
 ## 写入一篇文档
@@ -76,7 +99,7 @@ curl -sS -X POST "$BASE/dataset" \
   -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
   -d '{"name":"demo","description":"本地验证","visibility":"system","type":"document"}'
 
-# 写入正文：content 会被写进 knowledge.root/documents/<datasetId>/ 下的托管文件
+# 写入正文：content 直接进 documents.content 列
 curl -sS -X POST "$BASE/dataset/1/documents" \
   -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
   -d '{"title":"guide","content":"# 标题\n\n正文……"}'
@@ -86,15 +109,15 @@ curl -sS -X POST "$BASE/dataset/1/documents" \
 
 ```text
 POST /dataset/:id/documents          ← cmd/restapi
-  -> ContentStore 把正文写到 knowledge.root/documents/<id>/<slug>.md
-  -> 事务写入 documents，status=indexing
-  -> 提交后投递 asynq 任务（队列 index，类型 knowledge:index）
+  -> 事务写入 documents（content = 请求正文，source = rag.DocumentSource 派生，status=indexing）
+  -> 提交后投递 asynq 任务（队列 index，类型 knowledge:index，payload 只带 document_id）
   -> 返回
 
 consume                              ← cmd/worker（另一个进程）
-  -> rag.Pipeline 的 ingest 链（与 cmd/ragserver 共用同一份实现）
-     -> FileLoader 按 documents.source 把文件读回来
-     -> Parser 按 front-matter 拆出 N 个产品块（当前实现，见 known-gaps）
+  -> 读 documents.content（为空则从旧托管目录一次性导入，见「存量迁移」）
+  -> rag.Pipeline 的 IngestContent 链
+     -> TextParser 直读内存正文
+     -> Parser 按 YAML 头拆出 N 个产品块（头进 metadata，正文进 content，见 known-gaps）
      -> MarkdownChunker 逐块切分块（标题优先，超长按字符数滑窗）
   -> 事务写入 document_chunks，vector_status=pending
   -> 分批 embedding -> Milvus upsert
@@ -120,7 +143,7 @@ curl -sS "$BASE/dataset/1/documents/1" -H "Authorization: Bearer $ADMIN"
 
 ```sql
 SELECT
-  d.source, d.title, d.status,
+  d.source, d.title, d.status, length(d.content) AS content_bytes,
   c.chunk_index, c.heading_path, c.vector_status, c.indexed_at
 FROM documents AS d
 JOIN document_chunks AS c ON c.document_id = d.id
@@ -128,7 +151,8 @@ WHERE d.id = 1
 ORDER BY c.chunk_index;
 ```
 
-预期 `documents.status = 'ready'`，每行 `vector_status` 都是 `indexed`。
+预期 `documents.status = 'ready'`，每行 `vector_status` 都是 `indexed`，
+且 `content_bytes` 大于 0（等于 0 说明正文没落库，见「排错」）。
 
 ## 排错
 
@@ -145,6 +169,12 @@ ORDER BY c.chunk_index;
   embedding 鉴权失败或 Milvus 不可达）；修好外部依赖后用
   `POST /dataset/1/documents/1/reindex` 重来。注意进程在优雅关闭时被取消的任务
   **不会**写终态，它会退回队列由下个实例重跑。
+- **文档变 `failed` 且日志提示正文为空**：`documents.content` 是空字符串，且旧托管
+  目录里也找不到对应文件（存量迁移没兜住）。这类失败**重试无用**，worker 会直接
+  放弃重试；核对 `SELECT id, source, length(content) FROM documents WHERE id = 1`，
+  必要时用 `PUT /dataset/1/documents/1` 把正文补回去再 reindex。
+- **`content` 里带出了 YAML 头**：说明写入侧没走 split 去头逻辑（多见于直接改库、
+  或旧版本进程还在跑）。正文应当是去头后的 Markdown，头字段在 `metadata` 里。
 - **看队列里还剩什么**：`redis-cli -n 0 keys 'asynq:{index}:*'`。重试耗尽的任务
   在 `asynq:{index}:archived`，超过保留期会被 asynq 自己清掉。
 
@@ -175,8 +205,14 @@ ORDER BY c.chunk_index;
 
 ## 单元测试
 
-正文文件存储的边界（路径穿越、软链逃逸、只读已注册文件、大小上限）无需外部服务
-即可验证：
+正文落在库里，索引侧对正文的边界（大小上限、空正文判定、YAML 头剥离、指纹比对）
+无需外部服务即可验证：
+
+```bash
+go test ./internal/application/knowledge
+```
+
+存量迁移的只读通路（路径穿越、软链逃逸、只读旧文件、构造时不建目录）也有一组用例：
 
 ```bash
 go test ./internal/rag
@@ -321,10 +357,14 @@ knowledge: 这批分块没有可检索的业务元数据，检索索引里只会
   预检的第 5 条会把这类文档数出来。核对方式：重建前后跑一次 `cmd/rag-test`，按型号
   的那几条用例如果从「全不命中」变成命中，说明回填生效了。
 
-  **reindex 是「重建」而不是「补齐」**：它会让 worker 忽略内容指纹、重新走一遍
+  **reindex 是「重建」而不是「补齐」**：它会让 worker 忽略正文指纹、重新走一遍
   解析与切块。这一点很关键 —— 修好了解析器（比如把数据集的 `type` 改成 `product`）
   之后，正文本身没变，只看指纹的话这次修复会被判成「无需重切」，分块元数据永远停在
-  旧形态。普通写入（创建文档、改正文）走的是「补齐」，内容没变时不会重切。
+  旧形态。普通写入（创建文档、改正文）走的是「补齐」，正文没变时不会重切。
+
+  **指纹覆盖正文 + 元数据两段**（`spec_hash`，存在 `documents.metadata` 里）：产品块
+  的 YAML 头解析进 `metadata`，只改头不改正文也算变了。这是文件时代做不到的 —— 当时
+  只能比对正文字节，改型号不改正文会被静默跳过。
 - **embedding 的单次请求条数上限会被服务方拒绝。** `embedding.batchSize` 是服务方的
   硬上限（DashScope 的 text-embedding-v3/v4 是 10），超过会回
   `400 batch size is invalid, it should not be larger than 10`。这个失败发生在向量与
@@ -352,10 +392,11 @@ knowledge: 这批分块没有可检索的业务元数据，检索索引里只会
 | `top_k` | 覆盖默认 topK |
 | `note` | 说明，失败时显示在明细里 |
 
-**为什么有两种期望口径。** 托管上传的正文由 `ContentStore.Create` 用「slug + 纳秒
-时间戳」命名，重新上传一次路径就变，把精确路径写进用例集等于让它活不过一次重传。
-这类语料用 `expected_source_keywords`。自己注册进 `knowledge.root` 的文件路径可
-预知，用 `expected_sources` 更严格。`forbidden_sources` 只支持精确匹配。
+**为什么有两种期望口径。** `document.source` 现在是**逻辑标识**（服务端用
+`rag.DocumentSource` 按 `数据集 id + 标题主干` 派生），同一篇文档重传一次会得到同一个
+`source`；但**不同批次、不同版本的语料**常常共用标题或标题会改，把精确值写进用例集
+等于让它活不过一次换料。这类语料用 `expected_source_keywords` 更稳。批内 `source`
+完全可控时用 `expected_sources` 更严格。`forbidden_sources` 只支持精确匹配。
 
 ### 召回结果的归并粒度
 
@@ -364,12 +405,23 @@ knowledge: 这批分块没有可检索的业务元数据，检索索引里只会
 
 | 粒度 | 一条结果 = | 适合 |
 | --- | --- | --- |
-| `document`（缺省） | 一篇文档（取命中的最高分块作代表） | 产品型录：一篇文档就是一个产品，型号/系列/规格与正文都在那一篇里 |
+| `document`（缺省） | 一篇文档（取命中的最高分块作代表决定名次，`content` 是整篇文档的正文） | 产品型录：一篇文档就是一个产品，型号/系列/规格与正文都在那一篇里 |
 | `chunk` | 一个分块 | 普通文档库：一篇长文切成几百块，归并成一条等于什么都没返回 |
 
 `cmd/rag-test` 的 `-dataset-type` 决定用哪一条（留空取 `default`），报告表头与
 `report.json` 的 `granularity` 都会写明这次跑的是哪种粒度 —— 同一个 `hits=3`
 在两种粒度下不是同一个单位，报告离开当时的上下文就没人知道它是什么。
+
+**`top_k` 的单位也是归并后的条数，取数按它折算。** 检索侧只认识分块，
+`document` 粒度下「要 20 篇」不能当成「要 20 块」—— 一篇常切成四五块，直接要 20
+块只会归并出 4 篇，而这个数字还会随 `chunkSize` 变化，看起来像召回质量在波动。
+折算规则在 `rag/grouping.FetchPlan`（起始 4 倍、不够翻倍、见底或到顶就停），
+**评测与线上复用同一份**：不跟着走的话，评测只取 K 块、线上取满 K 篇，线上永远比
+评测宽松 —— 用例集里显示「只召回 4 篇」的问题，在真实调用里已经是被修好的样子，
+报告就失去了预警能力。
+
+用例集里也因此可以用 `min_results` 断言「这个问题应该有 20 篇答案」，而不必自己
+去猜该给多大的 `top_k`。
 
 三条容易踩的边界：
 

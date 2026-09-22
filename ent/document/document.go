@@ -19,6 +19,8 @@ const (
 	FieldSource = "source"
 	// FieldTitle holds the string denoting the title field in the database.
 	FieldTitle = "title"
+	// FieldContent holds the string denoting the content field in the database.
+	FieldContent = "content"
 	// FieldExternalKey holds the string denoting the external_key field in the database.
 	FieldExternalKey = "external_key"
 	// FieldMetadata holds the string denoting the metadata field in the database.
@@ -66,6 +68,7 @@ var Columns = []string{
 	FieldID,
 	FieldSource,
 	FieldTitle,
+	FieldContent,
 	FieldExternalKey,
 	FieldMetadata,
 	FieldOwnerSubject,
@@ -100,6 +103,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultContent holds the default value on creation for the "content" field.
+	DefaultContent string
 	// DefaultOwnerSubject holds the default value on creation for the "owner_subject" field.
 	DefaultOwnerSubject string
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
@@ -184,6 +189,11 @@ func BySource(opts ...sql.OrderTermOption) OrderOption {
 // ByTitle orders the results by the title field.
 func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTitle, opts...).ToFunc()
+}
+
+// ByContent orders the results by the content field.
+func ByContent(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldContent, opts...).ToFunc()
 }
 
 // ByExternalKey orders the results by the external_key field.

@@ -57,6 +57,10 @@ type ResultHit struct {
 // Searcher 是评测对检索侧的全部依赖。
 //
 // 只有一个方法：组合根用 rag.HybridRetriever 适配，单测用内存桩。
+//
+// topK 是**分块预算**而不是结果条数：检索侧的单位是分块，条数的单位由归并粒度
+// 决定，两者的折算由 Runner 完成（见 searchFilled）。把它当条数用，评测就与
+// 线上不是同一个口径 —— document 粒度下会少给几倍的内容。
 type Searcher interface {
 	Search(ctx context.Context, query string, topK int) ([]Hit, error)
 }

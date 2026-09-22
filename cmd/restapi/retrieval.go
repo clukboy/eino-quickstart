@@ -154,16 +154,19 @@ type detailedRetriever interface {
 
 // hybridSearcher 把 rag 的混合检索器适配成用例层的召回端口。
 //
-// 适配只做两件事：把范围条件翻译成检索器的过滤条件，把结果摊平成用例层的形状。
-// 通道台账（哪条出力、哪条降级）原样带上去 —— 它是「结果为什么这么少」唯一的
-// 现场证据，压在适配器里就只剩日志能看了。
+// 适配只做三件事：把范围条件翻译成检索器的过滤条件，把取数预算翻成 TopK，把结果
+// 摊平成用例层的形状。通道台账（哪条出力、哪条降级）原样带上去 —— 它是「结果
+// 为什么这么少」唯一的现场证据，压在适配器里就只剩日志能看了。
 type hybridSearcher struct {
 	retriever detailedRetriever
 }
 
 func (s hybridSearcher) Search(ctx context.Context, query string, scope knowledge.SearchScope) (knowledge.SearchOutcome, error) {
 	docs, report, err := s.retriever.RetrieveDetailed(ctx, query,
-		retriever.WithTopK(scope.TopK),
+		// 传下去的是**分块预算**（用例层按归并粒度折算好的），不是结果条数：
+		// 检索器只认识分块，把「要 20 篇」原样丢给它就是「请求 20 篇、返回
+		// 4 篇」那类汇报的成因。
+		retriever.WithTopK(scope.ChunkBudget),
 		rag.WithFilter(rag.Filter{DatasetID: scope.DatasetID}),
 	)
 	if err != nil {

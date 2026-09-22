@@ -117,7 +117,15 @@ execution:
   allowLocalRunner: false
 
 knowledge:
+  # root 只在**存量数据迁移**时被读：正文从磁盘搬进 documents.content 之前上传的
+  # 文档，正文还留在这个目录里。worker 索引到「content 为空」的文档时会来这里找
+  # 一次、导入进库（见 Indexer.importLegacyContent），导入过一轮就不再读。
+  #
+  # 新写入不往这里放任何东西：正文的唯一真相是 documents.content。存量文档都
+  # 导入完之后，这段配置连同那个只读读取器可以一起删掉。
   root: "./tests/knowledge"
+  # 单篇正文的上限（字节）。超过一律**拒绝**，不截断 —— 截断一份正文等于把索引
+  # 建在一份不完整的原文上，而调用方从响应里看不出少了什么。
   maxDocumentBytes: 5242880
   chunkSizeCharacters: 1200
   chunkOverlapCharacters: 200
@@ -125,13 +133,22 @@ knowledge:
   defaultTopK: 5
   maxTopK: 200
   maxQueryCharacters: 2000
+  # 单条结果的正文上限（字节）。document 粒度下正文是**整篇文档**，一篇长型录可能
+  # 几万字：不设上限时一次 top_k=20 就能带出几百 KB，把提示词预算与响应体一起打满。
+  # 超过上限的正文按 rune 边界截断，并在响应的 content_truncated 上标记出来 ——
+  # 截断本身不是问题，悄悄截断才是。
   maxResultBytes: 32768
   # 召回结果的归并粒度，按数据集类型（dataset.type）配置。
-  #   document：一条结果 = 一篇文档（取命中的最高分块作代表）—— 产品型录用这个，
-  #             一篇文档就是一个产品，型号/系列/规格与正文都在那一篇里。
+  #   document：一条结果 = 一篇文档（取命中的最高分块作代表定名次，content 补成
+  #             整篇文档的正文）—— 产品型录用这个，一篇文档就是一个产品，型号/
+  #             系列/规格与正文都在那一篇里。
   #   chunk   ：一条结果 = 一个分块 —— 普通文档库用这个，长文切成上百块，
   #             归并成一条等于什么都没返回。
   # default 是类型没配过时的兜底；未配置整体时也取 document。
+  #
+  # top_k 的单位跟着这里走：document 粒度下 top_k=20 表示「20 篇文档」。检索侧只
+  # 认识分块，折算由服务端完成（起始 4 倍、不够翻倍，见 internal/rag/grouping 的
+  # FetchPlan）—— 调用方不需要自己乘系数，也不会因为少乘而只拿到几分之一的内容。
   recallGrouping:
     default: document
     product: document

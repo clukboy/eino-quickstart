@@ -31,7 +31,7 @@
 
 ### 1.1 `POST /api/v1/dataset/:id/documents/upload`
 
-界面**唯一**的建文档入口。原来的 JSON 建文档（`content` / `source` 二选一）保留但界面不再使用
+界面**唯一**的建文档入口。原来的 JSON 建文档（`content` 必填、`source` 可选）保留但界面不再使用
 —— 写正文的入口已从界面移除，正文提取全部归服务端。
 
 **请求**：`Content-Type: multipart/form-data`，`group: dataset`，`middleware: RoleAdmin`
@@ -47,11 +47,11 @@
 
 **响应**：`200 DocumentResp` —— **不新增任何字段**，复用现有类型。
 
-`status` 是 `indexing`（切块在请求内完成，`chunk_count` 已是最终值，embedding 由后台 worker 追
-`indexed_chunk_count`）。客户端不要用 `status != ready` 判失败。
+`status` 是 `indexing`（切块由后台 worker 完成，返回时 `chunk_count` 还是 0，它会随 worker
+推进而增长；embedding 再追 `indexed_chunk_count`）。客户端不要用 `status != ready` 判失败。
 
 **错误**：`400` 没带文件 / 文件解析不出正文 / 不支持的格式；`404` dataset 不存在；
-`413` 超过正文上限（`rag.defaultContentMaxBytes`，5 MiB）。
+`413` 超过正文上限（`knowledge.maxDocumentBytes`，5 MiB）。
 
 **goctl 落地要点**（已核对 `tools/goctl@v1.10.0` 源码）：
 
@@ -198,8 +198,9 @@ multipart 还要额外叠加 boundary、`title` / `visibility` 字段和文件�
 
 - 按 MIME / 扩展名分流（文本类直读；PDF / Office 走解析器）
 - 编码识别（GBK → UTF-8 之类）
-- 结果落到 `knowledge.root` 托管目录，`documents.source` 指向相对路径
-- 复用现有的正文上限（`rag.defaultContentMaxBytes` = 5 MiB），超限的状态码要和前端文案对上
+- 结果写进 `documents.content`（服务端已经不再有托管目录，见 `docs/architecture.md`
+  的「知识库数据流」），`documents.source` 只是按 `datasetId + 标题` 派生的逻辑标识
+- 复用现有的正文上限（`knowledge.maxDocumentBytes`，默认 5 MiB），超限的状态码要和前端文案对上
 
 前端 `UPLOAD_ACCEPT` 常量里列的格式是**期望**能解析的清单（md / txt / csv / json / yaml /
 xml / html / pdf / doc(x) / xls(x) / ppt(x)）。服务端如果暂时只收文本类，把这个常量收窄即可 ——
@@ -225,7 +226,7 @@ xml / html / pdf / doc(x) / xls(x) / ppt(x)）。服务端如果暂时只收文�
 1. **建库 + 三模型落库**：`POST /api/v1/dataset` 带 `type` 与三个 `*_model` →
    `GET /api/v1/dataset/:id` 原样读回。
 2. **上传**：`curl -F file=@a.md -F title= -F visibility= 'http://127.0.0.1:8090/api/v1/dataset/1/documents/upload'`（记得带 admin Bearer）
-   → 200 `DocumentResp`、`documents/1/` 下有托管正文；再用**接近 5 MiB** 的文件重试一次，
-   确认没被 MaxBytes 中间件打回 413。
+   → 200 `DocumentResp`、`SELECT length(content) FROM documents WHERE id=1` 大于 0；
+   再用**接近 5 MiB** 的文件重试一次，确认没被 MaxBytes 中间件打回 413。
 3. **两个目录接口**：`GET /dataset/types` 与 `GET /dataset/models` 都返回 `{"data":[...]}`，
    前端建库弹窗里类型下拉有选项、三个模型下拉从禁用变可用。

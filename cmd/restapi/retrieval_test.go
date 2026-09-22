@@ -64,17 +64,18 @@ func scopeFilter(t *testing.T, opts *retriever.Options) rag.Filter {
 	return rag.Filter{}
 }
 
-// 适配器必须把范围与条数原样交给检索器。
+// 适配器必须把范围与取数预算原样交给检索器。
 //
-// 这两条一起守的是「调用方能搜到什么」：范围丢了下游会跨数据集召回，条数丢了
-// 响应条数会与请求不符。两者都不会报错，只看结果是看不出来的。
+// 这两条一起守的是「调用方能搜到什么」：范围丢了下游会跨数据集召回，预算丢了
+// 响应条数会与请求不符（而且 document 粒度下会少得离谱 —— 拿「要 20 篇」当
+// 「要 20 块」）。两者都不会报错，只看结果是看不出来的。
 func TestHybridSearcherPassesScopeToRetriever(t *testing.T) {
 	fake := &fakeRetriever{}
 	searcher := hybridSearcher{retriever: fake}
 
 	if _, err := searcher.Search(context.Background(), "H105P", knowledge.SearchScope{
-		DatasetID: 42,
-		TopK:      7,
+		DatasetID:   42,
+		ChunkBudget: 70,
 	}); err != nil {
 		t.Fatalf("检索失败: %v", err)
 	}
@@ -90,10 +91,10 @@ func TestHybridSearcherPassesScopeToRetriever(t *testing.T) {
 		t.Errorf("数据集范围透传为 %d，期望 42", got)
 	}
 	if fake.opts.TopK == nil {
-		t.Fatal("TopK 没有传下去，检索会退回默认条数")
+		t.Fatal("分块预算没有传下去，检索会退回默认条数")
 	}
-	if *fake.opts.TopK != 7 {
-		t.Errorf("TopK 透传为 %d，期望 7", *fake.opts.TopK)
+	if *fake.opts.TopK != 70 {
+		t.Errorf("分块预算透传为 %d，期望 70", *fake.opts.TopK)
 	}
 }
 
@@ -125,8 +126,8 @@ func TestHybridSearcherFlattensHitsAndKeepsLedger(t *testing.T) {
 	searcher := hybridSearcher{retriever: fake}
 
 	outcome, err := searcher.Search(context.Background(), "H105P", knowledge.SearchScope{
-		DatasetID: 9,
-		TopK:      5,
+		DatasetID:   9,
+		ChunkBudget: 5,
 	})
 	if err != nil {
 		t.Fatalf("检索失败: %v", err)
@@ -178,7 +179,7 @@ func TestHybridSearcherReportsDegradedChannels(t *testing.T) {
 	}
 	searcher := hybridSearcher{retriever: fake}
 
-	outcome, err := searcher.Search(context.Background(), "图冠系列", knowledge.SearchScope{DatasetID: 1, TopK: 3})
+	outcome, err := searcher.Search(context.Background(), "图冠系列", knowledge.SearchScope{DatasetID: 1, ChunkBudget: 3})
 	if err != nil {
 		t.Fatalf("检索失败: %v", err)
 	}
@@ -202,7 +203,7 @@ func TestHybridSearcherPropagatesRetrieverError(t *testing.T) {
 	fake := &fakeRetriever{err: wantErr}
 	searcher := hybridSearcher{retriever: fake}
 
-	_, err := searcher.Search(context.Background(), "H105P", knowledge.SearchScope{DatasetID: 1, TopK: 5})
+	_, err := searcher.Search(context.Background(), "H105P", knowledge.SearchScope{DatasetID: 1, ChunkBudget: 5})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("期望原样返回检索错误，实际 %v", err)
 	}

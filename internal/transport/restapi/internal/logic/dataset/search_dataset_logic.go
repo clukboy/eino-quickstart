@@ -39,20 +39,24 @@ func (l *SearchDatasetLogic) SearchDataset(req *types.SearchDatasetReq) (resp *t
 	}
 
 	resp = &types.SearchResp{
-		Data:     make([]*types.SearchHitResp, 0, len(outcome.Hits)),
-		Channels: outcome.Channels,
-		Degraded: outcome.Degraded,
-		TopK:     outcome.TopK,
+		Data:          make([]*types.SearchHitResp, 0, len(outcome.Hits)),
+		Channels:      outcome.Channels,
+		Degraded:      outcome.Degraded,
+		TopK:          outcome.TopK,
+		Granularity:   string(outcome.Granularity),
+		MatchedChunks: outcome.MatchedChunks,
+		ChunkBudget:   outcome.ChunkBudget,
 	}
 	for _, hit := range outcome.Hits {
 		resp.Data = append(resp.Data, &types.SearchHitResp{
-			ChunkID:     hit.ChunkID,
-			DocumentID:  hit.DocumentID,
-			Source:      hit.Source,
-			Title:       hit.Title,
-			HeadingPath: hit.HeadingPath,
-			Content:     hit.Content,
-			Score:       hit.Score,
+			ChunkID:          hit.ChunkID,
+			DocumentID:       hit.DocumentID,
+			Source:           hit.Source,
+			Title:            hit.Title,
+			HeadingPath:      hit.HeadingPath,
+			Content:          hit.Content,
+			ContentTruncated: hit.Truncated,
+			Score:            hit.Score,
 		})
 	}
 	return resp, nil

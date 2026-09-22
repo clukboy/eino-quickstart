@@ -110,18 +110,21 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 
 **状态：接口已实现，但不接收 multipart**
 
-`/api/v1/dataset/:id/documents` 下的文档增删改查与重建索引已经落地：正文可以直接
-放在 JSON 请求体里（`content`），也可以只给 `source` 注册一个已经在 `knowledge.root`
-里的文件。索引是异步的，见本文末尾的「文档索引的异步边界」。
+`/api/v1/dataset/:id/documents` 下的文档增删改查与重建索引已经落地：正文**必须**放在
+JSON 请求体里（`content`），直接写进 `documents.content` 列，不再有任何托管文件。
+`source` 是可选字段 —— 不传由服务端按 `datasetId + 标题` 派生（`rag.DocumentSource`），
+传了则作为这条文档的固定逻辑标识；两者都不指向磁盘。索引是异步的，见本文末尾的
+「文档索引的异步边界」。
 
 仍未实现的是 `multipart/form-data` 上传与目录批量导入：当前没有流式的文件接收
-路径，超过 `runtime.maxRequestBodyBytes` 的文档无法通过接口写入，只能先落到
-`knowledge.root` 再按 `source` 注册。
+路径，超过 `runtime.maxRequestBodyBytes` 的文档无法通过接口写入 —— 正文必须整个
+进内存、进 JSON、进数据库单列。
 
 完成标准：
 
-1. 提供流式 multipart 接收，把文件直接落进托管目录，避免整个正文进内存。
-2. 提供目录级批量导入，按 `knowledge.root` 扫描并幂等登记。
+1. 提供流式 multipart 接收，分片写进 `documents.content`，避免整个正文进内存
+   （列类型当前是 `text`，超大文件还需要一并评估 `bytea`/外部对象存储的分界）。
+2. 提供目录级批量导入，按目录扫描并幂等登记。
 3. 对私有文档保存上传者为 `owner_subject`，并覆盖 ACL 与审计测试。
 
 ## P1：Skill 未授予默认 Agent
@@ -256,36 +259,37 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 
 **状态：接缝已就位，实现是默认桩**
 
-摄取链路的形状是「一份文件 → N 个产品块 → 每块再切 chunk」，这两步都在
-`rag.Pipeline` 的 ingest 链里完成（`cmd/worker` 与 `cmd/ragserver` 共用同一份
-实现）。拆产品的接缝就是 eino 原生的 parser 接口，在 `FileLoader` 里选实现：
+摄取链路的形状是「一份正文 → N 个产品块 → 每块再切 chunk」。**拆分发生在写入请求里**
+（`POST /documents` → `knowledge.buildProductDocuments`），不是等到 worker 索引时：
+请求期拆完就能把 N 条文档一次写进 `documents`，每条都有自己的 `content` 与
+`metadata`；worker 拿到的只是「一条文档的正文」，走 `rag.Pipeline.IngestContent`
+直接切块。
 
-```go
-type Parser interface {
-    Parse(ctx context.Context, reader io.Reader, opts ...parser.Option) ([]*schema.Document, error)
-}
-```
+拆分本身在 `internal/application/knowledge/split.go`，底层调
+`internal/rag/parser.SplitBlocks`。桩实现按正文里的 `---` front-matter 分节 ——
+因为眼下上传的正文本来就是 LLM 生成好的、带分节结构的 Markdown，这个默认桩能直接
+跑通全链路。目标形态是换成 LLM 拆分：把一份混合了多个产品的资料丢给模型，由模型
+判定「这是几个产品、每个产品的边界在哪」。
 
-默认实现是 `rag/parser.ProductParser`，它按正文里的 `---` front-matter 分节 ——
-因为眼下上传的文件本来就是 LLM 生成好的、带分节结构的 Markdown，这个默认桩能
-直接跑通全链路。目标形态是换成 LLM 拆分：把一份混合了多个产品的资料丢给模型，
-由模型判定「这是几个产品、每个产品的边界在哪」。
+**替换点只有一处**：`internal/rag/parser/product.go` 的 `SplitBlocks`（它同时是
+`ProductParser.Parse` 的实现体）。三个调用方，换一次同时生效：
 
-**替换点只有一处**：`internal/rag/loader.go` 的 `NewFileLoader` 里那张注册表
-（`parser.NewParser` 的 `Parsers` map）。`cmd/worker` 与 `cmd/ragserver` 用的是
-同一个 `FileLoader`，所以换一次两边同时生效；`knowledge.Indexer` 与传输层都不用动。
+- `knowledge.buildProductDocuments` —— 知识库写入侧，负责建 N 条 `documents` 行；
+- `knowledge.Indexer.legacyBody` —— 存量迁移，读旧文件时要去掉 YAML 头；
+- `rag.FileLoader` 的 parser 注册表 —— 给 `cmd/ragserver` 那条「拿一个目录里的
+  Markdown 试一下检索」的演示链用（`parser.NewParser` 的 `Parsers` map，
+  `"product" → ProductParser{}`）。
 
-改这张注册表时有个必须守住的前提：**注册用的键、查表时读的键、调用方传的键，
-得是同一个**。眼下三者是这样连的：`loader.go` 注册 `"product" → ProductParser{}`；
-`knowledge.Indexer.ingest` 用 `parser.WithExtraMeta{"type": ...}` 传键，值是
-`doc.Edges.Dataset.Type`；`rag/parser.Parser.Parse` 读 `ExtraMeta["type"]`。
+`knowledge.Indexer` 的索引主路径与传输层都不用动。
 
-**这里有一个静默失效的坑**：`dataset.type` 的 schema 默认值是空串，空串查不到注册表
-里任何键，于是分发落到 fallback 的 `parser.TextParser{}` 上 —— 不报错、不告警，结果
-整篇文档被当成一个块切，`product_id` / `model` / `specs_from_doc` 全部缺失，检索侧的
-型号过滤随之失效。所以**建数据集时必须显式传 `type=product`**（`CreateDatasetReq.Type`
-会落库），否则产品拆分等于没接。排查看 `knowledge.ingest_document` span 上的
-`knowledge.dataset_type` 与 `knowledge.parsed_blocks`（退化时恒为 1）。
+`cmd/ragserver` 那条路有个静默失效的坑：`dataset.type` 的 schema 默认值是空串，
+空串查不到注册表里任何键，于是分发落到 fallback 的 `parser.TextParser{}` 上 ——
+不报错、不告警，结果整篇文档被当成一个块切，`product_id` / `model` /
+`specs_from_doc` 全部缺失，检索侧的型号过滤随之失效。**知识库这条路已经不受它影响**
+（写入侧的拆分不看 `dataset.type` 的注册表，`indexer.ingest` 也只走 `TextParser`），
+但 `cmd/ragserver` 仍要走注册表，所以跑演示链时得显式给 `type=product`。
+排查看 `knowledge.ingest_document` span 上的 `knowledge.dataset_type` 与
+`knowledge.parsed_blocks`（退化时恒为 1）。
 
 同源的两条待收：`typ.(string)` 是无保护断言，**调用方完全不传 `type` 就会 panic**
 （`cmd/ragserver` 的 `IngestFile` 正是这种调用方式）；空串落到 `TextParser` 属于静默
@@ -294,20 +298,23 @@ type Parser interface {
 
 替换时要守住三条约束，否则下游会以很难查的方式坏掉：
 
-1. **输出契约不变。** 仍然返回 `[]*schema.Document`，`MetaData` 要继续携带
-   `product_id` / `model` / `specs_from_doc` / `variants` 这组键（`_source` 由
-   loader 通过 `parser.WithURI` 写入，`Indexer` 会把它统一成 `documents.source`），
-   否则 chunk 元数据与检索侧的型号过滤条件会对不上。
-2. **必须可重放。** worker 的重试是「按 chunk 收敛」的，同一个任务可能被投第二次。
-   拆分结果要由内容决定而不是由调用次数决定（同一份正文两次 Parse 必须得到同样的
-   块数与边界），否则 `content_hash` 的幂等会被绕过，chunk 行每轮都重新洗牌。
-3. **失败要显式报错。** 拆不出来（模型超时、返回不可解析）就返回 error，让任务走
-   重试并最终落到 `document.status=failed`。不要「拆失败就退化成整篇当一个块」——
-   那会静默产出一个检索质量很差但看起来成功的索引。
+1. **输出契约不变。** 知识库侧仍要产出「每条文档一份干净的正文 + 一份业务元数据」：
+   `content` 里是**去掉 YAML 头**的 Markdown，`metadata` 里带
+   `product_id` / `model` / `specs_from_doc` / `variants` 这组键（`source` 由
+   `rag.DocumentSource` 派生），否则 chunk 元数据与检索侧的型号过滤条件会对不上。
+2. **必须可重放。** worker 的重试是「按 chunk 收敛」的，同一个任务可能被投第二次；
+   重传型录时还要靠 `spec_hash`（正文 + 元数据的指纹）判断「这个产品变了没有」。
+   拆分结果要由内容决定而不是由调用次数决定（同一份正文两次拆必须得到同样的
+   块数与边界），否则幂等会被绕过，chunk 行每轮都重新洗牌。
+3. **失败要显式报错。** 拆不出来（模型超时、返回不可解析）就返回 error，写入侧
+   在请求期报错（`buildProductDocuments` 当前就是这样：围栏不闭合、YAML 不合法、
+   型号重复都在请求期报出来），好过等到 worker 解析失败之后从文档状态里倒查。
+   不要「拆失败就退化成整篇当一个块」—— 那会静默产出一个检索质量很差但看起来
+   成功的索引。
 
 另外，`Parse` 在 worker 进程内调用，所以新增的模型调用会占用
-`asynq.shutdownTimeoutSeconds` 的排空预算；`rag.Pipeline` 的 `Config.Timeout`
-（当前走默认 60s）也要一并放大，替换后这两个值都要重新评估。
+`asynq.shutdownTimeoutSeconds` 的排空预算；如果拆分改到请求期（当前形态），
+这段预算则转移到 HTTP 侧的 `Timeout` 上 —— 替换后这两个值都要重新评估。
 
 ## P1：生产数据库迁移策略
 

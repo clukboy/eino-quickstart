@@ -58,6 +58,20 @@ func (_u *DocumentUpdate) SetNillableTitle(v *string) *DocumentUpdate {
 	return _u
 }
 
+// SetContent sets the "content" field.
+func (_u *DocumentUpdate) SetContent(v string) *DocumentUpdate {
+	_u.mutation.SetContent(v)
+	return _u
+}
+
+// SetNillableContent sets the "content" field if the given value is not nil.
+func (_u *DocumentUpdate) SetNillableContent(v *string) *DocumentUpdate {
+	if v != nil {
+		_u.SetContent(*v)
+	}
+	return _u
+}
+
 // SetExternalKey sets the "external_key" field.
 func (_u *DocumentUpdate) SetExternalKey(v string) *DocumentUpdate {
 	_u.mutation.SetExternalKey(v)
@@ -317,6 +331,9 @@ func (_u *DocumentUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Content(); ok {
+		_spec.SetField(document.FieldContent, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.ExternalKey(); ok {
 		_spec.SetField(document.FieldExternalKey, field.TypeString, value)
 	}
@@ -471,6 +488,20 @@ func (_u *DocumentUpdateOne) SetTitle(v string) *DocumentUpdateOne {
 func (_u *DocumentUpdateOne) SetNillableTitle(v *string) *DocumentUpdateOne {
 	if v != nil {
 		_u.SetTitle(*v)
+	}
+	return _u
+}
+
+// SetContent sets the "content" field.
+func (_u *DocumentUpdateOne) SetContent(v string) *DocumentUpdateOne {
+	_u.mutation.SetContent(v)
+	return _u
+}
+
+// SetNillableContent sets the "content" field if the given value is not nil.
+func (_u *DocumentUpdateOne) SetNillableContent(v *string) *DocumentUpdateOne {
+	if v != nil {
+		_u.SetContent(*v)
 	}
 	return _u
 }
@@ -763,6 +794,9 @@ func (_u *DocumentUpdateOne) sqlSave(ctx context.Context) (_node *Document, err 
 	}
 	if value, ok := _u.mutation.Title(); ok {
 		_spec.SetField(document.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Content(); ok {
+		_spec.SetField(document.FieldContent, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.ExternalKey(); ok {
 		_spec.SetField(document.FieldExternalKey, field.TypeString, value)

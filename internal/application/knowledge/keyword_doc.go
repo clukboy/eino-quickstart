@@ -33,6 +33,7 @@ import (
 var metadataExcluded = map[string]struct{}{
 	constant.MetaDocID:       {},
 	constant.MetaContentHash: {},
+	constant.MetaSpecHash:    {},
 	constant.MetaVisibility:  {},
 	constant.MetaOwner:       {},
 	constant.MetaSource:      {},

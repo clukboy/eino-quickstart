@@ -27,7 +27,6 @@ import (
 	"eino-quickstart/internal/platform/queue/asynq"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/platform/storage/es"
-	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/grouping"
 	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/skill"
@@ -196,16 +195,8 @@ func runServer() error {
 	// internal/platform/queue/tasks。asynq.enabled=false 时 Enqueue 会返回
 	// 明确的错误，调用方必须把它当作请求失败浮出来。
 
-	contentStore, err := rag.NewContentStore(
-		cfg.Knowledge.Root,
-		int64(cfg.Knowledge.MaxDocumentBytes),
-	)
-	if err != nil {
-		return fmt.Errorf("init knowledge content store: %w", err)
-	}
-
-	// 知识库用例是 HTTP 侧唯一的索引入口：它落正文、建行、投递任务。
-	// transport 只调它，不认识队列。
+	// 知识库用例是 HTTP 侧唯一的索引入口：它把正文写进 documents.content、
+	// 建行、投递任务。transport 只调它，不认识队列。
 	//
 	// 召回也在这里装配：这个进程既要能写（上传、重建索引）也要能读
 	// （POST /dataset/:id/search）。装配是分级的 —— 向量库或 embedding 没配
@@ -219,8 +210,7 @@ func runServer() error {
 	}
 
 	knowledgeService, err := knowledge.NewService(knowledge.ServiceDeps{
-		Client:  entClient,
-		Content: contentStore,
+		Client: entClient,
 		Queue: asynq.NewIndexQueue(asynqQueue, asynq.IndexQueueConfig{
 			MaxRetries: cfg.Asynq.MaxRetries,
 		}),
@@ -232,8 +222,12 @@ func runServer() error {
 			DefaultTopK:        cfg.Knowledge.DefaultTopK,
 			MaxTopK:            cfg.Knowledge.MaxTopK,
 			MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
+			// 单条结果正文的上限在 document 粒度下就是整篇文档的长度上限：
+			// 一篇长型录几万字，不设上限时一次 top_k=20 就能带出几百 KB。
+			MaxContentBytes: cfg.Knowledge.MaxResultBytes,
 		},
-		Logger: logger,
+		MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
+		Logger:           logger,
 	})
 	if err != nil {
 		return fmt.Errorf("init knowledge service: %w", err)

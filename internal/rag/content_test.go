@@ -8,81 +8,89 @@ import (
 	"testing"
 )
 
-func newTestStore(t *testing.T, maxBytes int64) *ContentStore {
+func newTestReader(t *testing.T, maxBytes int64) *LegacyContentReader {
 	t.Helper()
-	store, err := NewContentStore(t.TempDir(), maxBytes)
+	reader, err := NewLegacyContentReader(t.TempDir(), maxBytes)
 	if err != nil {
-		t.Fatalf("NewContentStore: %v", err)
+		t.Fatalf("NewLegacyContentReader: %v", err)
 	}
-	return store
+	return reader
 }
 
-func TestContentStoreCreateAndRead(t *testing.T) {
-	store := newTestStore(t, 0)
+// writeLegacy 在 reader 的 root 下写一份旧正文，返回它的 source。
+func writeLegacy(t *testing.T, reader *LegacyContentReader, source, content string) {
+	t.Helper()
+	abs := filepath.Join(reader.Root(), filepath.FromSlash(source))
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		t.Fatalf("mkdir for %q: %v", source, err)
+	}
+	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %q: %v", source, err)
+	}
+}
 
-	source, err := store.Create(7, "安装指南", "# 安装\n\n正文")
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if !strings.HasPrefix(source, ManagedDir+"/7/") {
-		t.Fatalf("source %q is not under the managed directory", source)
-	}
-	if !store.Managed(source) {
-		t.Fatalf("Managed(%q) = false, want true", source)
-	}
+func TestLegacyReaderReadsExistingFile(t *testing.T) {
+	reader := newTestReader(t, 0)
+	source := ManagedDir + "/7/安装指南.md"
+	writeLegacy(t, reader, source, "# 安装\n\n正文")
 
-	content, err := store.Read(source)
+	content, err := reader.Read(source)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
 	if content != "# 安装\n\n正文" {
 		t.Fatalf("Read returned %q", content)
 	}
-	if !store.Exists(source) {
-		t.Fatal("Exists = false after Create")
+	if !reader.Exists(source) {
+		t.Fatal("Exists = false for a file that was just written")
 	}
 }
 
-// 标题是调用方可控的输入，不能被拼成逃出 root 的路径。
-func TestContentStoreSlugifiesTitle(t *testing.T) {
-	store := newTestStore(t, 0)
-
-	source, err := store.Create(1, "../../../etc/passwd", "x")
+// 读取器必须是无副作用的：构造它不该在磁盘上留下任何东西。
+//
+// 这一条守的是「正文只有一处真相」—— 只要它还建目录，就迟早会有人顺手写回去，
+// 然后正文又分裂成库里的和盘上的两份，而两边的分歧没有任何东西会发现。
+func TestLegacyReaderCreatesNothing(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "never-created")
+	reader, err := NewLegacyContentReader(root, 0)
 	if err != nil {
-		t.Fatalf("Create: %v", err)
+		t.Fatalf("NewLegacyContentReader: %v", err)
 	}
-	if strings.Contains(source, "..") {
-		t.Fatalf("source %q contains a traversal segment", source)
+	if _, err := reader.Read(ManagedDir + "/1/a.md"); !errors.Is(err, ErrContentNotFound) {
+		t.Fatalf("Read on a missing root: err = %v, want ErrContentNotFound", err)
 	}
-	if !store.Managed(source) {
-		t.Fatalf("Managed(%q) = false, want true", source)
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("root %q exists after construction/read: %v", root, err)
 	}
 }
 
-func TestContentStoreRejectsEscape(t *testing.T) {
-	store := newTestStore(t, 0)
-	secret := filepath.Join(filepath.Dir(store.Root()), "outside.txt")
+func TestLegacyReaderRejectsEscape(t *testing.T) {
+	reader := newTestReader(t, 0)
+	secret := filepath.Join(filepath.Dir(reader.Root()), "outside.txt")
 	if err := os.WriteFile(secret, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("write outside file: %v", err)
 	}
 
-	if _, err := store.Read("../outside.txt"); !errors.Is(err, ErrContentOutsideRoot) {
+	if _, err := reader.Read("../outside.txt"); !errors.Is(err, ErrContentOutsideRoot) {
 		t.Fatalf("Read outside root: err = %v, want ErrContentOutsideRoot", err)
 	}
-	if _, err := store.Read(secret); !errors.Is(err, ErrContentOutsideRoot) {
+	if _, err := reader.Read(secret); !errors.Is(err, ErrContentOutsideRoot) {
 		t.Fatalf("Read absolute outside path: err = %v, want ErrContentOutsideRoot", err)
 	}
 }
 
 // 软链是绕过前缀比较的经典手法：校验必须发生在解析符号链接之后。
-func TestContentStoreRejectsSymlinkEscape(t *testing.T) {
-	store := newTestStore(t, 0)
-	outside := filepath.Join(filepath.Dir(store.Root()), "outside.txt")
+//
+// 现在的语境比过去更需要它：source 是**库里的数据**而不是请求参数，没人保证
+// 一条历史行的 source 不是别人精心构造出来的。
+func TestLegacyReaderRejectsSymlinkEscape(t *testing.T) {
+	reader := newTestReader(t, 0)
+	outside := filepath.Join(filepath.Dir(reader.Root()), "outside.txt")
 	if err := os.WriteFile(outside, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("write outside file: %v", err)
 	}
 
-	link := filepath.Join(store.Root(), ManagedDir, "link.md")
+	link := filepath.Join(reader.Root(), ManagedDir, "link.md")
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatalf("mkdir managed dir: %v", err)
 	}
@@ -90,99 +98,61 @@ func TestContentStoreRejectsSymlinkEscape(t *testing.T) {
 		t.Skipf("symlink unsupported: %v", err)
 	}
 
-	if _, err := store.Read(ManagedDir + "/link.md"); !errors.Is(err, ErrContentOutsideRoot) {
+	if _, err := reader.Read(ManagedDir + "/link.md"); !errors.Is(err, ErrContentOutsideRoot) {
 		t.Fatalf("Read symlink: err = %v, want ErrContentOutsideRoot", err)
 	}
 }
 
-func TestContentStoreWriteOnlyManaged(t *testing.T) {
-	store := newTestStore(t, 0)
+func TestLegacyReaderEnforcesMaxBytes(t *testing.T) {
+	reader := newTestReader(t, 4)
+	source := ManagedDir + "/1/big.md"
+	writeLegacy(t, reader, source, "12345")
 
-	registered := filepath.Join(store.Root(), "handwritten.md")
-	if err := os.WriteFile(registered, []byte("original"), 0o644); err != nil {
-		t.Fatalf("write registered file: %v", err)
-	}
-	if store.Managed("handwritten.md") {
-		t.Fatal("Managed reported an externally registered file as managed")
-	}
-	if err := store.Write("handwritten.md", "hijacked"); !errors.Is(err, ErrContentNotManaged) {
-		t.Fatalf("Write registered file: err = %v, want ErrContentNotManaged", err)
-	}
-
-	content, err := os.ReadFile(registered)
-	if err != nil {
-		t.Fatalf("read registered file: %v", err)
-	}
-	if string(content) != "original" {
-		t.Fatalf("registered file was modified: %q", content)
-	}
-
-	// 托管文件可以覆盖，这是 update 改正文的前提。
-	source, err := store.Create(1, "doc", "v1")
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if err := store.Write(source, "v2"); err != nil {
-		t.Fatalf("Write managed file: %v", err)
-	}
-	if got, err := store.Read(source); err != nil || got != "v2" {
-		t.Fatalf("Read after Write = %q, %v", got, err)
+	if _, err := reader.Read(source); !errors.Is(err, ErrContentTooLarge) {
+		t.Fatalf("Read oversize: err = %v, want ErrContentTooLarge", err)
 	}
 }
 
-func TestContentStoreRemoveKeepsRegisteredFiles(t *testing.T) {
-	store := newTestStore(t, 0)
+func TestLegacyReaderReadMissing(t *testing.T) {
+	reader := newTestReader(t, 0)
 
-	registered := filepath.Join(store.Root(), "handwritten.md")
-	if err := os.WriteFile(registered, []byte("keep me"), 0o644); err != nil {
-		t.Fatalf("write registered file: %v", err)
-	}
-	if err := store.Remove("handwritten.md"); err != nil {
-		t.Fatalf("Remove registered file: %v", err)
-	}
-	if !store.Exists("handwritten.md") {
-		t.Fatal("Remove deleted an externally registered file")
-	}
-
-	source, err := store.Create(1, "doc", "v1")
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if err := store.Remove(source); err != nil {
-		t.Fatalf("Remove managed file: %v", err)
-	}
-	if store.Exists(source) {
-		t.Fatal("Remove kept a managed file")
-	}
-	// 幂等：删两次不该报错，删除流程重试时会走到这里。
-	if err := store.Remove(source); err != nil {
-		t.Fatalf("Remove missing managed file: %v", err)
-	}
-}
-
-func TestContentStoreEnforcesMaxBytes(t *testing.T) {
-	store := newTestStore(t, 4)
-
-	if _, err := store.Create(1, "doc", "12345"); !errors.Is(err, ErrContentTooLarge) {
-		t.Fatalf("Create oversize: err = %v, want ErrContentTooLarge", err)
-	}
-
-	source, err := store.Create(1, "doc", "1234")
-	if err != nil {
-		t.Fatalf("Create at limit: %v", err)
-	}
-	if err := store.Write(source, "12345"); !errors.Is(err, ErrContentTooLarge) {
-		t.Fatalf("Write oversize: err = %v, want ErrContentTooLarge", err)
-	}
-}
-
-func TestContentStoreReadMissing(t *testing.T) {
-	store := newTestStore(t, 0)
-
-	if _, err := store.Read(ManagedDir + "/1/nope.md"); !errors.Is(err, ErrContentNotFound) {
+	if _, err := reader.Read(ManagedDir + "/1/nope.md"); !errors.Is(err, ErrContentNotFound) {
 		t.Fatalf("Read missing: err = %v, want ErrContentNotFound", err)
 	}
-	if _, err := store.Read("  "); !errors.Is(err, ErrContentNotFound) {
+	if _, err := reader.Read("  "); !errors.Is(err, ErrContentNotFound) {
 		t.Fatalf("Read empty source: err = %v, want ErrContentNotFound", err)
+	}
+}
+
+// 目录不是正文：把它当文件读会返回 ReadFile 的 EISDIR，而那个错误对调用方
+// 毫无意义（它会当成「读取失败」去重试）。
+func TestLegacyReaderRejectsDirectory(t *testing.T) {
+	reader := newTestReader(t, 0)
+	dir := filepath.Join(reader.Root(), ManagedDir, "1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	if _, err := reader.Read(ManagedDir + "/1"); !errors.Is(err, ErrContentNotFound) {
+		t.Fatalf("Read directory: err = %v, want ErrContentNotFound", err)
+	}
+}
+
+func TestLegacyReaderRequiresRoot(t *testing.T) {
+	if _, err := NewLegacyContentReader("  ", 0); err == nil {
+		t.Fatal("empty root should be rejected")
+	}
+}
+
+// source 的形状是对外契约：存量语料、ES 字段与评测用例集里都存着它。
+// 这里把形状钉住，免得「换个更干净的编码」把存量数据全部对不上。
+func TestDocumentSourceIsStable(t *testing.T) {
+	got := DocumentSource(2, "h105p-1a2b3c4d")
+	want := "documents/2/h105p-1a2b3c4d.md"
+	if got != want {
+		t.Fatalf("DocumentSource = %q, want %q", got, want)
+	}
+	if strings.Contains(got, `\`) {
+		t.Fatalf("source %q uses a backslash; it must stay slash-separated across platforms", got)
 	}
 }

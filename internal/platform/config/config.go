@@ -180,7 +180,13 @@ type KnowledgeConfig struct {
 	DefaultTopK         int    `yaml:"defaultTopK"`
 	MaxTopK             int    `yaml:"maxTopK"`
 	MaxQueryCharacters  int    `yaml:"maxQueryCharacters"`
-	MaxResultBytes      int    `yaml:"maxResultBytes"`
+
+	// MaxResultBytes 是单条结果的正文上限（字节）。
+	//
+	// document 粒度下正文是**整篇文档**（见 internal/rag/grouping），一篇长型录
+	// 几万字：没有上限时一次 top_k=20 就能带出几百 KB。超过上限按 rune 边界截断，
+	// 并在响应的 content_truncated 上标记 —— 截断本身不是问题，悄悄截断才是。
+	MaxResultBytes int `yaml:"maxResultBytes"`
 
 	// RecallGrouping 按数据集类型指定召回结果的归并粒度。键是 dataset.type，
 	// "default" 是兜底；取值 chunk / document，见 internal/rag/grouping。

@@ -47,7 +47,6 @@ type ChunkStat struct {
 // Service 是知识库用例的入口。
 type Service struct {
 	client   *ent.Client
-	content  *rag.ContentStore
 	queue    IndexTaskQueue
 	vectors  VectorIndex
 	keywords KeywordIndex
@@ -55,6 +54,25 @@ type Service struct {
 	grouping grouping.Policy
 	limits   Limits
 	logger   *slog.Logger
+
+	// contents 是召回时取正文的端口（documents.content）。
+	contents DocumentContent
+
+	// maxDocumentBytes 是单篇正文的字节上限（knowledge.maxDocumentBytes）。
+	//
+	// 限在写入这一层而不是数据库层：Postgres 的 text 收得下 1GB，而「一次上传
+	// 能塞多大」是服务的约束。越限的正文一律拒绝，不做截断 —— 截断一份正文
+	// 等于把索引建在一份不完整的原文上，而调用方看不出少了什么。
+	maxDocumentBytes int
+}
+
+// DocumentContent 是「按文档 id 批量取正文」的窄端口。
+//
+// 单独抽出来有两个理由：召回补正文是**检索链路里唯一碰数据库**的一步，把它
+// 抽成端口之后这条链路可以脱离数据库测；而「正文从哪来」本身也变成一处可以
+// 替换的决定（今天是 documents.content，将来若加一层正文缓存只改这里）。
+type DocumentContent interface {
+	Contents(ctx context.Context, documentIDs []uint64) (map[uint64]string, error)
 }
 
 // ServiceDeps 是知识库用例的全部外部依赖。
@@ -63,9 +81,8 @@ type Service struct {
 // 索引、召回），位置参数下把其中两个写反不会有编译错误，只会在运行期表现为
 // 「任务投不进队列」或「删除没清干净」——而那种症状离根因很远。
 type ServiceDeps struct {
-	Client  *ent.Client
-	Content *rag.ContentStore
-	Queue   IndexTaskQueue
+	Client *ent.Client
+	Queue  IndexTaskQueue
 
 	// Vectors / Keywords 都可以是 nil：删除路径上的清理由它们承担，而清理是
 	// 尽力而为的 —— 孤儿向量与孤儿文档取不回来（检索要回到 chunk 行做过滤），
@@ -85,6 +102,10 @@ type ServiceDeps struct {
 	// Limits 是召回入口的输入约束，零值会补成默认值。
 	Limits Limits
 
+	// MaxDocumentBytes 是单篇正文的字节上限，零值取 defaultDocumentMaxBytes。
+	MaxDocumentBytes int
+
+	// Logger 可选。
 	Logger *slog.Logger
 }
 
@@ -93,9 +114,6 @@ func NewService(deps ServiceDeps) (*Service, error) {
 	if deps.Client == nil {
 		return nil, errors.New("knowledge: ent client is required")
 	}
-	if deps.Content == nil {
-		return nil, errors.New("knowledge: content store is required")
-	}
 	if deps.Queue == nil {
 		return nil, errors.New("knowledge: index queue is required")
 	}
@@ -103,9 +121,12 @@ func NewService(deps ServiceDeps) (*Service, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	maxDocumentBytes := deps.MaxDocumentBytes
+	if maxDocumentBytes <= 0 {
+		maxDocumentBytes = defaultDocumentMaxBytes
+	}
 	return &Service{
 		client:   deps.Client,
-		content:  deps.Content,
 		queue:    deps.Queue,
 		vectors:  deps.Vectors,
 		keywords: deps.Keywords,
@@ -113,8 +134,17 @@ func NewService(deps ServiceDeps) (*Service, error) {
 		grouping: deps.Grouping,
 		limits:   deps.Limits.withDefaults(),
 		logger:   logger,
+
+		contents:         &entDocumentContent{client: deps.Client},
+		maxDocumentBytes: maxDocumentBytes,
 	}, nil
 }
+
+// defaultDocumentMaxBytes 是没配 knowledge.maxDocumentBytes 时的正文上限。
+//
+// 5MiB 与它作为文件时的旧上限一致：换了个存储介质，不该顺手把能收的文件
+// 大小改一档。
+const defaultDocumentMaxBytes = 5 << 20
 
 type CreateInput struct {
 	DatasetID    uint64
@@ -182,9 +212,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (_ []CreateResult,
 	title := strings.TrimSpace(in.Title)
 	source := strings.TrimSpace(in.Source)
 
-	// 产品型录：按产品拆成一条一条文档。只处理「正文由接口落盘」这一种情况
-	// （没有显式 source）—— 注册一份已经在托管目录里的外部文件时，文件是调用
-	// 方的资产，接口不该把它拆开再写回好几个新文件。
+	// 产品型录：按产品拆成一条一条文档。只处理「没有显式 source」这一种情况
+	// —— 显式给了 source 表示调用方要求「这个标识就对应一条文档」，那时再把它
+	// 拆成好几条，它会发现自己指定的那个标识一条都没落上。
 	if s.isProductDataset(base) && source == "" && strings.TrimSpace(in.Content) != "" {
 		products, err := s.createProductDocuments(ctx, in, visibility, owner)
 		if err != nil {
@@ -209,8 +239,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (_ []CreateResult,
 	return []CreateResult{{Document: created, Operation: OperationCreated}}, nil
 }
 
-// createSingleDocument 是「一份文件一条文档」的路径：非产品数据集，以及产品
-// 数据集里没有产品块的正文，都走它。
+// createSingleDocument 是「一条文档」的路径：非产品数据集，以及产品数据集里
+// 没有产品块的正文，都走它。
 func (s *Service) createSingleDocument(
 	ctx context.Context,
 	in CreateInput,
@@ -218,46 +248,35 @@ func (s *Service) createSingleDocument(
 	visibility document.Visibility,
 	owner string,
 ) (*ent.Document, error) {
-	switch {
-	case strings.TrimSpace(in.Content) != "":
-		if title == "" {
-			return nil, invalid("title is required when content is provided")
-		}
-		if source == "" {
-			// 文件名从标题派生，托管目录按数据集分片。
-			generated, err := s.content.Create(in.DatasetID, title, in.Content)
-			if err != nil {
-				return nil, mapContentError(err)
-			}
-			source = generated
-			break
-		}
-		// 显式指定了落点：只允许写在托管目录内，注册进来的外部文件不许覆盖。
-		if !s.content.Managed(source) {
-			return nil, ErrContentNotManaged
-		}
-		if err := s.content.Write(source, in.Content); err != nil {
-			return nil, mapContentError(err)
-		}
-	default:
-		if source == "" {
-			return nil, invalid("either content or source is required")
-		}
-		if !s.content.Exists(source) {
-			return nil, ErrContentUnavailable
-		}
-		if title == "" {
+	content := in.Content
+	if strings.TrimSpace(content) == "" {
+		// 正文是必填：它从落库那一刻起就是唯一的真相，没有它这条文档什么都不是。
+		// 从前允许「只给 source，接口去把文件读进来」，现在没有文件可读了。
+		return nil, invalid("content is required")
+	}
+	if err := s.checkContentSize(content); err != nil {
+		return nil, err
+	}
+	if title == "" {
+		if source != "" {
 			title = titleFromSource(source)
+		} else {
+			return nil, invalid("title is required when content is provided")
 		}
 	}
 	if title == "" {
 		title = "document"
+	}
+	if source == "" {
+		// 标识由服务端派生，调用方不用管命名；派生规则是纯函数，见 rag.DocumentSource。
+		source = rag.DocumentSource(in.DatasetID, rag.Slugify(title))
 	}
 
 	created, err := s.client.Document.Create().
 		SetDatasetID(in.DatasetID).
 		SetSource(source).
 		SetTitle(title).
+		SetContent(content).
 		SetMetadata(mergeMetadata(in.Metadata, source, title)).
 		SetVisibility(visibility).
 		SetOwnerSubject(owner).
@@ -329,8 +348,8 @@ func (s *Service) createProductDocuments(ctx context.Context, in CreateInput, vi
 	return results, nil
 }
 
-// upsertProductDocument 按型号落一条产品文档：没有就建，有就更新，正文一字不差
-// 就什么都不做。
+// upsertProductDocument 按型号落一条产品文档：没有就建，有就更新，正文与产品头
+// 一字不差就什么都不做。
 func (s *Service) upsertProductDocument(ctx context.Context, in CreateInput, spec productDocument, visibility document.Visibility, owner string) (*CreateResult, error) {
 	existing, err := s.findByExternalKey(ctx, in.DatasetID, spec.Key)
 	if err != nil {
@@ -340,16 +359,17 @@ func (s *Service) upsertProductDocument(ctx context.Context, in CreateInput, spe
 		return s.refreshProductDocument(ctx, in, existing, spec, visibility)
 	}
 
-	source, err := s.content.CreateNamed(in.DatasetID, spec.Stem, spec.Content)
-	if err != nil {
-		return nil, mapContentError(err)
+	if err := s.checkContentSize(spec.Content); err != nil {
+		return nil, err
 	}
+	source := rag.DocumentSource(in.DatasetID, spec.Stem)
 
 	create := s.client.Document.Create().
 		SetDatasetID(in.DatasetID).
 		SetSource(source).
 		SetTitle(spec.Title).
-		SetMetadata(mergeProductMetadata(spec.Metadata, in.Metadata, source, spec.Title)).
+		SetContent(spec.Content).
+		SetMetadata(mergeProductMetadata(spec, in.Metadata, source, spec.Title)).
 		SetVisibility(visibility).
 		SetOwnerSubject(owner).
 		SetStatus(document.StatusIndexing)
@@ -379,17 +399,24 @@ func (s *Service) upsertProductDocument(ctx context.Context, in CreateInput, spe
 
 // refreshProductDocument 让一条已存在的产品文档追上这次上传的内容。
 //
-// 比对的是**文件字节**，不是 documents.metadata 里的 content_hash：那个哈希是
-// worker 切块时才写的，刚建好、还没跑过索引的文档上根本没有值，拿它比对会把
-// 「内容没变」一律误判成「内容变了」，于是每次重传都白重切一遍整库。
+// 比对的是产品块的**指纹**（正文 + 解析出的头），不是文件的字节：
+//
+//   - 只比正文会漏掉「只改了 YAML 头」的重传（改个系列名、补一个规格），
+//     那次的正文一个字没变，于是元数据永远停在旧值上，而这从外部完全看不出来
+//     —— 症状是「按新系列名搜不到这个产品」。
+//   - 直接拿解析出的元数据去和库里那份比也不行：它要经过 jsonb 往返，整数会
+//     变成 float64、指针会变成值。类型对不上就会被判成「变了」，于是每次重传
+//     都白重切一遍整库，而索引结果其实完全一样。
+//
+// 指纹是同一份代码算出来的字符串，两边不经过任何序列化，所以只有真正的内容
+// 变化才会让它不同。
 func (s *Service) refreshProductDocument(ctx context.Context, in CreateInput, doc *ent.Document, spec productDocument, visibility document.Visibility) (*CreateResult, error) {
-	current, readErr := s.content.Read(doc.Source)
-	if readErr == nil && current == spec.Content {
+	if storedSpecHash(doc.Metadata) == spec.Fingerprint {
 		if doc.Status == document.StatusReady {
-			// 正文一字不差、索引也是好的：这次上传对它没有任何影响。
+			// 内容一字不差、索引也是好的：这次上传对它没有任何影响。
 			return &CreateResult{Document: doc, Operation: OperationUnchanged}, nil
 		}
-		// 正文没变但索引没到 ready（上次失败、或者还在排队）：补投一次，让
+		// 内容没变但索引没到 ready（上次失败、或者还在排队）：补投一次，让
 		// 「重传整份文件」顺带具备重试失败文档的能力。
 		if err := s.enqueue(ctx, doc, in.DatasetID, tasks.IndexModeCatchUp); err != nil {
 			return nil, err
@@ -397,19 +424,14 @@ func (s *Service) refreshProductDocument(ctx context.Context, in CreateInput, do
 		return &CreateResult{Document: doc, Operation: OperationUpdated}, nil
 	}
 
-	// 正文文件是注册进来的外部文件时不能覆盖：那是调用方的资产。产品文档都是
-	// 接口自己写在托管目录里的，走到这里说明这条行的 external_key 与一份手工
-	// 创建的文档撞了 —— 报出来，别无声改写别人的文件。
-	if !s.content.Managed(doc.Source) {
-		return nil, ErrContentNotManaged
-	}
-	if err := s.content.Write(doc.Source, spec.Content); err != nil {
-		return nil, mapContentError(err)
+	if err := s.checkContentSize(spec.Content); err != nil {
+		return nil, err
 	}
 
 	update := s.client.Document.UpdateOneID(doc.ID).
 		SetTitle(spec.Title).
-		SetMetadata(mergeProductMetadata(spec.Metadata, in.Metadata, doc.Source, spec.Title)).
+		SetContent(spec.Content).
+		SetMetadata(mergeProductMetadata(spec, in.Metadata, doc.Source, spec.Title)).
 		SetStatus(document.StatusIndexing)
 	if strings.TrimSpace(in.Visibility) != "" {
 		// 没传可见性表示不动它，而不是重置回默认值。
@@ -476,8 +498,9 @@ type UpdateInput struct {
 
 // Update 改元信息；给了 content 就改写正文并重新排队索引。
 //
-// 只有托管目录内的正文允许被覆盖：注册进来的外部文件是调用方的资产，
-// 接口不该无声改写。
+// 正文就是 documents.content 那一列，改它和改标题一样是一次普通的行更新 ——
+// 不需要判断「这份正文归不归接口管」（那个区分是文件时代的产物：调用方自己放进
+// knowledge.root 的文件不该被接口覆盖；现在没有外部文件了，每一篇正文都在库里）。
 func (s *Service) Update(ctx context.Context, in UpdateInput) (_ *ent.Document, err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.update_document",
 		oteltrace.WithAttributes(
@@ -512,12 +535,10 @@ func (s *Service) Update(ctx context.Context, in UpdateInput) (_ *ent.Document, 
 		update.SetMetadata(mergeMetadata(in.Metadata, doc.Source, doc.Title))
 	}
 	if strings.TrimSpace(in.Content) != "" {
-		if !s.content.Managed(doc.Source) {
-			return nil, ErrContentNotManaged
+		if err := s.checkContentSize(in.Content); err != nil {
+			return nil, err
 		}
-		if err := s.content.Write(doc.Source, in.Content); err != nil {
-			return nil, mapContentError(err)
-		}
+		update.SetContent(in.Content)
 		update.SetStatus(document.StatusIndexing)
 		reindex = true
 	}
@@ -541,6 +562,10 @@ func (s *Service) Update(ctx context.Context, in UpdateInput) (_ *ent.Document, 
 
 // Reindex 重新读正文、重新排队。用途是修复：改了切块参数、换了 embedding
 // 模型、或者上一次索引失败之后，都按新配置重建。
+//
+// 这里**不检查正文有没有**：正文的解析与补齐（含存量数据的导入）是 worker 的
+// 职责，它比这一层更清楚「这篇文档的正文还能不能找回来」——在请求期凭一个空串
+// 就判死，会把一批本来能靠导入救回来的文档直接挡在门外。
 func (s *Service) Reindex(ctx context.Context, datasetID, documentID uint64) (_ *ent.Document, err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.reindex_document",
 		oteltrace.WithAttributes(
@@ -556,9 +581,6 @@ func (s *Service) Reindex(ctx context.Context, datasetID, documentID uint64) (_ 
 	doc, err := s.document(ctx, datasetID, documentID)
 	if err != nil {
 		return nil, err
-	}
-	if !s.content.Exists(doc.Source) {
-		return nil, ErrContentUnavailable
 	}
 
 	saved, err := s.client.Document.UpdateOneID(doc.ID).
@@ -584,8 +606,13 @@ type ReindexResult struct {
 	Failed    int
 }
 
-// ReindexDataset 逐个文档重建，互不影响：某个文档的正文丢了只计入 failed，
+// ReindexDataset 逐个文档重建，互不影响：某个文档排不进队列只计入 failed，
 // 其余照常排队。
+//
+// 「这篇文档的正文还能不能拿到」不在这里判：worker 会在解析时给出诚实的结论
+// （导入得到就续跑，确实没有就把文档落成 failed）。请求期唯一能看到的信号是
+// content 是不是空，而空串既可能是「正文真没了」，也可能是「存量文档还没导入」，
+// 拿它判死会错杀后一类。
 func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (_ *ReindexResult, err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.reindex_dataset",
 		oteltrace.WithAttributes(
@@ -613,15 +640,6 @@ func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (_ *Rein
 
 	result := &ReindexResult{}
 	for _, doc := range docs {
-		if !s.content.Exists(doc.Source) {
-			// 正文读不回来，重排也是白排：直接落成 failed，让调用方看得见。
-			if err := setDocumentStatus(ctx, s.client, doc.ID, document.StatusFailed); err != nil {
-				return nil, err
-			}
-			result.Failed++
-			continue
-		}
-
 		saved, err := s.client.Document.UpdateOneID(doc.ID).
 			SetStatus(document.StatusIndexing).
 			Save(ctx)
@@ -652,11 +670,14 @@ func (s *Service) ReindexDataset(ctx context.Context, datasetID uint64) (_ *Rein
 	return result, nil
 }
 
-// Delete 摘掉分块与文档行，然后尽力而为地清理向量与托管正文。
+// Delete 摘掉分块与文档行，然后尽力而为地清理向量与检索索引。
 //
-// 关系库的部分在事务里完成；Milvus 不参与这个事务，清理失败只记警告 ——
-// 孤儿向量取不回来（检索要回到 chunk 行做过滤），但会一直占着向量库空间，
-// 需要靠后续的全量重建收拾。
+// 关系库的部分在一个事务里完成，正文（documents.content）随行一起消失 ——
+// 这是它比文件好的地方之一：文件时代「删行」和「删文件」是两步，中间失败就会
+// 留下一份没有主人的正文，或者一条指向已删文件的文档。
+//
+// Milvus 不参与这个事务，清理失败只记警告 —— 孤儿向量取不回来（检索要回到
+// chunk 行做过滤），但会一直占着向量库空间，需要靠后续的全量重建收拾。
 func (s *Service) Delete(ctx context.Context, datasetID, documentID uint64) (err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.delete_document",
 		oteltrace.WithAttributes(
@@ -697,13 +718,6 @@ func (s *Service) Delete(ctx context.Context, datasetID, documentID uint64) (err
 
 	s.cleanupVectors(ctx, doc.ID, chunkIDs)
 	s.cleanupKeywordIndex(ctx, doc.ID)
-	if err := s.content.Remove(doc.Source); err != nil {
-		observability.LogWithTrace(ctx, s.logger).Warn("knowledge: remove content file failed",
-			slog.Uint64("document_id", doc.ID),
-			slog.String("source", doc.Source),
-			slog.String("error", err.Error()),
-		)
-	}
 	return nil
 }
 
@@ -930,41 +944,48 @@ func mergeMetadata(extra map[string]string, source, title string) map[string]any
 	return metadata
 }
 
-// mergeProductMetadata 合并产品文档的元数据：调用方给的键、产品块元数据、行内
-// 溯源信息。
+// mergeProductMetadata 合并产品文档的元数据：调用方给的键、产品块的元数据、行内
+// 溯源信息、以及这次写入的产品块指纹。
 //
 // 顺序是有讲究的：调用方的键先铺，**产品块的键后盖** —— 产品身份（型号、系列、
 // 品类）的真相在正文的 YAML 头里，调用方不能通过 metadata 把它改成另一个值，
 // 否则「按型号查重」用的键与文档里记的型号会分叉，之后按型号就搜不到它了。
 // source 与 title 最后盖，与单文档路径同口径（见 mergeMetadata）。
-func mergeProductMetadata(block map[string]any, extra map[string]string, source, title string) map[string]any {
-	metadata := make(map[string]any, len(block)+len(extra)+2)
+//
+// 指纹写在最后：它是服务端算出来的比对依据，不是调用方可以设置的元信息。
+func mergeProductMetadata(spec productDocument, extra map[string]string, source, title string) map[string]any {
+	metadata := make(map[string]any, len(spec.Metadata)+len(extra)+3)
 	for key, value := range extra {
 		metadata[key] = value
 	}
-	for key, value := range block {
+	for key, value := range spec.Metadata {
 		metadata[key] = value
 	}
 	metadata[constant.MetaSource] = source
 	metadata[constant.MetaTitle] = title
+	metadata[constant.MetaSpecHash] = spec.Fingerprint
 	return metadata
 }
 
-func mapContentError(err error) error {
-	switch {
-	case err == nil:
-		return nil
-	case errors.Is(err, rag.ErrContentTooLarge):
-		return ErrContentTooLarge
-	case errors.Is(err, rag.ErrContentOutsideRoot):
-		return ErrContentOutsideRoot
-	case errors.Is(err, rag.ErrContentNotFound):
-		return ErrContentUnavailable
-	case errors.Is(err, rag.ErrContentNotManaged):
-		return ErrContentNotManaged
-	default:
-		return fmt.Errorf("knowledge: content store: %w", err)
+// storedSpecHash 读回上一次写入的产品块指纹。
+//
+// 读不到（不是字符串、或者这条文档根本不是产品块建的）时返回空串：空串与任何
+// 指纹都不相等，于是这次上传按「内容变了」处理并重新写一遍。宁可多重切一次，
+// 也不要因为读不出指纹就把一次真实的改动当成没变。
+func storedSpecHash(metadata map[string]any) string {
+	value, _ := metadata[constant.MetaSpecHash].(string)
+	return value
+}
+
+// checkContentSize 拦住超过 knowledge.maxDocumentBytes 的正文。
+//
+// 按字节而不是字符：上限回答的是「一次上传能塞多大」，配它的人是按请求体与
+// 存储成本算的。
+func (s *Service) checkContentSize(content string) error {
+	if s.maxDocumentBytes > 0 && len(content) > s.maxDocumentBytes {
+		return fmt.Errorf("%w: %d bytes exceeds %d", ErrContentTooLarge, len(content), s.maxDocumentBytes)
 	}
+	return nil
 }
 
 func titleFromSource(source string) string {
@@ -973,8 +994,4 @@ func titleFromSource(source string) string {
 		base = strings.TrimSuffix(base, ext)
 	}
 	return strings.TrimSpace(base)
-}
-
-func (s *Service) ContentFromSource(ctx context.Context, source string) (string, error) {
-	return s.content.Read(source)
 }

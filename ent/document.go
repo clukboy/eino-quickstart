@@ -23,6 +23,8 @@ type Document struct {
 	Source string `json:"source,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
+	// Content holds the value of the "content" field.
+	Content string `json:"content,omitempty"`
 	// ExternalKey holds the value of the "external_key" field.
 	ExternalKey *string `json:"external_key,omitempty"`
 	// Metadata holds the value of the "metadata" field.
@@ -92,7 +94,7 @@ func (*Document) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case document.FieldID, document.FieldDatasetID, document.FieldFolderID:
 			values[i] = new(sql.NullInt64)
-		case document.FieldSource, document.FieldTitle, document.FieldExternalKey, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
+		case document.FieldSource, document.FieldTitle, document.FieldContent, document.FieldExternalKey, document.FieldOwnerSubject, document.FieldVisibility, document.FieldStatus:
 			values[i] = new(sql.NullString)
 		case document.FieldCreatedAt, document.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -130,6 +132,12 @@ func (_m *Document) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field title", values[i])
 			} else if value.Valid {
 				_m.Title = value.String
+			}
+		case document.FieldContent:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field content", values[i])
+			} else if value.Valid {
+				_m.Content = value.String
 			}
 		case document.FieldExternalKey:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -253,6 +261,9 @@ func (_m *Document) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("title=")
 	builder.WriteString(_m.Title)
+	builder.WriteString(", ")
+	builder.WriteString("content=")
+	builder.WriteString(_m.Content)
 	builder.WriteString(", ")
 	if v := _m.ExternalKey; v != nil {
 		builder.WriteString("external_key=")

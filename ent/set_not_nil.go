@@ -998,6 +998,30 @@ func (_m *DocumentCreate) SetNotNilTitle(value *string) *DocumentCreate {
 }
 
 // set field if value's pointer is not nil.
+func (_m *DocumentUpdate) SetNotNilContent(value *string) *DocumentUpdate {
+	if value != nil {
+		return _m.SetContent(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentUpdateOne) SetNotNilContent(value *string) *DocumentUpdateOne {
+	if value != nil {
+		return _m.SetContent(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *DocumentCreate) SetNotNilContent(value *string) *DocumentCreate {
+	if value != nil {
+		return _m.SetContent(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
 func (_m *DocumentUpdate) SetNotNilExternalKey(value *string) *DocumentUpdate {
 	if value != nil {
 		return _m.SetExternalKey(*value)

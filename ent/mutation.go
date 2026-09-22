@@ -6101,6 +6101,7 @@ type DocumentMutation struct {
 	id             *uint64
 	source         *string
 	title          *string
+	content        *string
 	external_key   *string
 	metadata       *map[string]interface{}
 	owner_subject  *string
@@ -6290,6 +6291,42 @@ func (m *DocumentMutation) OldTitle(ctx context.Context) (v string, err error) {
 // ResetTitle resets all changes to the "title" field.
 func (m *DocumentMutation) ResetTitle() {
 	m.title = nil
+}
+
+// SetContent sets the "content" field.
+func (m *DocumentMutation) SetContent(s string) {
+	m.content = &s
+}
+
+// Content returns the value of the "content" field in the mutation.
+func (m *DocumentMutation) Content() (r string, exists bool) {
+	v := m.content
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContent returns the old "content" field's value of the Document entity.
+// If the Document object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DocumentMutation) OldContent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContent: %w", err)
+	}
+	return oldValue.Content, nil
+}
+
+// ResetContent resets all changes to the "content" field.
+func (m *DocumentMutation) ResetContent() {
+	m.content = nil
 }
 
 // SetExternalKey sets the "external_key" field.
@@ -6827,12 +6864,15 @@ func (m *DocumentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DocumentMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.source != nil {
 		fields = append(fields, document.FieldSource)
 	}
 	if m.title != nil {
 		fields = append(fields, document.FieldTitle)
+	}
+	if m.content != nil {
+		fields = append(fields, document.FieldContent)
 	}
 	if m.external_key != nil {
 		fields = append(fields, document.FieldExternalKey)
@@ -6876,6 +6916,8 @@ func (m *DocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.Source()
 	case document.FieldTitle:
 		return m.Title()
+	case document.FieldContent:
+		return m.Content()
 	case document.FieldExternalKey:
 		return m.ExternalKey()
 	case document.FieldMetadata:
@@ -6909,6 +6951,8 @@ func (m *DocumentMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldSource(ctx)
 	case document.FieldTitle:
 		return m.OldTitle(ctx)
+	case document.FieldContent:
+		return m.OldContent(ctx)
 	case document.FieldExternalKey:
 		return m.OldExternalKey(ctx)
 	case document.FieldMetadata:
@@ -6951,6 +6995,13 @@ func (m *DocumentMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTitle(v)
+		return nil
+	case document.FieldContent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContent(v)
 		return nil
 	case document.FieldExternalKey:
 		v, ok := value.(string)
@@ -7112,6 +7163,9 @@ func (m *DocumentMutation) ResetField(name string) error {
 		return nil
 	case document.FieldTitle:
 		m.ResetTitle()
+		return nil
+	case document.FieldContent:
+		m.ResetContent()
 		return nil
 	case document.FieldExternalKey:
 		m.ResetExternalKey()

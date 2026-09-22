@@ -65,6 +65,11 @@ func Title(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldTitle, v))
 }
 
+// Content applies equality check predicate on the "content" field. It's identical to ContentEQ.
+func Content(v string) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldContent, v))
+}
+
 // ExternalKey applies equality check predicate on the "external_key" field. It's identical to ExternalKeyEQ.
 func ExternalKey(v string) predicate.Document {
 	return predicate.Document(sql.FieldEQ(FieldExternalKey, v))
@@ -228,6 +233,71 @@ func TitleEqualFold(v string) predicate.Document {
 // TitleContainsFold applies the ContainsFold predicate on the "title" field.
 func TitleContainsFold(v string) predicate.Document {
 	return predicate.Document(sql.FieldContainsFold(FieldTitle, v))
+}
+
+// ContentEQ applies the EQ predicate on the "content" field.
+func ContentEQ(v string) predicate.Document {
+	return predicate.Document(sql.FieldEQ(FieldContent, v))
+}
+
+// ContentNEQ applies the NEQ predicate on the "content" field.
+func ContentNEQ(v string) predicate.Document {
+	return predicate.Document(sql.FieldNEQ(FieldContent, v))
+}
+
+// ContentIn applies the In predicate on the "content" field.
+func ContentIn(vs ...string) predicate.Document {
+	return predicate.Document(sql.FieldIn(FieldContent, vs...))
+}
+
+// ContentNotIn applies the NotIn predicate on the "content" field.
+func ContentNotIn(vs ...string) predicate.Document {
+	return predicate.Document(sql.FieldNotIn(FieldContent, vs...))
+}
+
+// ContentGT applies the GT predicate on the "content" field.
+func ContentGT(v string) predicate.Document {
+	return predicate.Document(sql.FieldGT(FieldContent, v))
+}
+
+// ContentGTE applies the GTE predicate on the "content" field.
+func ContentGTE(v string) predicate.Document {
+	return predicate.Document(sql.FieldGTE(FieldContent, v))
+}
+
+// ContentLT applies the LT predicate on the "content" field.
+func ContentLT(v string) predicate.Document {
+	return predicate.Document(sql.FieldLT(FieldContent, v))
+}
+
+// ContentLTE applies the LTE predicate on the "content" field.
+func ContentLTE(v string) predicate.Document {
+	return predicate.Document(sql.FieldLTE(FieldContent, v))
+}
+
+// ContentContains applies the Contains predicate on the "content" field.
+func ContentContains(v string) predicate.Document {
+	return predicate.Document(sql.FieldContains(FieldContent, v))
+}
+
+// ContentHasPrefix applies the HasPrefix predicate on the "content" field.
+func ContentHasPrefix(v string) predicate.Document {
+	return predicate.Document(sql.FieldHasPrefix(FieldContent, v))
+}
+
+// ContentHasSuffix applies the HasSuffix predicate on the "content" field.
+func ContentHasSuffix(v string) predicate.Document {
+	return predicate.Document(sql.FieldHasSuffix(FieldContent, v))
+}
+
+// ContentEqualFold applies the EqualFold predicate on the "content" field.
+func ContentEqualFold(v string) predicate.Document {
+	return predicate.Document(sql.FieldEqualFold(FieldContent, v))
+}
+
+// ContentContainsFold applies the ContainsFold predicate on the "content" field.
+func ContentContainsFold(v string) predicate.Document {
+	return predicate.Document(sql.FieldContainsFold(FieldContent, v))
 }
 
 // ExternalKeyEQ applies the EQ predicate on the "external_key" field.

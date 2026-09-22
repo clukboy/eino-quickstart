@@ -116,13 +116,17 @@ func runWorker() error {
 		}
 	}()
 
-	// 正文以文件为唯一真相：索引时按 documents.source 把文件读回来。
-	contentStore, err := rag.NewContentStore(
+	// 正文存在 documents.content 里，索引时直接读那一列。
+	//
+	// 这里还留了一个**只读**的旧正文目录句柄：它的唯一用途是把「正文还在文件里」
+	// 的存量文档导入一次（见 Indexer.importLegacyContent）。导入过一轮之后它就
+	// 再也用不上了，连同 knowledge.root 那段配置可以一起删掉。
+	legacyContent, err := rag.NewLegacyContentReader(
 		cfg.Knowledge.Root,
 		int64(cfg.Knowledge.MaxDocumentBytes),
 	)
 	if err != nil {
-		return fmt.Errorf("init knowledge content store: %w", err)
+		return fmt.Errorf("init legacy content reader: %w", err)
 	}
 
 	embedder, err := newEmbedder(ctx, cfg)
@@ -165,17 +169,19 @@ func runWorker() error {
 		return err
 	}
 
-	// 索引链的前半段（读入 -> 按产品拆分 -> 切块）统一交给 rag.Pipeline，
-	// 与 cmd/ragserver 共用同一份实现，切块规则只有一处定义。
+	// 索引链的「解析 -> 切块」统一交给 rag.Pipeline，与 cmd/ragserver 共用同一份
+	// 实现，切块规则只有一处定义。
 	//
-	// 这里**不注入 Store**：Pipeline 的落库尾段不认识 document_chunks 的
+	// 这里**不配 DocRoot**：正文从 documents.content 进内存（Indexer 调
+	// IngestContent），没有任何一步需要磁盘。DocRoot 是给 ragserver 那种「拿一个
+	// 目录里的 Markdown 试一下检索」的用法留的，不该让 worker 依赖一个它根本
+	// 不该读的目录 —— 依赖了它，就会有人以为「正文还得有一份在盘上」。
+	//
+	// 同样**不注入 Store**：Pipeline 的落库尾段不认识 document_chunks 的
 	// pending / indexed 状态，也没有 content_hash 的幂等口径，持久化与状态机
-	// 仍由 Indexer 自己写。DocRoot 必须与 ContentStore 的 root 是同一个目录，
-	// 否则 Pipeline 读不到 Indexer 交给它的那条路径。
+	// 仍由 Indexer 自己写。
 	pipeline, err := rag.NewPipeline(ctx, rag.Config{
 		Embedder:      embedder,
-		DocRoot:       contentStore.Root(),
-		MaxFileBytes:  int64(cfg.Knowledge.MaxDocumentBytes),
 		ChunkMaxChars: cfg.Knowledge.ChunkSizeCharacters,
 	}, entClient)
 	if err != nil {
@@ -183,11 +189,11 @@ func runWorker() error {
 	}
 
 	indexer, err := knowledge.NewIndexer(knowledge.IndexerConfig{
-		Client:   entClient,
-		Content:  contentStore,
-		Pipeline: pipeline,
-		Embedder: embedder,
-		Vectors:  vectorStore,
+		Client:        entClient,
+		LegacyContent: legacyContent,
+		Pipeline:      pipeline,
+		Embedder:      embedder,
+		Vectors:       vectorStore,
 		// esClient 为 nil（没配）时 Writer() 返回真正的 nil 接口值，
 		// Indexer 据此走「不写关键词索引」的分支。
 		Keyword: esClient.Writer(),
@@ -233,7 +239,7 @@ func runWorker() error {
 		slog.String("queue_addr", cfg.Asynq.Redis.Addr),
 		slog.Int("concurrency", cfg.Asynq.Concurrency),
 		slog.Any("queues", asynqConf.QueuesOrDefault()),
-		slog.String("knowledge_root", contentStore.Root()),
+		slog.String("legacy_content_root", legacyContent.Root()),
 		slog.String("milvus_collection", cfg.Milvus.Collection),
 		slog.String("search_index", searchIndexName(esClient)),
 	)
