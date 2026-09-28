@@ -34,11 +34,36 @@ type storedKey struct {
 
 type Authenticator struct {
 	keys []storedKey
+
+	// anonymous 为空表示不签发匿名身份（配置里关掉时组合根不构造 issuer）。
+	anonymous *AnonymousIssuer
 }
 
-func New(keys []APIKey) (*Authenticator, error) {
-	if len(keys) == 0 {
-		return nil, errors.New("at least one API key is required")
+// Option 给 New 追加可选的凭证来源。
+type Option func(*Authenticator)
+
+// WithAnonymous 让校验路径也接受匿名令牌（见 anonymous.go）。
+//
+// 匿名令牌与静态 API key 走**同一个** Bearer 通道，只是判定方式不同：静态
+// key 查表、匿名令牌验签。对上层（中间件、role 中间件、logic）来说两者没有
+// 区别 —— 都是一个 Identity，所以「用户端用匿名、管理台用 admin key」不需要
+// 两条并行的鉴权链路。
+func WithAnonymous(issuer *AnonymousIssuer) Option {
+	return func(a *Authenticator) {
+		a.anonymous = issuer
+	}
+}
+
+func New(keys []APIKey, opts ...Option) (*Authenticator, error) {
+	authenticator := &Authenticator{}
+	for _, opt := range opts {
+		opt(authenticator)
+	}
+
+	// 允许只配匿名（一个静态 key 都没有的部署是合理的：纯用户端），但不允许
+	// 两种都没有 —— 那样每个请求都必然 401，问题却要等到线上才暴露。
+	if len(keys) == 0 && authenticator.anonymous == nil {
+		return nil, errors.New("at least one API key or an anonymous issuer is required")
 	}
 
 	stored := make([]storedKey, 0, len(keys))
@@ -60,7 +85,8 @@ func New(keys []APIKey) (*Authenticator, error) {
 		})
 	}
 
-	return &Authenticator{keys: stored}, nil
+	authenticator.keys = stored
+	return authenticator, nil
 }
 
 type identityContextKey struct{}
@@ -106,6 +132,12 @@ func (a *Authenticator) Authenticate(next http.Handler) http.Handler {
 	})
 }
 
+// identityFor 把 Bearer 里的串还原成身份：先当静态 API key 查表，再当匿名
+// 令牌验签。
+//
+// 顺序不可颠倒也无需担心里程碑：静态 key 是运维写进配置的随机串，与
+// `anon.` 前缀的令牌在形状上就不会撞；反过来先验签会让每次带静态 key 的请求
+// 都白跑一次 HMAC。
 func (a *Authenticator) identityFor(secret string) (Identity, bool) {
 	fingerprint := sha256.Sum256([]byte(secret))
 
@@ -116,6 +148,10 @@ func (a *Authenticator) identityFor(secret string) (Identity, bool) {
 		) == 1 {
 			return key.identity, true
 		}
+	}
+
+	if a.anonymous != nil {
+		return a.anonymous.Verify(secret)
 	}
 
 	return Identity{}, false

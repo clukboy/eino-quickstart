@@ -10,19 +10,32 @@ gen-ent: # Generate Ent codes | 生成 Ent 的代码
 #   docs/common/types.api        跨组共享类型
 #   docs/health/health.api       健康检查
 #   docs/agent/agent.api         会话
+#   docs/stream/stream.api       流式对话与审批续跑（SSE）
 #   docs/approver/approver.api   审批
 #   docs/admin/admin.api         agent 知识库授权
 #   docs/dataset/dataset.api     知识库与文档
 # 改接口只动对应子文件，入口不用碰。
+#
+# goctl 的覆盖策略是**分两类**的（别只看下面那句 "skips existing files"）：
+#
+#   routes.go / types.go / restapi.json  —— 纯生成物，每次全量重写。
+#       所以**不要在这三个文件里手加任何东西**：加个字段或改个 tag，下次 gen-api
+#       就没了（types.go 被重写过一次，把只在 Go 里手加的 SearchHitResp.
+#       ContentTruncated 冲掉了，编译才暴露）。契约字段一律写回 .api，生成物里
+#       的注释也只在 .api 里维护。
+#   handler/*.go、logic/*.go、svc/*.go   —— 落地即业务代码，已存在就跳过。
+#       改了 .api 的签名（加 path 参数、改 returns）后它会静默跳过旧文件，于是
+#       编译报「参数不匹配 / 返回值个数不符」，这时才需要 regen-api。
+#   注：logic 是手写的业务实现，regen-api 不碰它。
 .PHONY: gen-api
-gen-api: # Generate API codes (skips existing files) | 生成 API 代码
+gen-api: # Generate API codes (skips existing handlers/logic, rewrites generated files) | 生成 API 代码
 	goctl api go -api ./internal/transport/restapi/docs/restapi.api -dir ./internal/transport/restapi -style go_zero
 	goctl api swagger -api ./internal/transport/restapi/docs/restapi.api -dir ./internal/transport/restapi
 	@echo "Generate API codes successfully"
 
-# goctl 不覆盖已存在的文件。改了 .api 的类型或路由签名后，gen-api 会静默跳过旧
-# handler，于是编译报「参数不匹配 / 返回值个数不符」。需要真正重生成时用这个。
-# 注意：它会删掉 internal/handler 下所有 .go（含手改过的）并重新生成；
+# 强制重生成 handler 与 types：删掉 internal/handler 下所有 .go 和 types.go 再生成，
+# 用于「改了 .api 签名但旧 handler 被跳过」的场合。
+# 注意：它会删掉 handler 下**含手改过的**文件，以及 types.go 里一切不在 .api 里的东西；
 # 不动 internal/logic 和 internal/svc，那是业务代码。
 .PHONY: regen-api
 regen-api: # Force-regenerate handler & types (discards edits there) | 强制重生成 handler/types

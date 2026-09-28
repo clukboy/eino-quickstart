@@ -1622,6 +1622,54 @@ func (_m *KnowledgeIndexCreate) SetNotNilActivatedAt(value *time.Time) *Knowledg
 }
 
 // set field if value's pointer is not nil.
+func (_m *SessionUpdate) SetNotNilTitle(value *string) *SessionUpdate {
+	if value != nil {
+		return _m.SetTitle(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *SessionUpdateOne) SetNotNilTitle(value *string) *SessionUpdateOne {
+	if value != nil {
+		return _m.SetTitle(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *SessionCreate) SetNotNilTitle(value *string) *SessionCreate {
+	if value != nil {
+		return _m.SetTitle(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *SessionUpdate) SetNotNilUpdatedAt(value *time.Time) *SessionUpdate {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *SessionUpdateOne) SetNotNilUpdatedAt(value *time.Time) *SessionUpdateOne {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *SessionCreate) SetNotNilUpdatedAt(value *time.Time) *SessionCreate {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
 func (_m *SessionMessageUpdate) SetNotNilRole(value *string) *SessionMessageUpdate {
 	if value != nil {
 		return _m.SetRole(*value)

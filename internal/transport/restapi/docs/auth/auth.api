@@ -1,0 +1,73 @@
+syntax = "v1"
+
+// 匿名身份（用户端）。
+//
+// 本组只有一条路由，而且是**故意公开**的 —— 它不挂任何角色中间件：这条路由
+// 存在的意义就是「还没有身份时先拿一个身份」。其余所有路由仍然要求 token。
+//
+// ── 为什么由服务端签发，而不是客户端自报一个 id ─────────────────────
+//
+// 匿名身份要解决的是一件很具体的事：让每个访客只能看到自己的会话。这要求
+// subject **无法由客户端指定** —— 若前端自己生成一个 uuid 放在请求头里，
+// 任何人改一下那个头就能读写别人的会话，匿名场景下这就是唯一的安全边界。
+//
+// 所以 subject 由服务端生成（anon:<uuid>），连同过期时间一起做 HMAC 签名，
+// 客户端只保管令牌，改任何一个字节都会验签失败。
+//
+// ── 无状态，因此「收不回」──────────────────────────────────────────
+//
+// 令牌自包含（HMAC-SHA256），服务端不存匿名用户：不需要新表，每个请求也不
+// 多查一次库。代价是签出去就收不回（没有吊销名单），有效期（auth.anonymous.
+// ttlHours）是唯一的兜底期限 —— 配置里对它设了上限，原因就在这里。
+//
+// ── 续期 ────────────────────────────────────────────────────────────
+//
+// 请求体带上手上的 token 时**复用它的 subject** 再签一个（token 无效或过期则
+// 签发新的）。这条语义是为了让客户端可以「一直用同一个身份」：不续期的话，
+// 令牌一过期就等于换了个人，用户会发现自己攒下的会话全不见了 —— 而那些行
+// 还在库里，只是归属到了一个再也拿不回来的 subject。
+//
+// ── 授权范围 ────────────────────────────────────────────────────────
+//
+// 签发的角色固定取自 auth.anonymous.role，默认 agent。于是匿名身份能进
+// agent 组（/sessions*）与 stream 组（/chat、/approvals/:id/resume），
+// 进不了 admin 的 dataset 组，也进不了 approver 的审批决策 —— 那两组的角色
+// 是给后台用的。这不是「暂时没做」，而是角色模型就该如此。
+//
+// ── 日后接入账号登录 ────────────────────────────────────────────────
+//
+// 那时只是再加一种签发方式（subject 换成另一个前缀，例如 user:<id>），
+// 校验路径与业务侧（logic 里的 actorSubject、会话归属、角色中间件）都不用改；
+// 已签发的匿名令牌继续有效。若要把登录前攒下的匿名会话迁到账号名下，需要一条
+// 一次性迁移：sessions.owner_subject 是 Immutable（见 ent/schema/session.go），
+// 只能按 `anon:` 前缀筛出来、用裸 SQL UPDATE —— 这也是归属字符串带前缀的原因。
+//
+// 签发的身份要不要可吊销、要不要统计「现在有多少个匿名身份」：那是账号体系的
+// 话题（需要落库），匿名这一层给不出来，也不该假装给得出来。
+type AnonymousTokenReq {
+	// Token 是上次拿到的令牌，用于续期。可选：不带就是「我现在还没有身份」。
+	//
+	// 标量字段必须带 optional，否则 go-zero 的解析器会把它当必填
+	// （400 field "token" is not set）—— 见 core/mapping 只认 optional 关键字。
+	Token string `json:"token,optional"`
+}
+
+type AnonymousTokenResp {
+	Token string `json:"token"`
+	// Subject 是服务端生成的归属，形如 anon:<uuid>。客户端**只用于显示/调试**，
+	// 不要拿它当参数传给任何接口：归属一律从 token 解析，接口上没有 owner 参数。
+	Subject   string `json:"subject"`
+	Role      string `json:"role"`
+	IssuedAt  int64  `json:"issued_at"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
+@server (
+	prefix: /api/v1
+	group:  auth
+)
+service restapi {
+	@doc "签发匿名身份令牌（带旧令牌时为续期）"
+	@handler IssueAnonymousToken
+	post /auth/anonymous (AnonymousTokenReq) returns (AnonymousTokenResp)
+}

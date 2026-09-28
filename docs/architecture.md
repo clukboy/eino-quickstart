@@ -85,6 +85,8 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/health` | 无 | 存活检查 |
 | `GET` | `/ready` | 无 | 数据库就绪检查 |
 | `POST` | `/api/v1/sessions` | `agent` | 创建会话 |
+| `GET` | `/api/v1/sessions` | `agent` | 列出自己的会话，按最后活动时间倒序 |
+| `GET` | `/api/v1/sessions/{id}/messages` | `agent` | 列出某个会话的历史消息（时间正序） |
 | `POST` | `/api/v1/chat` | `agent` | 发起流式对话（SSE） |
 | `GET` | `/api/v1/approvals/{id}` | `approver` | 查询审批 |
 | `POST` | `/api/v1/approvals/{id}/decision` | `approver` | 批准或拒绝 |
@@ -103,6 +105,17 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/api/v1/agents/{subject}/dataset` | `admin` | 查询 API Key 主体可访问的数据集 |
 | `PUT` | `/api/v1/agents/{subject}/dataset/{id}` | `admin` | 为 API Key 主体授权一个启用中的数据集；成功与重复授权都是空体 204 |
 | `DELETE` | `/api/v1/agents/{subject}/dataset/{id}` | `admin` | 撤销授权；成功返回空体 204 |
+
+会话与消息是**真的持久化**的，读侧与写侧都在这一组里：
+
+- `POST /api/v1/sessions` 写 `sessions` 行（`session_id` 是 uuid，`title` 初始为空串）；
+- 每轮对话由 `chat_turns` 记账，同时把 user 与 assistant 的全文写进 `session_messages`
+  （会话历史就是这张表 —— 它也是下次对话喂给模型的上下文）；
+- `title` 由首条用户消息派生（`session.DeriveTitle`，trim + 折叠空白 + 18 字截断），
+  `updated_at` 在每轮的 Start 与 Complete 各刷一次，列表按它倒序。
+
+所以「刷新后会话还在」不依赖客户端存任何东西。两条读接口都**没有 owner 参数**，
+归属只取自 token；不存在与不属于自己都返回 404（不区分，避免用 uuid 探测资源是否存在）。
 
 文档的写操作**不同步等索引**，而且请求内**不切块**。HTTP 侧只做三件事：
 
@@ -124,7 +137,16 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 投递失败是**同步失败**：队列不可用（Redis 连不上、`asynq.enabled=false`）时请求直接
 返回错误，`documents` 行被标记为 `failed`，不会留下一个永远停在 `indexing` 的孤儿。
 
-路由与类型由 `internal/transport/restapi/docs/*.api` 驱动 goctl 生成，是契约的唯一来源。
+路由与类型由 `internal/transport/restapi/docs/*.api` 驱动 goctl 生成，是契约的唯一来源 ——
+**包括两条 SSE 路由**（`POST /api/v1/chat`、`POST /api/v1/approvals/{id}/resume`）：它们在
+`docs/stream/stream.api` 的 `@server` 块上带 `sse: true`，goctl 据此选用 SSE 模板并给路由加上
+`rest.WithSSE()`。`.api` 之外没有裸 handler。
+
+SSE 帧是 goctl 生成器的原生形态 —— 只有 `data: {...}` 行、没有 `event:` 行，事件种类看 payload
+的 `type`（`message` / `error` / `done` / `approval_required`），客户端用 `onmessage` 分派；
+一旦开流，身份、会话、run 这些前置失败也以 `type=error` 的帧返回而不是 HTTP 错误码。完整口径
+（含「必填字段缺失仍是 400」）见 `docs/stream/stream.api`。
+
 指标不再暴露在同端口：go-zero 自带 Prometheus agent 在
 `internal/transport/restapi/etc/restapi.yaml` 的 `Prometheus.Host/Port` 上独立监听
 （当前该段是注释状态，即指标未暴露）。

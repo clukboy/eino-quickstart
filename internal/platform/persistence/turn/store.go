@@ -77,6 +77,10 @@ func (s *Store) Start(ctx context.Context, turnID string, sessionID string, owne
 			return err
 		}
 
+		if err := touchSession(ctx, tx, sessionRecord.ID); err != nil {
+			return err
+		}
+
 		return tx.SessionMessage.
 			Create().
 			SetSession(sessionRecord).
@@ -152,6 +156,9 @@ func (s *Store) GetOwned(
 // Only RUNNING or INTERRUPTED turns may complete. Because the turn status and
 // session message are updated in one transaction, a retry cannot add a second
 // assistant message after a successful completion.
+//
+// An empty assistantContent still completes the turn but appends nothing to the
+// session history — see the branch below for why that is not merely a nicety.
 func (s *Store) Complete(
 	ctx context.Context,
 	turnID string,
@@ -223,6 +230,21 @@ func (s *Store) Complete(
 			return nil
 		}
 
+		if err := touchSession(ctx, tx, sessionRecord.ID); err != nil {
+			return err
+		}
+
+		// 空回答：轮次照样收成 COMPLETED，但不往会话历史里塞一条空消息。
+		//
+		// 空回答是真实存在的：模型调完工具直接结束、没输出任何文本。不能写的
+		// 理由有两条 —— session_messages.content 是 NotEmpty，塞空串会触发 ent
+		// 的校验错误，让**整个事务回滚**（轮次就永远卡在 RUNNING 了，而且这是
+		// 静默的：调用方只看到一个校验错误）；就算写得进去，它也会作为一段空
+		// 上下文被重新喂给模型。
+		if assistantContent == "" {
+			return nil
+		}
+
 		return tx.SessionMessage.
 			Create().
 			SetSession(sessionRecord).
@@ -230,6 +252,24 @@ func (s *Store) Complete(
 			SetContent(assistantContent).
 			Exec(ctx)
 	})
+}
+
+// touchSession 刷新会话的最后活动时间。
+//
+// 放在轮次的同一个事务里、而不是让调用方补一句，是因为「消息进了会话历史」
+// 与「会话浮到列表顶部」必须同时成立 —— 分开写会出现「消息写进去了、会话却还
+// 排在下面」的半截状态，而那个状态没有任何自愈路径。
+//
+// 只有 Start 与 Complete 两处调用，这是刻意的：它们才是「会话真的动了」的两个
+// 时刻。MarkInterrupted（工具调用等审批）不调 —— 它紧跟在 Start 之后，会话的
+// 最后活动时间本来就该是那个 Start 的时刻。
+func touchSession(ctx context.Context, tx *ent.Tx, sessionID uint64) error {
+	_, err := tx.Session.
+		UpdateOneID(sessionID).
+		SetUpdatedAt(time.Now().UTC()).
+		Save(ctx)
+
+	return err
 }
 
 // Fail marks a still-running turn as failed without modifying Session history.

@@ -5,15 +5,17 @@ syntax = "v1"
 // 本组 11 条路由需要 admin 角色，统一挂 RoleAdmin 中间件：
 //   /dataset*   数据集的增/查/删，以及其下文档的增删改查与重建索引
 //
-// 文档正文的去向：创建时给的 content 会写成 knowledge.root 托管目录下的
-// 文件，documents.source 保存相对路径；只给 source 则表示注册一个已经在
-// knowledge.root 里的文件，接口只读不改。正文以文件为唯一真相，所以
-// 「重建索引」就是把文件重新读出来，数据库里不必再存一份。
+// 文档正文的去向：创建时给的 content 直接写进 **documents.content**（PostgreSQL），
+// 正文以数据库为唯一真相，同时不再落任何本地文件。给的正文若带 YAML 头，头会被
+// 解析进 documents.metadata、不留在正文里；召回时按 document_id 查库取正文即可。
 //
-// **文档粒度是产品，不是文件。** 产品型录（dataset.type = product）的一份文件
-// 通常包含多个产品块，创建/上传时会在请求内按产品块拆开，**一个产品一条文档、
-// 一份正文文件**（source 形如 documents/<数据集>/<型号>-<短哈希>.md）。这样
-// 每个产品都能单独改、单独重建索引、单独删除，不必重传整份型录。
+// documents.source 现在只是**溯源信息**（这份正文是从哪来的、或历史上曾写成哪个
+// 路径），不再指向一个可读的文件 —— 读正文请走 GET .../content，不要按 source 去
+// 磁盘上找。基于同一原因，「重建索引」是重新切库里的正文，不是重读文件。
+//
+// **文档粒度是产品，不是文件。** 产品型录（dataset.type = product）的一次上传
+// 通常包含多个产品块，创建/上传时会在请求内按产品块拆开，**一个产品一条文档**。
+// 这样每个产品都能单独改、单独重建索引、单独删除，不必重传整份型录。
 // 拆分用的是与 worker 同一个解析器（internal/rag/parser 的 SplitBlocks），
 // 不会出现「上传时看到 10 条、索引后只剩 1 条」这种两边对不上的情况。
 //
@@ -179,7 +181,11 @@ type SearchHitResp {
 	Title       string  `json:"title"`
 	HeadingPath string  `json:"heading_path"`
 	Content     string  `json:"content"`
-	Score       float64 `json:"score"`
+	// ContentTruncated 表示 content 是按上限（knowledge.maxResultBytes）截断过的。
+	// 被截断的正文与完整的正文在调用方眼里长得一样，不显式带出去，缺失的部分
+	// 就没有任何痕迹。
+	ContentTruncated bool    `json:"content_truncated,omitempty"`
+	Score            float64 `json:"score"`
 }
 
 // SearchResp 是一次召回的完整结果。

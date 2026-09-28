@@ -6,8 +6,6 @@ package agent
 import (
 	"context"
 
-	"eino-quickstart/internal/platform/auth"
-	"eino-quickstart/internal/transport/restapi/internal/httpx"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -31,14 +29,14 @@ func NewCreateSessionLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cre
 
 // CreateSession creates (or reuses) a session owned by the calling subject.
 func (l *CreateSessionLogic) CreateSession() (resp *types.CreateSessionResp, err error) {
-	identity, ok := auth.IdentityFromContext(l.ctx)
-	if !ok {
-		return nil, httpx.Unauthorized("unauthenticated")
+	subject, err := actorSubject(l.ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	id := uuid.NewString()
-	if err = l.svcCtx.Sessions.GetOrCreate(l.ctx, id, identity.Subject); err != nil {
-		return nil, httpx.Internal("create session failed")
+	if err = l.svcCtx.Sessions.GetOrCreate(l.ctx, id, subject); err != nil {
+		return nil, fail(err)
 	}
 
 	return &types.CreateSessionResp{SessionID: id}, nil

@@ -9,6 +9,7 @@ import (
 	"eino-quickstart/ent/sessionmessage"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -25,6 +26,26 @@ type SessionUpdate struct {
 // Where appends a list predicates to the SessionUpdate builder.
 func (_u *SessionUpdate) Where(ps ...predicate.Session) *SessionUpdate {
 	_u.mutation.Where(ps...)
+	return _u
+}
+
+// SetTitle sets the "title" field.
+func (_u *SessionUpdate) SetTitle(v string) *SessionUpdate {
+	_u.mutation.SetTitle(v)
+	return _u
+}
+
+// SetNillableTitle sets the "title" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableTitle(v *string) *SessionUpdate {
+	if v != nil {
+		_u.SetTitle(*v)
+	}
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *SessionUpdate) SetUpdatedAt(v time.Time) *SessionUpdate {
+	_u.mutation.SetUpdatedAt(v)
 	return _u
 }
 
@@ -71,6 +92,7 @@ func (_u *SessionUpdate) RemoveMessages(v ...*SessionMessage) *SessionUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *SessionUpdate) Save(ctx context.Context) (int, error) {
+	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -96,6 +118,14 @@ func (_u *SessionUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (_u *SessionUpdate) defaults() {
+	if _, ok := _u.mutation.UpdatedAt(); !ok {
+		v := session.UpdateDefaultUpdatedAt()
+		_u.mutation.SetUpdatedAt(v)
+	}
+}
+
 func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	_spec := sqlgraph.NewUpdateSpec(session.Table, session.Columns, sqlgraph.NewFieldSpec(session.FieldID, field.TypeUint64))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
@@ -104,6 +134,12 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Title(); ok {
+		_spec.SetField(session.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(session.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _u.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -170,6 +206,26 @@ type SessionUpdateOne struct {
 	mutation *SessionMutation
 }
 
+// SetTitle sets the "title" field.
+func (_u *SessionUpdateOne) SetTitle(v string) *SessionUpdateOne {
+	_u.mutation.SetTitle(v)
+	return _u
+}
+
+// SetNillableTitle sets the "title" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableTitle(v *string) *SessionUpdateOne {
+	if v != nil {
+		_u.SetTitle(*v)
+	}
+	return _u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (_u *SessionUpdateOne) SetUpdatedAt(v time.Time) *SessionUpdateOne {
+	_u.mutation.SetUpdatedAt(v)
+	return _u
+}
+
 // AddMessageIDs adds the "messages" edge to the SessionMessage entity by IDs.
 func (_u *SessionUpdateOne) AddMessageIDs(ids ...uint64) *SessionUpdateOne {
 	_u.mutation.AddMessageIDs(ids...)
@@ -226,6 +282,7 @@ func (_u *SessionUpdateOne) Select(field string, fields ...string) *SessionUpdat
 
 // Save executes the query and returns the updated Session entity.
 func (_u *SessionUpdateOne) Save(ctx context.Context) (*Session, error) {
+	_u.defaults()
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
@@ -248,6 +305,14 @@ func (_u *SessionUpdateOne) Exec(ctx context.Context) error {
 func (_u *SessionUpdateOne) ExecX(ctx context.Context) {
 	if err := _u.Exec(ctx); err != nil {
 		panic(err)
+	}
+}
+
+// defaults sets the default values of the builder before save.
+func (_u *SessionUpdateOne) defaults() {
+	if _, ok := _u.mutation.UpdatedAt(); !ok {
+		v := session.UpdateDefaultUpdatedAt()
+		_u.mutation.SetUpdatedAt(v)
 	}
 }
 
@@ -276,6 +341,12 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.Title(); ok {
+		_spec.SetField(session.FieldTitle, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.UpdatedAt(); ok {
+		_spec.SetField(session.FieldUpdatedAt, field.TypeTime, value)
 	}
 	if _u.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -71,12 +71,16 @@ goctl **没有** `file` / multipart 的内置类型 —— `parser` 里没有 `f
   （见 `rest/httpx/util.go` 的 `GetFormValues`），所以不用自己再 parse 一遍。
   路径与 RoleAdmin 中间件仍由生成器管。
 
-- **B**：完全不进 `.api`，照两条 SSE 路由的先例在 `restapi.go` 里
-  `server.AddRoute(rest.Route{...}, ...)` 并挂 `serverCtx.RoleAdmin(...)`。适合逻辑很重、
-  不想被生成器约束的场合。
+- **B**：完全不进 `.api`，在 `restapi.go` 里 `server.AddRoute(rest.Route{...}, ...)` 并挂
+  `serverCtx.RoleAdmin(...)`。**这条路已经失去先例**：原先两条 SSE 路由就是这么做的，
+  现在它们收回了 `stream/stream.api`（见 `docs/stream/stream.api` 与入口注释）。所以选 B
+  的代价要自己认清：路由不进 `handler.RegisterHandlers`，`routes_test.go` 的契约表扫不到
+  它，漏注册只有客户端拿到 404 才知道。只在生成器确实表达不了、且逻辑重到不值得拆的时候
+  才用。
 
-**顺带清理**：`restapi.go` 第 34 行注释里的 "the upload placeholder's 202" 是**过期注释**，
-现在没有 upload 路由。落地时一并删掉，免得下次又按它去找一条不存在的路由。
+**顺带清理**：这条已做完了 —— `restapi.go` 里 "the upload placeholder's 202" 那段过期注释
+连同手写路由一起删掉了。留着这句是为了说明：`.api` 之外现在没有任何裸 handler，见到类似
+注释不必再去找路由。
 
 ---
 

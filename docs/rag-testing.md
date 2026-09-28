@@ -250,17 +250,56 @@ curl -s -X POST "http://127.0.0.1:8090/api/v1/dataset/<datasetId>/search" \
 通道都正常参与；非空（比如 `["vector"]`）表示少了一条通道的贡献 —— 条数偏少或某个型号
 搜不到可能就是它造成的。
 
-索引完成后，用 `agent` 角色的 Key 调对话接口：
+索引完成后，用 `agent` 角色的 Key 调对话接口。**先开会话**：正常流程是先 `POST /api/v1/sessions`
+拿到 `session_id` 再对话（带着它，会话历史才连得上）：
 
 ```bash
+SESSION=$(curl -sS -X POST "http://127.0.0.1:8090/api/v1/sessions" \
+  -H "Authorization: Bearer $EINO_API_KEY_DEVELOPER" | jq -r .session_id)
+
 curl -N http://127.0.0.1:8090/api/v1/chat \
   -H "Authorization: Bearer $EINO_API_KEY_DEVELOPER" \
   -H 'Content-Type: application/json' \
-  -d '{"message":"概括 guide 的主要内容"}'
+  -d "{\"session_id\":\"$SESSION\",\"message\":\"概括 guide 的主要内容\"}"
 ```
 
-根 Agent 会把知识类问题路由给知识 Agent，后者调用 `search_knowledge`。要验证索引
-本身是否成功，看上面的「等待索引完成」和「查库核对」两节 —— 那两节不依赖检索链路。
+带一个不存在的 `session_id` 现在**不会**报错：chat 会在查历史之前把这条会话建出来，
+所以「客户端把 id 弄丢了」不再是一条死路。不带的则用服务端生成的 UUID（会在帧里回传）。
+
+每一帧都是一行 `data: {...}` —— goctl 生成的 SSE 帧**不带 `event:` 行**，事件种类在 payload
+的 `type` 里（完整口径见 `docs/stream/stream.api`）：
+
+```text
+data: {"type":"message","session_id":"...","agent":"...","content":"# 标题"}
+data: {"type":"approval_required","session_id":"...","approval_id":"..."}   ← 工具被审批拦下
+data: {"type":"done","session_id":"..."}
+data: {"type":"error","session_id":"...","error":"..."}                     ← 此帧之后流即结束
+```
+
+`error` 帧就按 `error` 字段的文案排查。**判错不要只看 HTTP 状态码**：流一旦开始，身份、
+run 这些前置失败也走 `error` 帧；只有请求体本身解析不过（必填字段缺失）才是 400。
+
+### 会话落库核对
+
+上面这一轮跑完，会话与消息都已经在库里了，用两条只读接口直接读回来（它们也是前端侧栏
+与历史记录的来源）：
+
+```bash
+# 列表：最新活动的在前；刚聊过的这条 title 是那句用户消息的截断
+curl -sS "http://127.0.0.1:8090/api/v1/sessions" \
+  -H "Authorization: Bearer $EINO_API_KEY_DEVELOPER" | jq
+
+# 历史：user 与 assistant 各一条，assistant 的 content 与流里拼出来的一致
+curl -sS "http://127.0.0.1:8090/api/v1/sessions/$SESSION/messages" \
+  -H "Authorization: Bearer $EINO_API_KEY_DEVELOPER" | jq
+```
+
+两条接口都**没有 owner 参数**，归属只取自 token；别人的（或不存在的）`session_id` 返回 404
+而不是 403 —— 「不存在」与「不是你的」刻意不区分，免得被拿来试探 uuid。
+
+根 Agent 会把知识类问题路由给知识 Agent，后者调用 `search_knowledge`（注意它目前是
+bindings 版空实现，回答里不会出现引用，见 `docs/known-gaps.md` 的 P0）。要验证索引本身
+是否成功，看上面的「等待索引完成」和「查库核对」两节 —— 那两节不依赖检索链路。
 
 ## 召回评测
 

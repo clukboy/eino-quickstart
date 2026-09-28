@@ -22,6 +22,11 @@ import (
 //
 // server.Routes() 返回的是已经拼好 prefix 的路径，所以这里的键可以直接拿去
 // 喂给 router.Handle，与启动时 engine 做的事一致。
+//
+// 两条 SSE 路由（POST /api/v1/chat、POST /api/v1/approvals/:id/resume）现在也在
+// 这张表里。它们原先手写在 stream.go、由 restapi.go 手动 AddRoute，不从
+// handler.RegisterHandlers 走，因此这个测试**看不到它们** —— 漏注册只会在客户端
+// 拿到 404 时才发现。收回 stream/stream.api 之后它们与其他路由同源，表面就齐了。
 func TestRoutingContract(t *testing.T) {
 	server, err := rest.NewServer(rest.RestConf{
 		ServiceConf: service.ServiceConf{Name: "restapi-routes-test"},
@@ -36,8 +41,13 @@ func TestRoutingContract(t *testing.T) {
 		"GET /health":                                        true,
 		"GET /ready":                                         true,
 		"POST /api/v1/sessions":                              true,
+		"GET /api/v1/sessions":                               true,
+		"GET /api/v1/sessions/:id/messages":                  true,
+		"POST /api/v1/auth/anonymous":                        true,
+		"POST /api/v1/chat":                                  true,
 		"GET /api/v1/approvals/:id":                          true,
 		"POST /api/v1/approvals/:id/decision":                true,
+		"POST /api/v1/approvals/:id/resume":                  true,
 		"POST /api/v1/dataset":                               true,
 		"GET /api/v1/dataset":                                true,
 		"GET /api/v1/dataset/:id":                            true,

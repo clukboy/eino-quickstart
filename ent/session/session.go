@@ -18,8 +18,12 @@ const (
 	FieldSessionID = "session_id"
 	// FieldOwnerSubject holds the string denoting the owner_subject field in the database.
 	FieldOwnerSubject = "owner_subject"
+	// FieldTitle holds the string denoting the title field in the database.
+	FieldTitle = "title"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
+	FieldUpdatedAt = "updated_at"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
 	EdgeMessages = "messages"
 	// Table holds the table name of the session in the database.
@@ -38,7 +42,9 @@ var Columns = []string{
 	FieldID,
 	FieldSessionID,
 	FieldOwnerSubject,
+	FieldTitle,
 	FieldCreatedAt,
+	FieldUpdatedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -54,8 +60,14 @@ func ValidColumn(column string) bool {
 var (
 	// SessionIDValidator is a validator for the "session_id" field. It is called by the builders before save.
 	SessionIDValidator func(string) error
+	// DefaultTitle holds the default value on creation for the "title" field.
+	DefaultTitle string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
+	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
+	DefaultUpdatedAt func() time.Time
+	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
+	UpdateDefaultUpdatedAt func() time.Time
 )
 
 // OrderOption defines the ordering options for the Session queries.
@@ -76,9 +88,19 @@ func ByOwnerSubject(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOwnerSubject, opts...).ToFunc()
 }
 
+// ByTitle orders the results by the title field.
+func ByTitle(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTitle, opts...).ToFunc()
+}
+
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByUpdatedAt orders the results by the updated_at field.
+func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
 // ByMessagesCount orders the results by messages count.

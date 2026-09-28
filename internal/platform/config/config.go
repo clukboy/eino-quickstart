@@ -112,14 +112,45 @@ type Storage struct {
 	MaxOpenConn int    `yaml:"maxOpenConn"`
 }
 
+// maxAnonymousTTLHours 是匿名令牌有效期上限（一年）。
+//
+// 匿名令牌是**无状态**的：签出去就收不回，服务端没有吊销名单（见
+// internal/platform/auth 的 AnonymousIssuer）。所以有效期是这个身份唯一的
+// 兜底 —— 配成一个几乎不过期的值时，一个泄漏的令牌就是永久可用的身份，
+// 而运维没有任何手段收回。
+const maxAnonymousTTLHours = 24 * 365
+
 type Auth struct {
-	Enabled bool           `yaml:"enabled"`
-	APIKeys []APIKeyConfig `yaml:"apiKeys"`
+	Enabled   bool                `yaml:"enabled"`
+	APIKeys   []APIKeyConfig      `yaml:"apiKeys"`
+	Anonymous AnonymousAuthConfig `yaml:"anonymous"`
 }
 type APIKeyConfig struct {
 	Subject string `yaml:"subject"`
 	Role    string `yaml:"role"`
 	KeyEnv  string `yaml:"keyEnv"`
+}
+
+// AnonymousAuthConfig 是匿名身份（用户端）的配置。
+//
+// 与 apiKeys 的区别在于「身份从哪来」：静态 key 的身份是运维写死的 subject，
+// 一个 key 对应一个固定的人，天然无法给每个访客一个独立身份；匿名令牌的身份
+// 由服务端在运行时签发（见 internal/platform/auth 的 AnonymousIssuer），
+// 所以用户端拿到的每个令牌都是一个不同的 subject，会话因此天然隔离。
+//
+// Role 决定匿名身份能进哪些组。默认 agent：匿名用户要能对话，但绝不该碰到
+// admin 的 dataset 组或 approver 的审批决策。
+type AnonymousAuthConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	Role          string `yaml:"role"`
+	SecretEnv     string `yaml:"secretEnv"`
+	TTLHours      int    `yaml:"ttlHours"`
+	SubjectPrefix string `yaml:"subjectPrefix"`
+
+	// Secret 从 SecretEnv 指向的环境变量读入，口径与 storage.password 一致：
+	// 密钥不进配置文件。yaml:"-" 表示配置文件里写这个字段无效（也提示后来者
+	// 不要把它写进去）。
+	Secret string `yaml:"-"`
 }
 
 type RuntimeConfig struct {
@@ -326,6 +357,10 @@ func Load(path string) (*Config, error) {
 	if cfg.ES.PasswordEnv != "" {
 		cfg.ES.Password = os.Getenv(cfg.ES.PasswordEnv)
 	}
+	// 匿名令牌的签名密钥同理：它一旦泄漏，任何人都能伪造任意 subject。
+	if cfg.Auth.Anonymous.SecretEnv != "" {
+		cfg.Auth.Anonymous.Secret = os.Getenv(cfg.Auth.Anonymous.SecretEnv)
+	}
 
 	if !filepath.IsAbs(cfg.Workspace.Root) {
 		abs, err := filepath.Abs(cfg.Workspace.Root)
@@ -392,6 +427,50 @@ func Load(path string) (*Config, error) {
 			)
 		}
 	}
+
+	// 匿名身份。关掉时一个字段都不校验（部署形态就是「只有管理台」），
+	// 打开时**每一项都必须齐**：leaving 一个可选的签名密钥等于线上静默地
+	// 给所有人签发同一个（或空密钥签的）身份，而症状只是「会话还是互相可见」，
+	// 与没开匿名一模一样 —— 所以宁可启动失败。
+	if cfg.Auth.Anonymous.Enabled {
+		switch cfg.Auth.Anonymous.Role {
+		case "agent", "approver", "admin":
+		default:
+			return nil, fmt.Errorf(
+				"auth.anonymous.role %q is not a known role",
+				cfg.Auth.Anonymous.Role,
+			)
+		}
+		if cfg.Auth.Anonymous.SecretEnv == "" {
+			return nil, fmt.Errorf(
+				"auth.anonymous.secretEnv is required when anonymous access is enabled",
+			)
+		}
+		if cfg.Auth.Anonymous.Secret == "" {
+			return nil, fmt.Errorf(
+				"environment variable %s is required",
+				cfg.Auth.Anonymous.SecretEnv,
+			)
+		}
+		if cfg.Auth.Anonymous.TTLHours <= 0 {
+			return nil, fmt.Errorf(
+				"auth.anonymous.ttlHours must be greater than zero",
+			)
+		}
+		if cfg.Auth.Anonymous.TTLHours > maxAnonymousTTLHours {
+			return nil, fmt.Errorf(
+				"auth.anonymous.ttlHours must not exceed %d",
+				maxAnonymousTTLHours,
+			)
+		}
+		// 前缀空着时回填默认值而不是报错：它有一个显然正确的取值，且必须与
+		// internal/platform/auth 的 AnonymousSubjectPrefix 一致，否则
+		// 「哪个 subject 是匿名的」在库里就认不出来。
+		if cfg.Auth.Anonymous.SubjectPrefix == "" {
+			cfg.Auth.Anonymous.SubjectPrefix = "anon:"
+		}
+	}
+
 	if cfg.Runtime.ReadTimeoutSeconds <= 0 {
 		return nil, fmt.Errorf("runtime.readTimeoutSeconds must be greater than zero")
 	}

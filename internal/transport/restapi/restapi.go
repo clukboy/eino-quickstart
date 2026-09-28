@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"sync"
 
 	"eino-quickstart/ent"
@@ -47,6 +46,12 @@ type Options struct {
 	Runs      *run.Store
 	Turns     *turn.Store
 	Auth      *auth.Authenticator
+
+	// Anonymous 可选：为 nil 表示不开放匿名身份，此时 /auth/anonymous 会明确
+	// 回 503。签发者与校验者（Auth）必须是同一个密钥的两个视图，所以两者都在
+	// 组合根里构造 —— 传输层只负责把令牌签出来，不持有密钥来源。
+	Anonymous *auth.AnonymousIssuer
+
 	Logger    *slog.Logger
 	EntClient *ent.Client
 }
@@ -65,6 +70,7 @@ func New(opts Options) (*Server, error) {
 		Runs:      opts.Runs,
 		Turns:     opts.Turns,
 		Auth:      opts.Auth,
+		Anonymous: opts.Anonymous,
 		Logger:    opts.Logger,
 		EntClient: opts.EntClient,
 	}
@@ -97,9 +103,9 @@ func New(opts Options) (*Server, error) {
 	return &Server{Deps: deps, Config: cfg}, nil
 }
 
-// Engine builds the go-zero server: global middleware, the routes generated from
-// restapi.api, then the three hand-written routes. Exported so tests can drive
-// the engine through httptest without binding a port.
+// Engine builds the go-zero server: global middleware, then every route
+// generated from restapi.api. Exported so tests can drive the engine through
+// httptest without binding a port.
 func (s *Server) Engine() (*rest.Server, error) {
 	serverCtx := svc.NewServiceContext(s.Config, s.Deps)
 
@@ -132,22 +138,10 @@ func (s *Server) Engine() (*rest.Server, error) {
 	server.Use(rest.ToMiddleware(middleware.TraceID))
 	server.Use(rest.ToMiddleware(middleware.Authenticate(s.Auth)))
 
-	// Routes generated from restapi.api.
+	// Every route, including the two SSE ones. The stream group in
+	// docs/stream/stream.api carries `sse: true`, so its routes are registered
+	// here with rest.WithSSE() — nothing is added by hand any more.
 	handler.RegisterHandlers(server, serverCtx)
-
-	// Hand-written routes. See the package comment for why these are not in the
-	// .api file.
-	stream := newStreamHandlers(serverCtx)
-	server.AddRoute(rest.Route{
-		Method:  http.MethodPost,
-		Path:    "/api/v1/chat",
-		Handler: serverCtx.RoleAgent(stream.Chat),
-	}, rest.WithSSE())
-	server.AddRoute(rest.Route{
-		Method:  http.MethodPost,
-		Path:    "/api/v1/approvals/:id/resume",
-		Handler: serverCtx.RoleAgent(stream.ResumeApproval),
-	}, rest.WithSSE())
 
 	return server, nil
 }

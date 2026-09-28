@@ -9808,7 +9808,9 @@ type SessionMutation struct {
 	id              *uint64
 	session_id      *string
 	owner_subject   *string
+	title           *string
 	created_at      *time.Time
+	updated_at      *time.Time
 	clearedFields   map[string]struct{}
 	messages        map[uint64]struct{}
 	removedmessages map[uint64]struct{}
@@ -9988,6 +9990,42 @@ func (m *SessionMutation) ResetOwnerSubject() {
 	m.owner_subject = nil
 }
 
+// SetTitle sets the "title" field.
+func (m *SessionMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *SessionMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *SessionMutation) ResetTitle() {
+	m.title = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *SessionMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -10022,6 +10060,42 @@ func (m *SessionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err er
 // ResetCreatedAt resets all changes to the "created_at" field.
 func (m *SessionMutation) ResetCreatedAt() {
 	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SessionMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SessionMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SessionMutation) ResetUpdatedAt() {
+	m.updated_at = nil
 }
 
 // AddMessageIDs adds the "messages" edge to the SessionMessage entity by ids.
@@ -10112,15 +10186,21 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 5)
 	if m.session_id != nil {
 		fields = append(fields, session.FieldSessionID)
 	}
 	if m.owner_subject != nil {
 		fields = append(fields, session.FieldOwnerSubject)
 	}
+	if m.title != nil {
+		fields = append(fields, session.FieldTitle)
+	}
 	if m.created_at != nil {
 		fields = append(fields, session.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, session.FieldUpdatedAt)
 	}
 	return fields
 }
@@ -10134,8 +10214,12 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.SessionID()
 	case session.FieldOwnerSubject:
 		return m.OwnerSubject()
+	case session.FieldTitle:
+		return m.Title()
 	case session.FieldCreatedAt:
 		return m.CreatedAt()
+	case session.FieldUpdatedAt:
+		return m.UpdatedAt()
 	}
 	return nil, false
 }
@@ -10149,8 +10233,12 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldSessionID(ctx)
 	case session.FieldOwnerSubject:
 		return m.OldOwnerSubject(ctx)
+	case session.FieldTitle:
+		return m.OldTitle(ctx)
 	case session.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
+	case session.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Session field %s", name)
 }
@@ -10174,12 +10262,26 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetOwnerSubject(v)
 		return nil
+	case session.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
 	case session.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCreatedAt(v)
+		return nil
+	case session.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Session field %s", name)
@@ -10236,8 +10338,14 @@ func (m *SessionMutation) ResetField(name string) error {
 	case session.FieldOwnerSubject:
 		m.ResetOwnerSubject()
 		return nil
+	case session.FieldTitle:
+		m.ResetTitle()
+		return nil
 	case session.FieldCreatedAt:
 		m.ResetCreatedAt()
+		return nil
+	case session.FieldUpdatedAt:
+		m.ResetUpdatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Session field %s", name)

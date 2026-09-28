@@ -186,5 +186,13 @@ func documentContentOne(ctx context.Context, service *knowledge.Service, doc *en
 		UpdatedAt:         base.UpdatedAt,
 		Enabled:           base.Enabled,
 		Content:           doc.Content,
+		// Metadata 是这里唯一不来自 base 的字段：DocumentResp **没有** metadata
+		// （列表与详情都不带元数据，只有取正文这一条路径带）。所以它不会随
+		// base 一起被复制过来，必须从 ent 行上单独搬一次。
+		//
+		// 漏掉的症状很隐蔽：契约里它是 `json:"metadata,omitempty"`，没人赋值时
+		// 响应里干脆**没有这个键**，接口看起来完全正常，而前端抽屉的「元数据」
+		// 整块静默消失 —— documents.metadata 存的产品型号/规格明明在库里。
+		Metadata: doc.Metadata,
 	}, nil
 }

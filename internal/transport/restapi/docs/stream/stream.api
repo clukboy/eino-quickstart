@@ -1,0 +1,104 @@
+syntax = "v1"
+
+// 流式对话与审批续跑：本组两条路由都是 SSE。
+//
+// 这两条路由原先手写在 internal/transport/restapi/stream.go 里（裸 http.HandlerFunc
+// + 手动 rest.WithSSE()），现在已经收回生成链路：@server 块上的 `sse: true` 让
+// goctl 改用 sse_handler.tpl / sse_logic.tpl，生成物是三样东西 ——
+//
+//   路由   server.AddRoutes(..., rest.WithSSE())。WithSSE 做两件事：清掉
+//          http.Server 的写超时（SSE 要长连），预置 text/event-stream /
+//          no-cache / keep-alive 三个响应头。
+//   handler 把 logic 推入 channel 的对象逐条 json.Marshal，写成 `data: {...}` 帧，
+//          每帧 flush；请求 context 取消（客户端断开）即退出。
+//   logic  推送模型签名：Chat(req, client chan<- types.ChatEvent) error。
+//          「写什么给客户端」是逻辑层的事，handler 只管序列化。
+//
+// ────────────────────────────────────────────────────────────────
+// 帧格式：没有 `event:` 行
+//
+// goctl 生成的帧固定是 `data: {...}` + 空行，不带事件名。事件种类由 payload 的
+// type 字段区分（message / error / done / approval_required），客户端用
+// onmessage 读 data 再按 type 分派，不要用 addEventListener(名字)。
+//
+// 需要命名事件（`event: message` + `data: {...}`）的话，唯一办法是在仓库里放一份
+// 覆盖的 sse_handler.tpl 并让 Makefile 传 --home；生成器本身不提供开关。本项目
+// 选择跟随生成器原样，避免多一份要跟 goctl 版本对齐的模板。
+//
+// ────────────────────────────────────────────────────────────────
+// 与手写版本的两处行为差异
+//
+// 都是生成器形态决定的，客户端要按新口径处理：
+//
+//   1. 校验分成两道，口径不同。**必填字段缺失或为空**由生成 handler 里的
+//      httpx.Parse 拦下，仍是 400 + JSON 错误信封（go-zero 的 mapping 把没带
+//      `optional` 的字段一律当必填，所以 message 缺省是 400、而不是被当成空串
+//      送进 logic）；**过了解析但语义非法**的情况（例如 message 只有空白）才进到
+//      logic，改成在流上发一条 type=error 的帧再返回 error —— 生成的 handler 只
+//      把 logic 的 error 记日志、不写响应，不自己发帧客户端就只会看到连接静默
+//      关闭，分不清是网络断了还是服务端拒绝了。
+//      两条路径的响应头也是分开的：400 那条仍是 application/json（go-zero 会
+//      重设），客户端按状态码分流即可 —— 非 2xx 当 JSON 信封读，2xx 才当帧流读。
+//   2. 流一旦开始，就没有「先返 4xx 再不开流」的路径。身份缺失、会话不存在、
+//      turn 或 run 建不出来这些前置动作失败时，客户端拿到的是 error 帧，而不是
+//      HTTP 错误码 —— 它们发生在写第一帧之后。**判错不能只看 HTTP 状态**。
+//   3. 正常收尾靠 done 帧。error 帧之后流就结束，不会有 done；客户端要知道
+//      「这次回答是完整的」只能等 done。
+
+// ChatEvent 是这条流上唯一的事件类型，四种 type 各自的用法：
+//
+//   message            模型输出增量。content 是这一片的内容，agent 是产出它的
+//                      agent 名（多 agent 编排下可能是子 agent）。客户端按到达
+//                      顺序拼接 content 就是完整回答。
+//   error              链路出错，error 是原因。此帧之后流立即结束，不会再收到
+//                      message / done，本次回答不完整。
+//   done               本次回答正常收尾，assistant 全文已落库（chat_turns）。
+//   approval_required  工具调用被审批拦下，approval_id 指向待决策的审批单。
+//                      决策后用 POST /api/v1/approvals/:id/resume 继续这条流
+//                      （续跑的帧仍走本类型）。
+//
+// 字段全部 omitempty，一帧只带该事件用得上的那几个。
+type ChatEvent {
+	Type       string `json:"type"`
+	SessionID  string `json:"session_id,omitempty"`
+	Agent      string `json:"agent,omitempty"`
+	Content    string `json:"content,omitempty"`
+	Error      string `json:"error,omitempty"`
+	ApprovalID string `json:"approval_id,omitempty"`
+}
+
+// ChatReq 是对话请求。
+//
+// session_id 为空时服务端会生成一个 UUID 并在所有帧里回传，客户端据此建立会话。
+//
+// 会话不存在**不会**报错：logic 在查历史之前会 GetOrCreate 一次，所以带一个陌生
+// uuid 会就地建一条会话（归属仍是 token 的 subject，带别人的 id 一样被拒）。
+// 这消掉了「客户端把 id 弄丢了 → 一发消息就失败 → 且无法自愈」那条路 ——
+// 正常流程仍然是先 POST /api/v1/sessions 拿到 id 再对话，只是不再要求它。
+type ChatReq {
+	SessionID string `json:"session_id,optional"`
+	Message   string `json:"message"`
+}
+
+// ResumeApprovalPathReq 只带路径参数：续跑没有请求体，参数全在 URL 里。
+type ResumeApprovalPathReq {
+	ID string `path:"id"`
+}
+
+// 对话与审批续跑都需要 agent 角色。
+//
+// sse: true 是本组的关键 —— 它同时决定 handler、logic 与路由选项三处的形态，
+// 组内**每条**路由都会变成 SSE，所以不要把普通 JSON 路由塞进这个组。
+@server (
+	prefix:     /api/v1
+	group:      stream
+	sse:        true
+	middleware: RoleAgent
+)
+service restapi {
+	@handler Chat
+	post /chat (ChatReq) returns (ChatEvent)
+
+	@handler ResumeApproval
+	post /approvals/:id/resume (ResumeApprovalPathReq) returns (ChatEvent)
+}

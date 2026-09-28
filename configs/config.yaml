@@ -74,6 +74,29 @@ auth:
       role: "admin"
       keyEnv: "EINO_API_KEY_ADMIN"
 
+  # 匿名身份（用户端）。
+  #
+  # 上面那三个静态 key 的身份是**写死**的 subject：一个 key 对应一个人。用户端
+  # 若拿同一个 key 访问，所有人就都落在同一个 subject 下 —— 会话互相可见，因为
+  # 在服务端看来他们本来就是同一个人。匿名身份解决的就是这件事：identity 由
+  # 服务端在运行时签发（POST /api/v1/auth/anonymous），每个访客一个 anon:<uuid>，
+  # 会话按它隔离。
+  #
+  # role 给 agent 是刻意的：匿名用户要能对话（/chat、/sessions 属 agent 组），
+  # 但绝不该碰到 admin 的 dataset 组与 approver 的审批决策。
+  #
+  # secretEnv 指向的密钥只从环境变量读。它一旦泄漏，任何人都能签出任意 subject
+  # 的令牌 —— 会话隔离会整体失效，且没有任何症状。
+  anonymous:
+    enabled: true
+    role: "agent"
+    secretEnv: "EINO_ANONYMOUS_SECRET"
+    # 令牌有效期。无状态令牌签出去收不回，有效期是唯一的兜底期限，上限一年。
+    ttlHours: 720
+    # 归属字符串的前缀，最终形如 anon:8f14e45f-...。别改：存量会话的归属
+    # 就是靠它认出来的（日后接入账号登录，要按这个前缀把匿名历史迁到账号名下）。
+    subjectPrefix: "anon:"
+
 runtime:
   readTimeoutSeconds: 600
   writeTimeoutSeconds: 120

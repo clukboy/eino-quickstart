@@ -2,21 +2,105 @@ syntax = "v1"
 
 // 会话。
 //
-// 本组只有 POST /sessions 一条由 goctl 生成。真正的对话入口
-// POST /api/v1/chat 是 SSE 流式路由，客户端依赖命名事件，
-// goctl 的 SSE 模板表达不了，见入口 restapi.api 说明，在 restapi.go 注册。
+// 本组三条路由，是「会话」这件事的完整读写面：
+//   POST /sessions                  开一个会话，客户端拿到 session_id 才能真的对话
+//                                   （turn 与 run 的写入都要求会话行已落库）
+//   GET  /sessions                  列出自己的会话，按最后活动时间倒序
+//   GET  /sessions/:id/messages     列出某个会话的历史消息
+//
+// 写作侧先有、读侧后补：会话行与消息一直是在写的（POST /sessions 落 sessions，
+// 对话时落 chat_turns 与 session_messages），但**读回来的接口是后加的** ——
+// 在此之前客户端只能把会话放在自己的内存里，刷新即丢。所以「会话持久化」这件
+// 事的实际内容是这两个 GET，而不是写作侧。
+//
+// 本组三条都带 RoleAgent。owner 一律取自 token 的 subject，**接口上没有任何
+// 「owner 参数」可以传** —— 越权的口径由 Store 统一成「查不到」，
+// 见 internal/platform/persistence/session 的 getOwned。
+//
+// 真正的对话入口 POST /api/v1/chat 是 SSE 流式路由，按「一个子文件 = 一个功能组」
+// 归在 stream 组（stream/stream.api），那一组整组带 sse: true 开关。
+//
+// ── 为什么没有分页、没有删除、没有改名 ──────────────────────────────
+//
+// 没有分页：本仓库的列表接口先例就是全量返回（DatasetListResp 只有 data），
+// 且会话按 owner 切分之后量级很小。真要加，形态应该是 limit + updated_at 游标，
+// 而不是 offset —— 但那需要一个真实的量级理由，现在没有。
+//
+// 没有删除 / 改名：sessions 表目前**没有任何删除路径**，而 session_messages 与
+// chat_turns 对它的外键是 NoAction（不是级联），删一条会话要按序清三张表，
+// 还要考虑 approvals / agent_runs 上的悬挂引用。那是个独立的设计题，
+// 不要顺手塞进这一组做个半成品。
 
 type CreateSessionResp {
 	SessionID string `json:"session_id"`
 }
 
-// 对话框需要 agent 角色。
+// SessionResp 是会话列表里的一条。
+//
+// 时间用毫秒时间戳，与本仓库其它接口一致（UnixMilli）。
+type SessionResp {
+	SessionID string `json:"session_id"`
+	// Title 是首条用户消息的截断（服务端派生，客户端只读）。
+	// **空串是合法值**，含义是「这条会话还没有人说过话」，界面显示「新对话」。
+	// 所以客户端不要把它当缺失来兜底成别的文案 —— 空串本身就是那个状态。
+	//
+	// 派生规则见 internal/platform/persistence/session 的 DeriveTitle，
+	// 前端 src/api/model/chat.ts 的 sessionTitleFrom 是它的镜像实现
+	// （新建会话后、服务端标题回来之前的本地占位）。两边改要一起改。
+	Title string `json:"title"`
+	// CreatedAt 是会话创建时刻。
+	CreatedAt int64 `json:"created_at"`
+	// UpdatedAt 是最后活动时刻（每轮对话的 Start 与 Complete 各刷一次），
+	// 列表就是按它倒序的。它同时也是「这条会话最近被用过吗」的唯一依据。
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type SessionListResp {
+	Data []*SessionResp `json:"data"`
+}
+
+// SessionMessagesReq 的 ID 是**会话的对外 id**（uuid，即 session_id 列），
+// 不是 sessions 表的自增主键 —— 列表接口返回的 session_id 直接填进来即可。
+// 全库没有哪个接口暴露过 self-increment 主键，不要在这里开这个头。
+type SessionMessagesReq {
+	ID string `path:"id"`
+}
+
+// SessionMessageResp 是一条历史消息。
+type SessionMessageResp {
+	ID uint64 `json:"id"`
+	// Role 只有 "user" / "assistant" 两种，取值与 eino schema.RoleType 的字符串
+	// 形式一致（写入侧就是 string(schema.User) / string(schema.Assistant)）。
+	//
+	// 这里给的是 string 而不是枚举：真要枚举，加一种角色就要动生成物，
+	// 而前端的正确行为本来就是「不认识的角色按普通气泡显示」。
+	Role string `json:"role"`
+	// Content 是全文，不做截断。会话历史与知识库召回不同 —— 召回要按字节
+	// 上限截断（正文可能几十 KB），历史消息是用户自己说过的话，截了没有意义。
+	Content   string `json:"content"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type SessionMessagesResp {
+	Data []*SessionMessageResp `json:"data"`
+}
+
+// 会话需要 agent 角色。
 @server (
 	prefix:     /api/v1
 	group:      agent
 	middleware: RoleAgent
 )
 service restapi {
+	@doc "创建会话"
 	@handler CreateSession
 	post /sessions returns (CreateSessionResp)
+
+	@doc "列出我的会话（按最后活动时间倒序）"
+	@handler ListSessions
+	get /sessions returns (SessionListResp)
+
+	@doc "列出会话的历史消息"
+	@handler ListSessionMessages
+	get /sessions/:id/messages (SessionMessagesReq) returns (SessionMessagesResp)
 }

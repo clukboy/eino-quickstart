@@ -9,7 +9,10 @@ syntax = "v1"
 //
 //   common/types.api        跨功能组共享的类型（StatusResp）
 //   health/health.api       健康检查        GET /health、/ready
-//   agent/agent.api         会话            POST /sessions
+//   auth/auth.api           匿名身份         POST /auth/anonymous（公开，无角色中间件）
+//   agent/agent.api         会话            POST /sessions、GET /sessions、
+//                                          GET /sessions/:id/messages
+//   stream/stream.api       流式对话与续跑   SSE：POST /chat、/approvals/:id/resume
 //   approver/approver.api   审批读取与决策   /approvals/:id*
 //   admin/admin.api         agent 数据集授权 /agents/:subject/dataset*
 //   dataset/dataset.api     数据集与文档     /dataset*（含文档 CRUD 与重建索引）
@@ -20,33 +23,32 @@ syntax = "v1"
 // （internal/handler/<group>/、internal/logic/<group>/）与挂载的角色中间件，
 // 所以路由必须按组归位，不要图省事塞进别人的文件。
 //
+// 例外只有 stream 组，但它仍是「一个子文件 = 一个功能组」：组上的 sse: true
+// 是**组级**开关（组内每条路由都变 SSE），而 chat 与审批续跑本来就在同一条流
+// 上，所以它们共处一组，而不是各自成组。
+//
 // ⚠️ goctl 不会覆盖已存在的文件。改完 .api 后若 handler 仍是旧签名（例如给路由
 //    加了 path 参数或 returns），先删掉要重生成的文件再执行 `make gen-api`，
 //    否则会编译报「参数不匹配 / 返回值个数不符」。
 //
 // ────────────────────────────────────────────────────────────────
-// 为什么有 2 条路由不在这里声明
+// 全部路由都由本文件驱动生成
 //
-// 1) POST /api/v1/chat
-// 2) POST /api/v1/approvals/:id/resume
-//    这两条是 SSE 流式路由。goctl 1.9.2 的 SSE 代码生成（sse_handler.tpl）有两处
-//    与客户端契约不符：
-//      a. 帧只写未命名事件：
-//           fmt.Fprintf(w, "data: %s\n\n", string(output))
-//         没有 `event:` 行。而客户端用 addEventListener(eventType, ...) 消费，
-//         依赖命名事件：
-//           event: message|error|done|approval_required
-//           data: {"type":"...","session_id":"...",...}
-//      b. 生成的 logic 签名是通道推送模型
-//           Call(req, client chan ResponseType) error
-//         响应体必须是一个可 json.Marshal 的类型，无法表达本项目
-//         「同一流里混发多种事件」的负载。
-//    因此这两条路由在 restapi.go 中用裸 http.HandlerFunc + rest.WithSSE() 注册，
-//    由 stream.go 逐字节保持既有帧格式。
+// 曾经有 2 条 SSE 路由不在 .api 里：POST /api/v1/chat 与
+// POST /api/v1/approvals/:id/resume。它们手写在
+// internal/transport/restapi/stream.go，理由是 goctl 的 SSE 生成有两处对不上
+// 当时的客户端契约（帧只有 data、没有 event 行；logic 是单响应类型的推送模型）。
 //
-// 除上述 2 条外，其余路由全部由本文件驱动生成。
+// 现在它们回到了生成链路：stream/stream.api 的 @server 块带 `sse: true`
+// 注解，goctl 据此选用 sse_handler.tpl / sse_logic.tpl，并给路由加上
+// rest.WithSSE()（清写超时 + 预置 SSE 响应头）。随之而来的契约变化 —— 帧不再
+// 有 `event:` 行（事件种类看 payload 的 type 字段）、语义校验失败改为流上
+// error 帧、判错不能只看 HTTP 状态码 —— 逐条写在 stream/stream.api 的注释里。
 //
-// GET /metrics 曾是第 3 条手写路由，现已移除：指标改由 go-zero 自带的
+// 手写的那套（handler、路由注册、帧写出）已全部删除，.api 之外不再有裸
+// http.HandlerFunc。
+//
+// GET /metrics 曾是第 3 条手写路由，更早之前就已移除：指标改由 go-zero 自带的
 // Prometheus agent 在独立端口暴露（见 etc/restapi.yaml 的 Prometheus 段），
 // 不再需要 .api 之外的裸 handler。
 // ────────────────────────────────────────────────────────────────
@@ -71,7 +73,9 @@ syntax = "v1"
 // ────────────────────────────────────────────────────────────────
 import "common/types.api"
 import "health/health.api"
+import "auth/auth.api"
 import "agent/agent.api"
+import "stream/stream.api"
 import "approver/approver.api"
 import "admin/admin.api"
 import "dataset/dataset.api"

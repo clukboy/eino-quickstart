@@ -283,6 +283,176 @@
         }
       }
     },
+    "/api/v1/approvals/{id}/resume": {
+      "post": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "ResumeApproval",
+        "operationId": "streamResumeApproval",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "agent": {
+                  "type": "string"
+                },
+                "approval_id": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/anonymous": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "签发匿名身份令牌（带旧令牌时为续期）",
+        "operationId": "authIssueAnonymousToken",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "expires_at": {
+                  "type": "integer"
+                },
+                "issued_at": {
+                  "type": "integer"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "Chat",
+        "operationId": "streamChat",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "message"
+              ],
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "agent": {
+                  "type": "string"
+                },
+                "approval_id": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dataset": {
       "get": {
         "produces": [
@@ -1379,11 +1549,15 @@
             "schema": {
               "type": "object",
               "required": [
-                "query"
+                "query",
+                "top_k"
               ],
               "properties": {
                 "query": {
                   "type": "string"
+                },
+                "top_k": {
+                  "type": "integer"
                 }
               }
             }
@@ -1395,44 +1569,71 @@
             "schema": {
               "type": "object",
               "properties": {
-                "chunk_count": {
+                "channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "chunk_budget": {
                   "type": "integer"
                 },
-                "createdAt": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "chunk_id",
+                      "document_id",
+                      "source",
+                      "title",
+                      "heading_path",
+                      "content",
+                      "content_truncated",
+                      "score"
+                    ],
+                    "properties": {
+                      "chunk_id": {
+                        "type": "integer"
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "content_truncated": {
+                        "type": "boolean"
+                      },
+                      "document_id": {
+                        "type": "integer"
+                      },
+                      "heading_path": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "number"
+                      },
+                      "source": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "degraded": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "granularity": {
+                  "type": "string"
+                },
+                "matched_chunks": {
                   "type": "integer"
                 },
-                "dataset_id": {
+                "top_k": {
                   "type": "integer"
-                },
-                "enabled": {
-                  "type": "boolean"
-                },
-                "id": {
-                  "type": "integer"
-                },
-                "indexed_chunk_count": {
-                  "type": "integer"
-                },
-                "operation": {
-                  "type": "string"
-                },
-                "owner_subject": {
-                  "type": "string"
-                },
-                "source": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "updatedAt": {
-                  "type": "integer"
-                },
-                "visibility": {
-                  "type": "string"
                 }
               }
             }
@@ -1441,6 +1642,52 @@
       }
     },
     "/api/v1/sessions": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "列出我的会话（按最后活动时间倒序）",
+        "operationId": "agentListSessions",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "session_id",
+                      "title",
+                      "created_at",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "session_id": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "produces": [
           "application/json"
@@ -1448,7 +1695,7 @@
         "schemes": [
           "https"
         ],
-        "summary": "CreateSession",
+        "summary": "创建会话",
         "operationId": "agentCreateSession",
         "responses": {
           "200": {
@@ -1458,6 +1705,62 @@
               "properties": {
                 "session_id": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/messages": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "列出会话的历史消息",
+        "operationId": "agentListSessionMessages",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "role",
+                      "content",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "content": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "role": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1519,7 +1822,7 @@
       }
     }
   },
-  "x-date": "2026-09-18 10:32:20",
+  "x-date": "2026-09-27 15:49:28",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

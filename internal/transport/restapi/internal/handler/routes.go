@@ -9,8 +9,10 @@ import (
 	admin "eino-quickstart/internal/transport/restapi/internal/handler/admin"
 	agent "eino-quickstart/internal/transport/restapi/internal/handler/agent"
 	approver "eino-quickstart/internal/transport/restapi/internal/handler/approver"
+	auth "eino-quickstart/internal/transport/restapi/internal/handler/auth"
 	dataset "eino-quickstart/internal/transport/restapi/internal/handler/dataset"
 	health "eino-quickstart/internal/transport/restapi/internal/handler/health"
+	stream "eino-quickstart/internal/transport/restapi/internal/handler/stream"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -46,9 +48,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.RoleAgent},
 			[]rest.Route{
 				{
+					// 创建会话
 					Method:  http.MethodPost,
 					Path:    "/sessions",
 					Handler: agent.CreateSessionHandler(serverCtx),
+				},
+				{
+					// 列出我的会话（按最后活动时间倒序）
+					Method:  http.MethodGet,
+					Path:    "/sessions",
+					Handler: agent.ListSessionsHandler(serverCtx),
+				},
+				{
+					// 列出会话的历史消息
+					Method:  http.MethodGet,
+					Path:    "/sessions/:id/messages",
+					Handler: agent.ListSessionMessagesHandler(serverCtx),
 				},
 			}...,
 		),
@@ -71,6 +86,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 签发匿名身份令牌（带旧令牌时为续期）
+				Method:  http.MethodPost,
+				Path:    "/auth/anonymous",
+				Handler: auth.IssueAnonymousTokenHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1"),
 	)
 
@@ -186,5 +213,25 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: health.ReadyHandler(serverCtx),
 			},
 		},
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAgent},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/approvals/:id/resume",
+					Handler: stream.ResumeApprovalHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/chat",
+					Handler: stream.ChatHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+		rest.WithSSE(),
 	)
 }

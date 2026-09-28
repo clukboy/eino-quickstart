@@ -2,9 +2,11 @@ syntax = "v1"
 
 // 审批的读取与决策。
 //
-// 本组只含读取（GET /approvals/:id）与决策（POST /approvals/:id/decision）。
-// 决策后恢复执行流的 POST /api/v1/approvals/:id/resume 是 SSE 路由，
-// 见入口 restapi.api 说明，在 restapi.go 注册。
+// 本组只含 JSON 路由：读取（GET /approvals/:id）与决策（POST /approvals/:id/decision）。
+//
+// 决策后恢复执行流的 POST /api/v1/approvals/:id/resume 是 SSE 路由，归在
+// stream 组（stream/stream.api）—— sse: true 是**组级**开关，把它放在本组会把
+// 上面两条 JSON 路由一起变成 SSE 帧。
 
 // ApprovalResp 镜像 internal/platform/persistence/approval.Request 的 JSON 形态
 // （camelCase）。修改那边时需同步这里，并由 logic 中的转换函数承接。

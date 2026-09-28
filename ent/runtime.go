@@ -154,10 +154,20 @@ func init() {
 	sessionDescSessionID := sessionFields[0].Descriptor()
 	// session.SessionIDValidator is a validator for the "session_id" field. It is called by the builders before save.
 	session.SessionIDValidator = sessionDescSessionID.Validators[0].(func(string) error)
+	// sessionDescTitle is the schema descriptor for title field.
+	sessionDescTitle := sessionFields[2].Descriptor()
+	// session.DefaultTitle holds the default value on creation for the title field.
+	session.DefaultTitle = sessionDescTitle.Default.(string)
 	// sessionDescCreatedAt is the schema descriptor for created_at field.
-	sessionDescCreatedAt := sessionFields[2].Descriptor()
+	sessionDescCreatedAt := sessionFields[3].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
+	// sessionDescUpdatedAt is the schema descriptor for updated_at field.
+	sessionDescUpdatedAt := sessionFields[4].Descriptor()
+	// session.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	session.DefaultUpdatedAt = sessionDescUpdatedAt.Default.(func() time.Time)
+	// session.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	session.UpdateDefaultUpdatedAt = sessionDescUpdatedAt.UpdateDefault.(func() time.Time)
 	sessionmessageFields := schema.SessionMessage{}.Fields()
 	_ = sessionmessageFields
 	// sessionmessageDescRole is the schema descriptor for role field.

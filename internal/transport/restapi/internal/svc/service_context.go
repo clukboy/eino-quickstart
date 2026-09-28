@@ -34,6 +34,11 @@ type Deps struct {
 	Runs      *run.Store
 	Turns     *turn.Store
 	Auth      *auth.Authenticator
+
+	// Anonymous 是匿名身份的签发者，为 nil 表示这次部署不开放匿名访问
+	// （此时 /auth/anonymous 返回 503，而不是签发一个没人能校验的身份）。
+	Anonymous *auth.AnonymousIssuer
+
 	Logger    *slog.Logger
 	EntClient *ent.Client
 }
@@ -49,6 +54,7 @@ type ServiceContext struct {
 	Approvals    *approval.Store
 	Runs         *run.Store
 	Turns        *turn.Store
+	Anonymous    *auth.AnonymousIssuer
 	Logger       *slog.Logger
 	EntClient    *ent.Client
 	RoleAdmin    rest.Middleware
@@ -66,6 +72,7 @@ func NewServiceContext(c config.Config, deps Deps) *ServiceContext {
 		Approvals:    deps.Approvals,
 		Runs:         deps.Runs,
 		Turns:        deps.Turns,
+		Anonymous:    deps.Anonymous,
 		Logger:       deps.Logger,
 		EntClient:    deps.EntClient,
 		RoleAdmin:    middleware.NewRoleAdminMiddleware().Handle,

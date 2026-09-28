@@ -12,6 +12,18 @@ type AgentSubjectReq struct {
 	Subject string `path:"subject"`
 }
 
+type AnonymousTokenReq struct {
+	Token string `json:"token,optional"`
+}
+
+type AnonymousTokenResp struct {
+	Token     string `json:"token"`
+	Subject   string `json:"subject"`
+	Role      string `json:"role"`
+	IssuedAt  int64  `json:"issued_at"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
 type ApprovalDecisionReq struct {
 	ID       string `path:"id"`
 	Approved bool   `json:"approved"`
@@ -33,6 +45,20 @@ type ApprovalResp struct {
 	InterruptID      string `json:"interruptId,omitempty"`
 	CreatedAt        string `json:"createdAt"`
 	ExpiresAt        string `json:"expiresAt,omitempty"`
+}
+
+type ChatEvent struct {
+	Type       string `json:"type"`
+	SessionID  string `json:"session_id,omitempty"`
+	Agent      string `json:"agent,omitempty"`
+	Content    string `json:"content,omitempty"`
+	Error      string `json:"error,omitempty"`
+	ApprovalID string `json:"approval_id,omitempty"`
+}
+
+type ChatReq struct {
+	SessionID string `json:"session_id,optional"`
+	Message   string `json:"message"`
 }
 
 type CreateDatasetReq struct {
@@ -142,6 +168,10 @@ type ReindexResp struct {
 	Failed    int    `json:"failed"`
 }
 
+type ResumeApprovalPathReq struct {
+	ID string `path:"id"`
+}
+
 type SearchDatasetReq struct {
 	DatasetID uint64 `path:"id"`
 	Query     string `json:"query"`
@@ -149,33 +179,50 @@ type SearchDatasetReq struct {
 }
 
 type SearchHitResp struct {
-	ChunkID     uint64 `json:"chunk_id"`
-	DocumentID  uint64 `json:"document_id"`
-	Source      string `json:"source"`
-	Title       string `json:"title"`
-	HeadingPath string `json:"heading_path"`
-	Content     string `json:"content"`
-	// ContentTruncated 表示 content 是按上限（knowledge.maxResultBytes）截断过的。
-	// 被截断的正文与完整的正文在调用方眼里长得一样，不显式带出去，缺失的部分
-	// 就没有任何痕迹。
+	ChunkID          uint64  `json:"chunk_id"`
+	DocumentID       uint64  `json:"document_id"`
+	Source           string  `json:"source"`
+	Title            string  `json:"title"`
+	HeadingPath      string  `json:"heading_path"`
+	Content          string  `json:"content"`
 	ContentTruncated bool    `json:"content_truncated,omitempty"`
 	Score            float64 `json:"score"`
 }
 
 type SearchResp struct {
-	Data     []*SearchHitResp `json:"data"`
-	Channels []string         `json:"channels"`
-	Degraded []string         `json:"degraded"`
-	TopK     int              `json:"top_k"`
-	// Granularity 是 data 里每一条的单位：document = 一篇文档，chunk = 一个分块。
-	// 同一个 top_k 在两种粒度下的覆盖面差得很远，不带单位读不出条数的含义。
-	Granularity string `json:"granularity"`
-	// MatchedChunks 是归并前命中的分块数，ChunkBudget 是本次实际向检索侧要的分块
-	// 预算。两者与 len(data) 一起回答「为什么只有几条」：命中 40 块归并出 4 篇，
-	// 说明库里匹配的就这 4 篇；命中 20 块、预算 80 却只归并出 4 篇，说明检索侧
-	// 没能给满（切块过碎或候选上限偏低）。
-	MatchedChunks int `json:"matched_chunks"`
-	ChunkBudget   int `json:"chunk_budget"`
+	Data          []*SearchHitResp `json:"data"`
+	Channels      []string         `json:"channels"`
+	Degraded      []string         `json:"degraded"`
+	TopK          int              `json:"top_k"`
+	Granularity   string           `json:"granularity"`
+	MatchedChunks int              `json:"matched_chunks"`
+	ChunkBudget   int              `json:"chunk_budget"`
+}
+
+type SessionListResp struct {
+	Data []*SessionResp `json:"data"`
+}
+
+type SessionMessageResp struct {
+	ID        uint64 `json:"id"`
+	Role      string `json:"role"`
+	Content   string `json:"content"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type SessionMessagesReq struct {
+	ID string `path:"id"`
+}
+
+type SessionMessagesResp struct {
+	Data []*SessionMessageResp `json:"data"`
+}
+
+type SessionResp struct {
+	SessionID string `json:"session_id"`
+	Title     string `json:"title"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type StatusResp struct {

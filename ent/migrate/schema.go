@@ -370,13 +370,22 @@ var (
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "session_id", Type: field.TypeString, Unique: true},
 		{Name: "owner_subject", Type: field.TypeString},
+		{Name: "title", Type: field.TypeString, Default: ""},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime, Default: schema.Expr("now()")},
 	}
 	// SessionsTable holds the schema information for the "sessions" table.
 	SessionsTable = &schema.Table{
 		Name:       "sessions",
 		Columns:    SessionsColumns,
 		PrimaryKey: []*schema.Column{SessionsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "session_owner_subject_updated_at",
+				Unique:  false,
+				Columns: []*schema.Column{SessionsColumns[2], SessionsColumns[5]},
+			},
+		},
 	}
 	// SessionMessagesColumns holds the columns for the "session_messages" table.
 	SessionMessagesColumns = []*schema.Column{
@@ -397,6 +406,13 @@ var (
 				Columns:    []*schema.Column{SessionMessagesColumns[4]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "sessionmessage_session_messages",
+				Unique:  false,
+				Columns: []*schema.Column{SessionMessagesColumns[4]},
 			},
 		},
 	}

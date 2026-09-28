@@ -184,7 +184,26 @@ func runServer() error {
 			},
 		})
 	}
-	authenticator, err := auth.New(apiKeys)
+	// 匿名身份（用户端）：令牌由服务端签发，subject 形如 anon:<uuid>，
+	// 每个访客一个，会话因此按人隔离（见 internal/platform/auth/anonymous.go）。
+	//
+	// 它与静态 apiKeys 共用同一个 Authenticator —— 校验路径只多了一个「验签」
+	// 分支，中间件和角色模型一行都不用改。未开启时不构造：既签不出也验不了，
+	// /api/v1/auth/anonymous 会明确回 503，而不是签一个没人认的身份。
+	var anonymousIssuer *auth.AnonymousIssuer
+	if cfg.Auth.Anonymous.Enabled {
+		anonymousIssuer, err = auth.NewAnonymousIssuer(auth.AnonymousConfig{
+			Secret:        cfg.Auth.Anonymous.Secret,
+			TTL:           time.Duration(cfg.Auth.Anonymous.TTLHours) * time.Hour,
+			Role:          auth.Role(cfg.Auth.Anonymous.Role),
+			SubjectPrefix: cfg.Auth.Anonymous.SubjectPrefix,
+		})
+		if err != nil {
+			return fmt.Errorf("init anonymous issuer: %w", err)
+		}
+	}
+
+	authenticator, err := auth.New(apiKeys, auth.WithAnonymous(anonymousIssuer))
 	if err != nil {
 		return err
 	}
@@ -242,6 +261,7 @@ func runServer() error {
 		Runs:       run.NewStore(entClient),
 		Turns:      turn.NewStore(entClient),
 		Auth:       authenticator,
+		Anonymous:  anonymousIssuer,
 		Logger:     logger,
 		EntClient:  entClient,
 	})
@@ -349,7 +369,6 @@ func newVectorCleaner(
 			"vector store unavailable, document delete will skip vector cleanup",
 			slog.String("error", err.Error()),
 		)
-		return nil
 	}
 	return store
 }
