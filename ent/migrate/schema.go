@@ -416,6 +416,24 @@ var (
 			},
 		},
 	}
+	// UsersColumns holds the columns for the "users" table.
+	UsersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "username", Type: field.TypeString, Unique: true},
+		{Name: "password_hash", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"agent", "approver", "admin"}, Default: "agent"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"ACTIVE", "DISABLED"}, Default: "ACTIVE"},
+		{Name: "must_change_password", Type: field.TypeBool, Default: true},
+		{Name: "password_changed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime, Default: schema.Expr("now()")},
+	}
+	// UsersTable holds the schema information for the "users" table.
+	UsersTable = &schema.Table{
+		Name:       "users",
+		Columns:    UsersColumns,
+		PrimaryKey: []*schema.Column{UsersColumns[0]},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentDatasetsTable,
@@ -431,6 +449,7 @@ var (
 		KnowledgeIndexesTable,
 		SessionsTable,
 		SessionMessagesTable,
+		UsersTable,
 	}
 )
 
@@ -447,5 +466,8 @@ func init() {
 	SessionMessagesTable.ForeignKeys[0].RefTable = SessionsTable
 	SessionMessagesTable.Annotation = &entsql.Annotation{
 		Table: "session_messages",
+	}
+	UsersTable.Annotation = &entsql.Annotation{
+		Table: "users",
 	}
 }

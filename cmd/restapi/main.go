@@ -18,6 +18,7 @@ import (
 	"eino-quickstart/internal/platform/config"
 	"eino-quickstart/internal/platform/execution"
 	"eino-quickstart/internal/platform/observability"
+	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/platform/persistence/approval"
 	"eino-quickstart/internal/platform/persistence/checkpoint"
 	"eino-quickstart/internal/platform/persistence/run"
@@ -203,7 +204,32 @@ func runServer() error {
 		}
 	}
 
-	authenticator, err := auth.New(apiKeys, auth.WithAnonymous(anonymousIssuer))
+	// 账号登录（管理后台建号 + 登录 + 首次强制改密）。与匿名身份并列的第三种
+	// 凭证来源，签出的 subject 形如 user:<id>（见 internal/platform/auth/account.go）。
+	//
+	// AccountStore 与 AccountIssuer 必须同时构造：前者查人、后者签令牌，缺一个
+	// 都是半开状态（restapi.New 会拒绝只给一半的配置）。未开启时两者都为 nil，
+	// /auth/login 与 /users* 会明确回 503。
+	var (
+		accountIssuer *auth.AccountIssuer
+		accountStore  *account.Store
+	)
+	if cfg.Auth.Accounts.Enabled {
+		accountIssuer, err = auth.NewAccountIssuer(auth.AccountConfig{
+			Secret: cfg.Auth.Accounts.Secret,
+			TTL:    time.Duration(cfg.Auth.Accounts.TTLHours) * time.Hour,
+		})
+		if err != nil {
+			return fmt.Errorf("init account issuer: %w", err)
+		}
+		accountStore = account.NewStore(entClient)
+	}
+
+	authenticator, err := auth.New(
+		apiKeys,
+		auth.WithAnonymous(anonymousIssuer),
+		auth.WithAccounts(accountIssuer),
+	)
 	if err != nil {
 		return err
 	}
@@ -253,17 +279,20 @@ func runServer() error {
 	}
 
 	server, err := restapi.New(restapi.Options{
-		ConfigFile: transportConfigPath,
-		Agent:      harness,
-		Knowledge:  knowledgeService,
-		Sessions:   session.NewStore(entClient),
-		Approvals:  approvals,
-		Runs:       run.NewStore(entClient),
-		Turns:      turn.NewStore(entClient),
-		Auth:       authenticator,
-		Anonymous:  anonymousIssuer,
-		Logger:     logger,
-		EntClient:  entClient,
+		ConfigFile:       transportConfigPath,
+		Agent:            harness,
+		Knowledge:        knowledgeService,
+		Sessions:         session.NewStore(entClient),
+		Approvals:        approvals,
+		Runs:             run.NewStore(entClient),
+		Turns:            turn.NewStore(entClient),
+		Auth:             authenticator,
+		Anonymous:        anonymousIssuer,
+		Accounts:         accountIssuer,
+		AccountStore:     accountStore,
+		PasswordHashCost: cfg.Auth.Accounts.BcryptCost,
+		Logger:           logger,
+		EntClient:        entClient,
 	})
 	if err != nil {
 		return err

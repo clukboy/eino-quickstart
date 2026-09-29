@@ -389,6 +389,185 @@
         }
       }
     },
+    "/api/v1/auth/login": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "账号登录（账号由管理员创建，没有注册接口）",
+        "operationId": "authLogin",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
+              "properties": {
+                "anonymous_token": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "expires_at": {
+                  "type": "integer"
+                },
+                "issued_at": {
+                  "type": "integer"
+                },
+                "must_change_password": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询当前身份（区分登录账号与匿名访客）",
+        "operationId": "authGetMe",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "authenticated": {
+                  "type": "boolean"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "must_change_password": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "修改当前账号的密码（成功后返回新令牌，无需重新登录）",
+        "operationId": "authChangePassword",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "current_password",
+                "new_password"
+              ],
+              "properties": {
+                "current_password": {
+                  "type": "string"
+                },
+                "new_password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "expires_at": {
+                  "type": "integer"
+                },
+                "issued_at": {
+                  "type": "integer"
+                },
+                "must_change_password": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/chat": {
       "post": {
         "consumes": [
@@ -1768,6 +1947,160 @@
         }
       }
     },
+    "/api/v1/users": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "列出全部账号（按创建时间倒序，暂不分页）",
+        "operationId": "userListUsers",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "subject",
+                      "username",
+                      "role",
+                      "status",
+                      "must_change_password",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "must_change_password": {
+                        "type": "boolean"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "username": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "创建账号（角色固定 agent，初始密码由管理员设定并强制首登改密）",
+        "operationId": "userCreateUser",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
+              "properties": {
+                "password": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "must_change_password": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/sync": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "从外部数据源同步账号（占位：当前恒返回 501 not_implemented）",
+        "operationId": "userSyncUsers",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "produces": [
@@ -1822,7 +2155,7 @@
       }
     }
   },
-  "x-date": "2026-09-27 15:49:28",
+  "x-date": "2026-09-28 12:03:02",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

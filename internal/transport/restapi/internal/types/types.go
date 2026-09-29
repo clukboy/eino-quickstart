@@ -47,6 +47,30 @@ type ApprovalResp struct {
 	ExpiresAt        string `json:"expiresAt,omitempty"`
 }
 
+type AuthMeResp struct {
+	Authenticated      bool   `json:"authenticated"`
+	Subject            string `json:"subject"`
+	Username           string `json:"username,optional"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"must_change_password"`
+	CreatedAt          int64  `json:"created_at,optional"`
+}
+
+type AuthTokenResp struct {
+	Token              string `json:"token"`
+	Subject            string `json:"subject"`
+	Role               string `json:"role"`
+	Username           string `json:"username"`
+	MustChangePassword bool   `json:"must_change_password"`
+	IssuedAt           int64  `json:"issued_at"`
+	ExpiresAt          int64  `json:"expires_at"`
+}
+
+type ChangePasswordReq struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 type ChatEvent struct {
 	Type       string `json:"type"`
 	SessionID  string `json:"session_id,omitempty"`
@@ -79,6 +103,11 @@ type CreateDocumentReq struct {
 
 type CreateSessionResp struct {
 	SessionID string `json:"session_id"`
+}
+
+type CreateUserReq struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type DatasetIDReq struct {
@@ -154,6 +183,12 @@ type HealthResp struct {
 type ListDatasetsReq struct {
 	Name string `json:"name,optional"`
 	Type string `json:"type,optional"`
+}
+
+type LoginReq struct {
+	Username       string `json:"username"`
+	Password       string `json:"password"`
+	AnonymousToken string `json:"anonymous_token,optional"`
 }
 
 type ReadyResp struct {
@@ -236,4 +271,19 @@ type UpdateDocumentReq struct {
 	Content    string            `json:"content,omitempty"`
 	Visibility string            `json:"visibility,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
+}
+
+type UserListResp struct {
+	Data  []UserResp `json:"data"`
+	Total int        `json:"total"`
+}
+
+type UserResp struct {
+	ID                 uint64 `json:"id"`
+	Subject            string `json:"subject"`
+	Username           string `json:"username"`
+	Role               string `json:"role"`
+	Status             string `json:"status"`
+	MustChangePassword bool   `json:"must_change_password"`
+	CreatedAt          int64  `json:"created_at"`
 }

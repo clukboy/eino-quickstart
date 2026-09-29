@@ -44,3 +44,6 @@ type Session func(*sql.Selector)
 
 // SessionMessage is the predicate function for sessionmessage builders.
 type SessionMessage func(*sql.Selector)
+
+// User is the predicate function for user builders.
+type User func(*sql.Selector)

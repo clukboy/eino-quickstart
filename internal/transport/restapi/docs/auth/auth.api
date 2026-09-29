@@ -1,49 +1,75 @@
 syntax = "v1"
 
-// 匿名身份（用户端）。
+// 身份（匿名访客 + 登录账号）。
 //
-// 本组只有一条路由，而且是**故意公开**的 —— 它不挂任何角色中间件：这条路由
-// 存在的意义就是「还没有身份时先拿一个身份」。其余所有路由仍然要求 token。
+// 本组四条路由**都不挂角色中间件**，这是刻意的，理由各不相同：
 //
-// ── 为什么由服务端签发，而不是客户端自报一个 id ─────────────────────
+//   /auth/anonymous  还没有身份时先拿一个身份 —— 挂了就自相矛盾。
+//   /auth/login      同上：它是「从没有身份到有身份」的入口。
+//   /auth/me         要能回答「你现在是谁」，对 admin / approver / agent 都该
+//                    可用；挂任一角色中间件都会误伤另外两种。
+//   /auth/password   改密对任何登录身份都该可用。身份判定放在 handler 里
+//                    （非 user: 前缀一律 401），比挂中间件更准。
+//
+// 这四条被「密码守卫」显式放行（见 middleware/password_guard.go）：待改密的
+// 身份访问别的接口一律 403，只留这里 —— 否则用户会被锁在「必须改密」与
+// 「改密接口也进不去」之间。
+//
+// ════════════════════════════════════════════════════════════════════
+//  没有注册接口，这是有意的
+// ════════════════════════════════════════════════════════════════════
+//
+// 契约里**不存在** POST /auth/register。账号只能由管理员在管理后台创建
+// （POST /api/v1/users，该组挂 RoleAdmin）。这样做的直接后果是：界面里造不出
+// admin 账号，管理后台本身仍然只能靠构建期注入的静态 admin key 访问，要给某人
+// 提权只能改库（UPDATE users SET role='admin'）。这是刻意的取舍，见
+// docs/known-gaps.md。
+//
+// ── 匿名身份的由来（/auth/anonymous）────────────────────────────────
 //
 // 匿名身份要解决的是一件很具体的事：让每个访客只能看到自己的会话。这要求
 // subject **无法由客户端指定** —— 若前端自己生成一个 uuid 放在请求头里，
 // 任何人改一下那个头就能读写别人的会话，匿名场景下这就是唯一的安全边界。
 //
 // 所以 subject 由服务端生成（anon:<uuid>），连同过期时间一起做 HMAC 签名，
-// 客户端只保管令牌，改任何一个字节都会验签失败。
-//
-// ── 无状态，因此「收不回」──────────────────────────────────────────
-//
-// 令牌自包含（HMAC-SHA256），服务端不存匿名用户：不需要新表，每个请求也不
-// 多查一次库。代价是签出去就收不回（没有吊销名单），有效期（auth.anonymous.
-// ttlHours）是唯一的兜底期限 —— 配置里对它设了上限，原因就在这里。
-//
-// ── 续期 ────────────────────────────────────────────────────────────
+// 客户端只保管令牌，改任何一个字节都会验签失败。令牌自包含（服务端不存匿名
+// 用户），代价是签出去就收不回：有效期是唯一的兜底期限，配置里对它设了上限。
 //
 // 请求体带上手上的 token 时**复用它的 subject** 再签一个（token 无效或过期则
 // 签发新的）。这条语义是为了让客户端可以「一直用同一个身份」：不续期的话，
 // 令牌一过期就等于换了个人，用户会发现自己攒下的会话全不见了 —— 而那些行
 // 还在库里，只是归属到了一个再也拿不回来的 subject。
 //
-// ── 授权范围 ────────────────────────────────────────────────────────
+// 签发的角色固定取自 auth.anonymous.role，默认 agent：匿名身份能进 agent 组
+// （/sessions*）与 stream 组（/chat、/approvals/:id/resume），进不了 admin 的
+// dataset 组，也进不了 approver 的审批决策。
 //
-// 签发的角色固定取自 auth.anonymous.role，默认 agent。于是匿名身份能进
-// agent 组（/sessions*）与 stream 组（/chat、/approvals/:id/resume），
-// 进不了 admin 的 dataset 组，也进不了 approver 的审批决策 —— 那两组的角色
-// 是给后台用的。这不是「暂时没做」，而是角色模型就该如此。
+// ── 账号身份（/auth/login、/auth/me、/auth/password）────────────────
 //
-// ── 日后接入账号登录 ────────────────────────────────────────────────
+// 账号令牌与匿名令牌用的是同一套 HMAC 内核（internal/platform/auth/issuer.go），
+// 区别只有三件事：密钥、subject 前缀（user:<id> / anon:<uuid>）、令牌前缀
+// （user. / anon.）。因此对中间件与业务代码来说两者没有区别 —— 拿到的都是
+// 一个 Identity，「登录后能看到的会话」与「匿名时能看到的会话」是同一条路径。
 //
-// 那时只是再加一种签发方式（subject 换成另一个前缀，例如 user:<id>），
-// 校验路径与业务侧（logic 里的 actorSubject、会话归属、角色中间件）都不用改；
-// 已签发的匿名令牌继续有效。若要把登录前攒下的匿名会话迁到账号名下，需要一条
-// 一次性迁移：sessions.owner_subject 是 Immutable（见 ent/schema/session.go），
-// 只能按 `anon:` 前缀筛出来、用裸 SQL UPDATE —— 这也是归属字符串带前缀的原因。
+// 账号令牌的载荷里多两个字段，它们都是**每令牌**的、必须跟着令牌走：
 //
-// 签发的身份要不要可吊销、要不要统计「现在有多少个匿名身份」：那是账号体系的
-// 话题（需要落库），匿名这一层给不出来，也不该假装给得出来。
+//   r    角色。存在 users.role 里，服务端不查库，所以只能签进令牌 —— 代价是
+//        「改了角色要等下次登录才生效」。
+//   mcp  是否还没改过初始密码。它必须能挡住**已签发**的令牌，所以不能只在
+//        登录时算一次；改密成功后由 /auth/password 直接返回一枚新令牌解决。
+//
+// 两者同样导致：停用账号、改密码，都挡不住一枚已签发的令牌。这是无状态令牌
+// 的固有代价，缓解手段只有有效期上限，见 docs/known-gaps.md。
+//
+// ── 登录前攒下的匿名历史 ────────────────────────────────────────────
+//
+// 登录请求可以带上 anonymous_token，服务端会把这台浏览器在 anon: 名下攒下的
+// sessions 一次性改挂到 user:<id> 名下。必须是裸 SQL：sessions.owner_subject
+// 是 Immutable（见 ent/schema/session.go），ent 根本没生成它的 setter。这也是
+// 归属字符串要带前缀的原因 —— 只能按前缀筛出来。
+//
+// chat_turns / agent_runs / approvals 的 requested_by 刻意**不**改：它们记录的是
+// 「当时是谁发起的这次执行」，改写成登录后的身份等于伪造审计。
 type AnonymousTokenReq {
 	// Token 是上次拿到的令牌，用于续期。可选：不带就是「我现在还没有身份」。
 	//
@@ -62,6 +88,64 @@ type AnonymousTokenResp {
 	ExpiresAt int64  `json:"expires_at"`
 }
 
+type LoginReq {
+	Username string `json:"username"`
+	Password string `json:"password"`
+
+	// AnonymousToken 可选：带上它就把这台浏览器在登录前攒下的匿名会话迁到
+	// 账号名下。不带则什么都不迁 —— 迁移是显式的，不会从 Authorization 头里
+	// 猜（那个头此时带的是即将被替换掉的匿名令牌，而「迁移」是个写操作，
+	// 不该由一个会被客户端随意填的字段隐式触发）。
+	AnonymousToken string `json:"anonymous_token,optional"`
+}
+
+type ChangePasswordReq {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// AuthTokenResp 是登录与改密的共同响应。
+//
+// 两者返回同一个类型不是图省事：改密成功后必须换一枚新令牌（旧令牌的载荷里
+// mcp 还是真，服务端不查库、无从感知它已经改过了），所以两个接口的返回形状
+// 本来就完全一样。
+type AuthTokenResp {
+	Token string `json:"token"`
+	// Subject 形如 user:<id>。与匿名响应同一口径：只用于显示/调试，
+	// 归属一律从令牌解析。
+	Subject string `json:"subject"`
+	Role    string `json:"role"`
+	// Username 回显便于前端直接显示「当前登录为 xxx」，省一次 /auth/me。
+	Username string `json:"username"`
+	// MustChangePassword 为真时前端应直接进入改密态。注意它只是**体验**：
+	// 真正的强制在服务端（middleware/password_guard.go），前端不拦也拦不住
+	// curl。
+	MustChangePassword bool  `json:"must_change_password"`
+	IssuedAt           int64 `json:"issued_at"`
+	ExpiresAt          int64 `json:"expires_at"`
+}
+
+// AuthMeResp 回答「当前这个令牌是谁」。
+//
+// 它必须能同时描述三种身份，因为前端只有一个入口要判断：
+//   - 登录账号    authenticated=true，username/created_at 有值
+//   - 匿名访客    authenticated=false，subject 是 anon:<uuid>
+//   - 静态 API key authenticated=false，subject 是配置里的 subject
+//
+// 后两种都 authenticated=false 是刻意的：对用户端来说「我没登录」才是它需要
+// 知道的事实，而「当前其实是一个 admin key」是管理台的事，不该由这个接口
+// 告诉一个可能并未持有的客户端。
+type AuthMeResp {
+	Authenticated      bool   `json:"authenticated"`
+	Subject            string `json:"subject"`
+	Username           string `json:"username,optional"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"must_change_password"`
+	CreatedAt          int64  `json:"created_at,optional"`
+}
+
+// 本组四条路由都不挂角色中间件：两条是入口（还没有身份），两条要能服务于
+// 任意角色（见文件头的逐条说明）。
 @server (
 	prefix: /api/v1
 	group:  auth
@@ -70,4 +154,16 @@ service restapi {
 	@doc "签发匿名身份令牌（带旧令牌时为续期）"
 	@handler IssueAnonymousToken
 	post /auth/anonymous (AnonymousTokenReq) returns (AnonymousTokenResp)
+
+	@doc "账号登录（账号由管理员创建，没有注册接口）"
+	@handler Login
+	post /auth/login (LoginReq) returns (AuthTokenResp)
+
+	@doc "修改当前账号的密码（成功后返回新令牌，无需重新登录）"
+	@handler ChangePassword
+	post /auth/password (ChangePasswordReq) returns (AuthTokenResp)
+
+	@doc "查询当前身份（区分登录账号与匿名访客）"
+	@handler GetMe
+	get /auth/me returns (AuthMeResp)
 }

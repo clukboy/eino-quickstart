@@ -97,6 +97,30 @@ auth:
     # 就是靠它认出来的（日后接入账号登录，要按这个前缀把匿名历史迁到账号名下）。
     subjectPrefix: "anon:"
 
+  # 账号登录（管理后台建号 + 登录 + 首次强制改密）。
+  #
+  # ── 没有注册入口 ────────────────────────────────────────────────
+  # 契约里**没有** POST /auth/register：账号只能由管理员通过 POST /api/v1/users
+  # 创建（该组挂 RoleAdmin）。想让某人成为管理员只能改库
+  # （UPDATE users SET role='admin'），因为建号接口刻意不接受 role 参数 ——
+  # 见 internal/platform/auth/account.go 与 docs/known-gaps.md。
+  #
+  # ── 密钥 ────────────────────────────────────────────────────────
+  # 与 anonymous 的密钥**应当**不同（建议 EINO_ACCOUNT_SECRET=$(openssl rand -hex 32)）。
+  # 配成同一个值不会导致令牌串用（两者的令牌前缀是 user. / anon.，验签第一关就
+  # 分开了），但会让「只轮换一半密钥」变成不可能的操作。这一点不做启动校验，
+  # 免得本地图省事只配一个密钥时启动失败。
+  accounts:
+    enabled: true
+    secretEnv: "EINO_ACCOUNT_SECRET"
+    # 令牌有效期。上限 30 天（config.maxAccountTTLHours），比匿名的上限紧得多：
+    # 账号令牌泄漏的后果是「别人能以这个人的身份操作」，而它同样是无状态的
+    # —— 改密码、停用账号都挡不住已签发的令牌，有效期是唯一兜底。
+    ttlHours: 720
+    # 管理员初始密码的 bcrypt 成本。0 表示用默认值（10），可配区间 10~16。
+    # 每加 1 就把单次哈希耗时翻倍，而 /auth/login 没有限流，别配高。
+    bcryptCost: 0
+
 runtime:
   readTimeoutSeconds: 600
   writeTimeoutSeconds: 120

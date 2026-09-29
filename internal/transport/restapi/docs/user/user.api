@@ -1,0 +1,97 @@
+syntax = "v1"
+
+// 账号管理（管理后台）。
+//
+// 本组 3 条路由统一挂 RoleAdmin：账号的创建与查看是管理动作，普通登录用户
+// （agent）不该看到「系统里还有哪些人」。
+//
+// ── 一条必须先说清的推论 ────────────────────────────────────────────
+//
+// 建号接口**不接受 role 参数**（见 internal/platform/auth/account.go 与
+// persistence/account.Create 的签名）：新账号一律是 agent。这就意味着管理后台
+// 造不出第二个管理员 —— 要给某人提权只能改库
+// （UPDATE users SET role='admin'），而管理后台本身继续靠构建期注入的静态
+// admin key 访问。这是「不允许注册」这条需求的直接后果，不是遗漏。
+//
+// 如果哪天要让界面能造管理员，正确的改法是给 CreateUserReq 加 role 字段并
+// 在 handler 里限制取值，而不是去改 store.Create 的签名 —— 那层是刻意做成
+// 「调用方拿不到提权能力」的。
+//
+// ── 没有的接口，以及为什么 ──────────────────────────────────────────
+//
+// 没有删除、停用、重置密码、改角色：本次不做（见 docs/known-gaps.md）。
+// 尤其「停用」要注意它挡不住已签发的令牌 —— 账号令牌是无状态的
+// （internal/platform/auth/account.go），status 只在**登录时**被检查，
+// 一枚已经发出去的令牌会一直有效到 exp。
+//
+// ── 与「同步」的关系 ────────────────────────────────────────────────
+//
+// /users/sync 是预留给「从外部数据源批量拉账号」的占位接口。它与上面两条
+// 路由共用同一组、同一个中间件，前端也照常调用 —— 只是后端当前恒返回 501。
+type UserResp {
+	ID      uint64 `json:"id"`
+	Subject string `json:"subject"`
+	// Username 是登录名，唯一。
+	Username string `json:"username"`
+	// Role 取值 agent / approver / admin。通过本组接口创建的账号恒为 agent。
+	Role string `json:"role"`
+	// Status 取值 ACTIVE / DISABLED。本次没有改动它的接口，所以恒为 ACTIVE。
+	Status string `json:"status"`
+	// MustChangePassword 为真表示这个账号还在用管理员设定的初始密码。
+	MustChangePassword bool `json:"must_change_password"`
+	// CreatedAt 是 Unix 毫秒。
+	CreatedAt int64 `json:"created_at"`
+}
+
+// 响应里**没有** password / password_hash 字段，这是刻意的：哈希只存在于
+// 后端，见 internal/platform/auth 与 persistence/account 的 Record（那个类型
+// 专门做成不含哈希，让「顺手带出去」在类型上就不可能）。
+type UserListResp {
+	Data []UserResp `json:"data"`
+	// Total 与 len(Data) 恒相等：本轮不分页（与 /sessions 同一取舍，账号在
+	// 人工建号的前提下天然很少）。真到要分页时，请把 page/pageSize 加成显式
+	// 的请求参数，而不是在这里加一个不透明的默认上限。
+	Total int `json:"total"`
+}
+
+type CreateUserReq {
+	Username string `json:"username"`
+	// Password 是**管理员设定的初始密码**。
+	//
+	// 它只能用一次：服务端把新账号的 must_change_password 设为真，这个身份在
+	// 改密之前除了 /api/v1/auth/* 之外什么都访问不了
+	// （middleware/password_guard.go）。这一点必须让管理员知道 —— 他手上这枚
+	// 密码在对方首次登录后就作废了，而不是一直可用。
+	//
+	// 同时注意：管理员知道这个密码，所以它是**共享凭证**而不是对方的私密凭证，
+	// 这正是「首次强制改密」存在的理由。也要注意它没有下限以外的强度要求，
+	// 校验在 logic/user/create_user_logic.go 里。
+	Password string `json:"password"`
+}
+
+// 账号创建与查看全部需要 admin 角色。
+@server (
+	prefix:     /api/v1
+	group:      user
+	middleware: RoleAdmin
+)
+service restapi {
+	@doc "列出全部账号（按创建时间倒序，暂不分页）"
+	@handler ListUsers
+	get /users returns (UserListResp)
+
+	@doc "创建账号（角色固定 agent，初始密码由管理员设定并强制首登改密）"
+	@handler CreateUser
+	post /users (CreateUserReq) returns (UserResp)
+
+	// returns 的类型在这条路由上**当前永远不会被用到**：handler 恒返回
+	// 501 not_implemented。这里借用 StatusResp（定义在 common/types.api）
+	// 而不是新造一个 SyncUsersResp，是为了不在数据源定下来之前先编一个形状 ——
+	// 同步结果里该有哪些计数（created/updated/skipped…）取决于还没定的上游，
+	// 现在编一个等于凭空造契约，客户端会照着它写代码。
+	//
+	// 真接入时：把 returns 换成按实际结果定义的类型，前端那时补一次展示逻辑。
+	@doc "从外部数据源同步账号（占位：当前恒返回 501 not_implemented）"
+	@handler SyncUsers
+	post /users/sync returns (StatusResp)
+}

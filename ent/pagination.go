@@ -17,6 +17,7 @@ import (
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
+	"eino-quickstart/ent/user"
 	"fmt"
 )
 
@@ -1107,6 +1108,87 @@ func (_m *SessionMessageQuery) Page(
 		_m = _m.Order(pager.Order)
 	} else {
 		_m = _m.Order(DefaultSessionMessageOrder)
+	}
+
+	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))
+	list, err := _m.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret.List = list
+
+	return ret, nil
+}
+
+type UserPager struct {
+	Order  user.OrderOption
+	Filter func(*UserQuery) (*UserQuery, error)
+}
+
+// UserPaginateOption enables pagination customization.
+type UserPaginateOption func(*UserPager)
+
+// DefaultUserOrder is the default ordering of User.
+var DefaultUserOrder = Desc(user.FieldID)
+
+func newUserPager(opts []UserPaginateOption) (*UserPager, error) {
+	pager := &UserPager{}
+	for _, opt := range opts {
+		opt(pager)
+	}
+	if pager.Order == nil {
+		pager.Order = DefaultUserOrder
+	}
+	return pager, nil
+}
+
+func (p *UserPager) ApplyFilter(query *UserQuery) (*UserQuery, error) {
+	if p.Filter != nil {
+		return p.Filter(query)
+	}
+	return query, nil
+}
+
+// UserPageList is User PageList result.
+type UserPageList struct {
+	List        []*User      `json:"list"`
+	PageDetails *PageDetails `json:"pageDetails"`
+}
+
+func (_m *UserQuery) Page(
+	ctx context.Context, pageNum uint64, pageSize uint64, opts ...UserPaginateOption,
+) (*UserPageList, error) {
+
+	pager, err := newUserPager(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if _m, err = pager.ApplyFilter(_m); err != nil {
+		return nil, err
+	}
+
+	ret := &UserPageList{}
+
+	ret.PageDetails = &PageDetails{
+		Page: pageNum,
+		Size: pageSize,
+	}
+
+	query := _m.Clone()
+	query.ctx.Fields = nil
+	count, err := query.Count(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ret.PageDetails.Total = uint64(count)
+
+	if pager.Order != nil {
+		_m = _m.Order(pager.Order)
+	} else {
+		_m = _m.Order(DefaultUserOrder)
 	}
 
 	_m = _m.Offset(int((pageNum - 1) * pageSize)).Limit(int(pageSize))

@@ -40,6 +40,8 @@ type Tx struct {
 	Session *SessionClient
 	// SessionMessage is the client for interacting with the SessionMessage builders.
 	SessionMessage *SessionMessageClient
+	// User is the client for interacting with the User builders.
+	User *UserClient
 
 	// lazily loaded.
 	client     *Client
@@ -184,6 +186,7 @@ func (tx *Tx) init() {
 	tx.KnowledgeIndex = NewKnowledgeIndexClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.SessionMessage = NewSessionMessageClient(tx.config)
+	tx.User = NewUserClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

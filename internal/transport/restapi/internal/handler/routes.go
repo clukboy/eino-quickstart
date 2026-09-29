@@ -13,6 +13,7 @@ import (
 	dataset "eino-quickstart/internal/transport/restapi/internal/handler/dataset"
 	health "eino-quickstart/internal/transport/restapi/internal/handler/health"
 	stream "eino-quickstart/internal/transport/restapi/internal/handler/stream"
+	user "eino-quickstart/internal/transport/restapi/internal/handler/user"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -96,6 +97,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/auth/anonymous",
 				Handler: auth.IssueAnonymousTokenHandler(serverCtx),
+			},
+			{
+				// 账号登录（账号由管理员创建，没有注册接口）
+				Method:  http.MethodPost,
+				Path:    "/auth/login",
+				Handler: auth.LoginHandler(serverCtx),
+			},
+			{
+				// 查询当前身份（区分登录账号与匿名访客）
+				Method:  http.MethodGet,
+				Path:    "/auth/me",
+				Handler: auth.GetMeHandler(serverCtx),
+			},
+			{
+				// 修改当前账号的密码（成功后返回新令牌，无需重新登录）
+				Method:  http.MethodPost,
+				Path:    "/auth/password",
+				Handler: auth.ChangePasswordHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1"),
@@ -233,5 +252,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		),
 		rest.WithPrefix("/api/v1"),
 		rest.WithSSE(),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					// 列出全部账号（按创建时间倒序，暂不分页）
+					Method:  http.MethodGet,
+					Path:    "/users",
+					Handler: user.ListUsersHandler(serverCtx),
+				},
+				{
+					// 创建账号（角色固定 agent，初始密码由管理员设定并强制首登改密）
+					Method:  http.MethodPost,
+					Path:    "/users",
+					Handler: user.CreateUserHandler(serverCtx),
+				},
+				{
+					// 从外部数据源同步账号（占位：当前恒返回 501 not_implemented）
+					Method:  http.MethodPost,
+					Path:    "/users/sync",
+					Handler: user.SyncUsersHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
 	)
 }

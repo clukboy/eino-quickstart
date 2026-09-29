@@ -73,6 +73,7 @@ knowledge workspace automation
 | `EINO_API_KEY_DEVELOPER` | Agent 调用 API Key |
 | `EINO_API_KEY_APPROVER` | 审批 API Key |
 | `EINO_API_KEY_ADMIN` | 管理 API Key |
+| `EINO_ACCOUNT_SECRET` | 账号令牌的 HMAC 密钥，名称由 `auth.accounts.secretEnv` 配置；`auth.accounts.enabled=false` 时不需要。**必须与匿名令牌的密钥不同** |
 
 Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同一个值。
 
@@ -84,6 +85,10 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | --- | --- | --- | --- |
 | `GET` | `/health` | 无 | 存活检查 |
 | `GET` | `/ready` | 无 | 数据库就绪检查 |
+| `POST` | `/api/v1/auth/anonymous` | 无 | 签发（或按旧令牌续期）匿名身份令牌 |
+| `POST` | `/api/v1/auth/login` | 无 | 账号登录；可带 `anonymous_token` 把该浏览器的匿名会话迁到账号名下 |
+| `POST` | `/api/v1/auth/password` | 任意登录身份 | 修改密码；成功后返回**新令牌**（无需重新登录） |
+| `GET` | `/api/v1/auth/me` | 任意身份 | 查询当前身份（登录账号 / 匿名访客 / 静态 key） |
 | `POST` | `/api/v1/sessions` | `agent` | 创建会话 |
 | `GET` | `/api/v1/sessions` | `agent` | 列出自己的会话，按最后活动时间倒序 |
 | `GET` | `/api/v1/sessions/{id}/messages` | `agent` | 列出某个会话的历史消息（时间正序） |
@@ -105,6 +110,9 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/api/v1/agents/{subject}/dataset` | `admin` | 查询 API Key 主体可访问的数据集 |
 | `PUT` | `/api/v1/agents/{subject}/dataset/{id}` | `admin` | 为 API Key 主体授权一个启用中的数据集；成功与重复授权都是空体 204 |
 | `DELETE` | `/api/v1/agents/{subject}/dataset/{id}` | `admin` | 撤销授权；成功返回空体 204 |
+| `GET` | `/api/v1/users` | `admin` | 列出账号（按创建时间倒序，暂不分页） |
+| `POST` | `/api/v1/users` | `admin` | 创建账号；角色固定 `agent`，初始密码由管理员设定 |
+| `POST` | `/api/v1/users/sync` | `admin` | 从外部数据源同步账号；**占位**，当前恒返回 501 `not_implemented` |
 
 会话与消息是**真的持久化**的，读侧与写侧都在这一组里：
 
@@ -150,6 +158,46 @@ SSE 帧是 goctl 生成器的原生形态 —— 只有 `data: {...}` 行、没�
 指标不再暴露在同端口：go-zero 自带 Prometheus agent 在
 `internal/transport/restapi/etc/restapi.yaml` 的 `Prometheus.Host/Port` 上独立监听
 （当前该段是注释状态，即指标未暴露）。
+
+## 身份与账号
+
+三种请求身份共用同一套中间件与业务代码，区别只在令牌怎么来：
+
+| 身份 | 令牌 | subject | 角色来源 |
+| --- | --- | --- | --- |
+| 静态 API Key | 配置里的固定串 | 配置里的 subject | 该 Key 配的角色（`agent` / `approver` / `admin`） |
+| 匿名访客 | `POST /api/v1/auth/anonymous` 签发，自包含 | `anon:<uuid>` | `auth.anonymous.role`（默认 `agent`） |
+| 登录账号 | `POST /api/v1/auth/login` 签发，自包含 | `user:<id>` | 令牌载荷里的 `r`（签发时取自 `users.role`） |
+
+匿名与账号两类令牌共用一个 HMAC 内核（`internal/platform/auth/issuer.go`），
+只有三个变量不同：密钥、subject 前缀、令牌前缀（`anon.` / `user.`）。因此对中间件
+和业务代码而言两者没有区别 —— 「登录后能看到的会话」与「匿名时能看到的会话」走的是
+同一条路径，会话归属仍然只从令牌解析（接口上没有 owner 参数）。
+
+账号令牌的载荷里比匿名令牌多两个**每令牌**字段：
+
+- `r`（角色）：服务端不查库，角色随令牌走 ⇒ 改了角色要等下次登录才生效；
+- `mcp`（must_change_password）：必须能拦住**已签发**的令牌，所以不能只在登录时算一次。
+
+由此引出一条实现约束：**强制改密由服务端中间件执行**（`middleware/password_guard.go`，
+排在 `Authenticate` 之后）。待改密的身份访问 `/api/v1/auth/` 以外的任何接口一律 403
+（`请先修改初始密码`），只放行账号组本身 —— 否则用户会被锁在「必须改密」与「改密接口
+也进不去」之间。改密成功后 `POST /api/v1/auth/password` **直接返回一枚新令牌**
+（`mcp=false`），前端替换即可，不需要重新登录；不换令牌就会陷入「拿旧令牌被 403，
+但 `/auth/me` 说已经改完了」的矛盾状态。
+
+**没有注册接口**（`POST /api/v1/auth/register` 不存在）。账号只能由管理员在
+`POST /api/v1/users` 创建，而该接口**不接受 `role` 参数**、新账号一律 `agent`。
+这条产品要求的直接推论是：**界面里造不出管理员** —— 管理后台本身仍然只能用构建期注入的
+静态 admin key（`EINO_API_KEY_ADMIN`）访问，要把某人提权只能改库
+（`UPDATE users SET role='admin'`）。这是刻意的取舍，不是遗漏。
+
+登录时可选带 `anonymous_token`：服务端验签后把该 subject（`anon:<uuid>`）名下的
+`sessions` 一次性改挂到 `user:<id>`。必须是裸 SQL —— `sessions.owner_subject` 是
+Immutable，ent 没有生成它的 setter。`chat_turns` / `agent_runs` / `approvals` 的
+`requested_by` **刻意不改**：它们记录的是「当时是谁发起的」，改成登录后的身份等于伪造审计。
+
+无状态令牌的代价（不可吊销、改角色要等换令牌、停用挡不住旧令牌）见 `docs/known-gaps.md`。
 
 ## 知识库数据流
 

@@ -17,6 +17,7 @@ import (
 	"eino-quickstart/ent/knowledgeindex"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
+	"eino-quickstart/ent/user"
 	"errors"
 	"fmt"
 	"reflect"
@@ -98,6 +99,7 @@ func checkColumn(t, c string) error {
 			knowledgeindex.Table:  knowledgeindex.ValidColumn,
 			session.Table:         session.ValidColumn,
 			sessionmessage.Table:  sessionmessage.ValidColumn,
+			user.Table:            user.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

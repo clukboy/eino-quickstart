@@ -10,6 +10,7 @@ import (
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/ent/knowledgeindex"
+	"eino-quickstart/ent/user"
 	"time"
 )
 
@@ -1713,6 +1714,174 @@ func (_m *SessionMessageUpdateOne) SetNotNilContent(value *string) *SessionMessa
 func (_m *SessionMessageCreate) SetNotNilContent(value *string) *SessionMessageCreate {
 	if value != nil {
 		return _m.SetContent(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilUsername(value *string) *UserUpdate {
+	if value != nil {
+		return _m.SetUsername(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilUsername(value *string) *UserUpdateOne {
+	if value != nil {
+		return _m.SetUsername(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilUsername(value *string) *UserCreate {
+	if value != nil {
+		return _m.SetUsername(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilPasswordHash(value *string) *UserUpdate {
+	if value != nil {
+		return _m.SetPasswordHash(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilPasswordHash(value *string) *UserUpdateOne {
+	if value != nil {
+		return _m.SetPasswordHash(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilPasswordHash(value *string) *UserCreate {
+	if value != nil {
+		return _m.SetPasswordHash(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilRole(value *user.Role) *UserUpdate {
+	if value != nil {
+		return _m.SetRole(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilRole(value *user.Role) *UserUpdateOne {
+	if value != nil {
+		return _m.SetRole(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilRole(value *user.Role) *UserCreate {
+	if value != nil {
+		return _m.SetRole(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilStatus(value *user.Status) *UserUpdate {
+	if value != nil {
+		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilStatus(value *user.Status) *UserUpdateOne {
+	if value != nil {
+		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilStatus(value *user.Status) *UserCreate {
+	if value != nil {
+		return _m.SetStatus(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilMustChangePassword(value *bool) *UserUpdate {
+	if value != nil {
+		return _m.SetMustChangePassword(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilMustChangePassword(value *bool) *UserUpdateOne {
+	if value != nil {
+		return _m.SetMustChangePassword(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilMustChangePassword(value *bool) *UserCreate {
+	if value != nil {
+		return _m.SetMustChangePassword(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilPasswordChangedAt(value *time.Time) *UserUpdate {
+	if value != nil {
+		return _m.SetPasswordChangedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilPasswordChangedAt(value *time.Time) *UserUpdateOne {
+	if value != nil {
+		return _m.SetPasswordChangedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilPasswordChangedAt(value *time.Time) *UserCreate {
+	if value != nil {
+		return _m.SetPasswordChangedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilUpdatedAt(value *time.Time) *UserUpdate {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilUpdatedAt(value *time.Time) *UserUpdateOne {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilUpdatedAt(value *time.Time) *UserCreate {
+	if value != nil {
+		return _m.SetUpdatedAt(*value)
 	}
 	return _m
 }

@@ -10,6 +10,7 @@ import (
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/platform/auth"
+	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/platform/persistence/approval"
 	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
@@ -39,6 +40,22 @@ type Deps struct {
 	// （此时 /auth/anonymous 返回 503，而不是签发一个没人能校验的身份）。
 	Anonymous *auth.AnonymousIssuer
 
+	// Accounts 与 AccountStore 是账号登录这一对：签发者负责令牌，store 负责
+	// 账号与密码。它们必须一起为 nil 或一起存在 —— 只给签发者而没有 store
+	// 会让登录接口「能签令牌但查不到人」，只给 store 则每个令牌都签不出来。
+	// 因此组合根（cmd/restapi）按同一个开关构造它们，见 Options.Accounts。
+	Accounts     *auth.AccountIssuer
+	AccountStore *account.Store
+
+	// PasswordHashCost 是哈希「管理员设定的初始密码」时用的 bcrypt 成本，
+	// 0 表示用 bcrypt.DefaultCost。
+	//
+	// 它来自**平台配置**（config.Auth.Accounts.BcryptCost），而传输层拿到的
+	// 只有 go-zero 的 RestConf，所以只能在组合根读出来、当成普通依赖传进来。
+	// 放在这里而不是硬编码：成本每加 1 就把单次哈希耗时翻倍，而 /auth/login
+	// 没有限流（见 docs/known-gaps.md），慢机器上需要能调低。
+	PasswordHashCost int
+
 	Logger    *slog.Logger
 	EntClient *ent.Client
 }
@@ -55,6 +72,12 @@ type ServiceContext struct {
 	Runs         *run.Store
 	Turns        *turn.Store
 	Anonymous    *auth.AnonymousIssuer
+	Accounts     *auth.AccountIssuer
+	AccountStore *account.Store
+
+	// PasswordHashCost 的语义同 Deps.PasswordHashCost。
+	PasswordHashCost int
+
 	Logger       *slog.Logger
 	EntClient    *ent.Client
 	RoleAdmin    rest.Middleware
@@ -65,18 +88,21 @@ type ServiceContext struct {
 // NewServiceContext wires the dependency set into a ServiceContext.
 func NewServiceContext(c config.Config, deps Deps) *ServiceContext {
 	return &ServiceContext{
-		Config:       c,
-		Agent:        deps.Agent,
-		Knowledge:    deps.Knowledge,
-		Sessions:     deps.Sessions,
-		Approvals:    deps.Approvals,
-		Runs:         deps.Runs,
-		Turns:        deps.Turns,
-		Anonymous:    deps.Anonymous,
-		Logger:       deps.Logger,
-		EntClient:    deps.EntClient,
-		RoleAdmin:    middleware.NewRoleAdminMiddleware().Handle,
-		RoleAgent:    middleware.NewRoleAgentMiddleware().Handle,
-		RoleApprover: middleware.NewRoleApproverMiddleware().Handle,
+		Config:           c,
+		Agent:            deps.Agent,
+		Knowledge:        deps.Knowledge,
+		Sessions:         deps.Sessions,
+		Approvals:        deps.Approvals,
+		Runs:             deps.Runs,
+		Turns:            deps.Turns,
+		Anonymous:        deps.Anonymous,
+		Accounts:         deps.Accounts,
+		AccountStore:     deps.AccountStore,
+		PasswordHashCost: deps.PasswordHashCost,
+		Logger:           deps.Logger,
+		EntClient:        deps.EntClient,
+		RoleAdmin:        middleware.NewRoleAdminMiddleware().Handle,
+		RoleAgent:        middleware.NewRoleAgentMiddleware().Handle,
+		RoleApprover:     middleware.NewRoleApproverMiddleware().Handle,
 	}
 }

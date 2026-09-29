@@ -9,7 +9,12 @@ syntax = "v1"
 //
 //   common/types.api        跨功能组共享的类型（StatusResp）
 //   health/health.api       健康检查        GET /health、/ready
-//   auth/auth.api           匿名身份         POST /auth/anonymous（公开，无角色中间件）
+//   auth/auth.api           身份            POST /auth/anonymous、/auth/login、
+//                                          /auth/password、GET /auth/me
+//                                          （组上不挂中间件：两条是入口，两条要服务任意角色）
+//   user/user.api           账号管理        GET /users、POST /users、
+//                                          POST /users/sync（组上挂 RoleAdmin；
+//                                          sync 是恒返回 501 的占位）
 //   agent/agent.api         会话            POST /sessions、GET /sessions、
 //                                          GET /sessions/:id/messages
 //   stream/stream.api       流式对话与续跑   SSE：POST /chat、/approvals/:id/resume
@@ -74,6 +79,7 @@ syntax = "v1"
 import "common/types.api"
 import "health/health.api"
 import "auth/auth.api"
+import "user/user.api"
 import "agent/agent.api"
 import "stream/stream.api"
 import "approver/approver.api"

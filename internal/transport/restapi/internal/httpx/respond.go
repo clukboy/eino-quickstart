@@ -23,6 +23,12 @@ const (
 	CodeTooLarge           = "payload_too_large"
 	CodeUnsupportedFormat  = "unsupported_format"
 	CodeInvalidCredentials = "invalid_credentials"
+
+	// CodeNotImplemented marks an endpoint whose route and contract are already
+	// fixed but whose implementation is deferred. Clients must treat it as
+	// "this feature is not wired yet", not as a failure of the request — see
+	// NotImplemented.
+	CodeNotImplemented = "not_implemented"
 )
 
 // ErrorResponse is the single error envelope for every endpoint. The error
@@ -119,6 +125,18 @@ func Internal(message string) *Error {
 // unknown bearer token, as opposed to a missing identity.
 func InvalidCredentials(message string) *Error {
 	return New(http.StatusUnauthorized, CodeInvalidCredentials, message)
+}
+
+// NotImplemented is the 501 for an endpoint that is deliberately a placeholder.
+//
+// The distinction from Unavailable matters: 503 means "this deployment turned
+// the feature off" (the caller should not retry and the operator should fix the
+// config), while 501 means "the route exists and the contract is fixed, the
+// implementation is not in yet". The current user is POST /api/v1/users/sync,
+// whose upstream data source has not been decided — the front end shows the
+// message as a hint rather than an error.
+func NotImplemented(message string) *Error {
+	return New(http.StatusNotImplemented, CodeNotImplemented, message)
 }
 
 // Register installs the process-wide error handler that renders every failure

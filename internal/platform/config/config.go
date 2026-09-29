@@ -120,10 +120,32 @@ type Storage struct {
 // 而运维没有任何手段收回。
 const maxAnonymousTTLHours = 24 * 365
 
+// maxAccountTTLHours 是账号令牌有效期上限（30 天）。
+//
+// 比匿名令牌的上限（一年）紧得多，因为两者失效的代价不一样：匿名令牌泄漏的
+// 后果是「别人能看到这个访客的会话」，而账号令牌泄漏的后果是「别人能以这个
+// 人的身份操作」。账号令牌同样是无状态的，改密码与停用账号都挡不住它
+// （见 internal/platform/auth 的 AccountIssuer），所以有效期是唯一兜底。
+//
+// 30 天是这样选的：比「用户可能连续使用同一台设备」的间隔长，又不至于让一个
+// 泄漏的令牌长期有效。真需要更长的会话时长，正确的做法是加刷新机制，而不是
+// 把这个上限调大。
+const maxAccountTTLHours = 24 * 30
+
+// 管理员初始密码的 bcrypt 成本上下界（0 表示不配、走 bcrypt.DefaultCost）。
+//
+// 下界 10 就是 bcrypt.DefaultCost：比它更低的成本在现代硬件上能被离线爆破
+// 打穿，而它省下的那点 CPU 换不来任何东西。上界 16 的理由见校验处的注释。
+const (
+	minAccountBcryptCost = 10
+	maxAccountBcryptCost = 16
+)
+
 type Auth struct {
 	Enabled   bool                `yaml:"enabled"`
 	APIKeys   []APIKeyConfig      `yaml:"apiKeys"`
 	Anonymous AnonymousAuthConfig `yaml:"anonymous"`
+	Accounts  AccountsAuthConfig  `yaml:"accounts"`
 }
 type APIKeyConfig struct {
 	Subject string `yaml:"subject"`
@@ -150,6 +172,36 @@ type AnonymousAuthConfig struct {
 	// Secret 从 SecretEnv 指向的环境变量读入，口径与 storage.password 一致：
 	// 密钥不进配置文件。yaml:"-" 表示配置文件里写这个字段无效（也提示后来者
 	// 不要把它写进去）。
+	Secret string `yaml:"-"`
+}
+
+// AccountsAuthConfig 是账号登录（后台建号 + 登录 + 强制改密）的配置。
+//
+// ── 为什么没有 role 字段 ──────────────────────────────────────────
+// 账号的角色存在 users.role 里、随令牌签发。这里再放一个 role 只会制造一个
+// 能一次性把所有账号提权成 admin 的开关，而且它没有任何正当用途 —— 匿名
+// 需要一个默认角色是因为它没有数据库记录，账号不需要。
+//
+// ── 密钥必须与匿名密钥不同 ────────────────────────────────────────
+// 两个 issuer 用的是同一套 HMAC 实现，唯一区分它们的是密钥与前缀。若两个
+// 密钥配成同一个值，`anon.` 与 `user.` 前缀仍然挡得住串用（前缀不同验不过
+// 第一关），所以这不是一个安全洞；但它会让「密钥轮换」变成不可能只轮换一半
+// 的操作。configs/config.yaml 的注释里写明了这一点。
+type AccountsAuthConfig struct {
+	Enabled bool `yaml:"enabled"`
+
+	// SecretEnv 指向的环境变量名。与匿名同一口径：密钥不进配置文件。
+	SecretEnv string `yaml:"secretEnv"`
+	TTLHours  int    `yaml:"ttlHours"`
+
+	// BcryptCost 是管理员初始密码的哈希成本。0 表示用 bcrypt.DefaultCost。
+	//
+	// 做成配置项是因为它有真实的取舍：调高更抗离线爆破，但每次登录要多花
+	// 几十到几百毫秒的 CPU，而这个开销是**可以被匿名接口放大的**（登录接口
+	// 没有限流，见 docs/known-gaps.md）。
+	BcryptCost int `yaml:"bcryptCost"`
+
+	// Secret 从 SecretEnv 读入，理由同 AnonymousAuthConfig.Secret。
 	Secret string `yaml:"-"`
 }
 
@@ -361,6 +413,11 @@ func Load(path string) (*Config, error) {
 	if cfg.Auth.Anonymous.SecretEnv != "" {
 		cfg.Auth.Anonymous.Secret = os.Getenv(cfg.Auth.Anonymous.SecretEnv)
 	}
+	// 账号令牌的签名密钥同理，且后果更重：泄漏出去等于任何人都能伪造任意
+	// `user:<id>`（包括 admin）的身份。
+	if cfg.Auth.Accounts.SecretEnv != "" {
+		cfg.Auth.Accounts.Secret = os.Getenv(cfg.Auth.Accounts.SecretEnv)
+	}
 
 	if !filepath.IsAbs(cfg.Workspace.Root) {
 		abs, err := filepath.Abs(cfg.Workspace.Root)
@@ -468,6 +525,54 @@ func Load(path string) (*Config, error) {
 		// 「哪个 subject 是匿名的」在库里就认不出来。
 		if cfg.Auth.Anonymous.SubjectPrefix == "" {
 			cfg.Auth.Anonymous.SubjectPrefix = "anon:"
+		}
+	}
+
+	// 账号登录。口径与匿名完全一致：关掉时一个字段都不校验（部署形态就是
+	// 「只有管理台 + 匿名访客」），打开时每一项都必须齐 —— 少一个密钥会让
+	// 所有账号令牌用空密钥签出去（谁都能伪造任意 user:<id>，包括 admin），
+	// 而症状不是崩溃，只是「一切正常」。
+	//
+	// 刻意**不**校验「accounts 与 anonymous 的密钥必须不同」：两个 issuer 的
+	// 令牌前缀不同（user. / anon.），配成同一个值不会导致串用；把它写成硬
+	// 校验只会让「本地图省事只配一个密钥」变成启动失败。这一点写在
+	// configs/config.yaml 的注释里。
+	if cfg.Auth.Accounts.Enabled {
+		if cfg.Auth.Accounts.SecretEnv == "" {
+			return nil, fmt.Errorf(
+				"auth.accounts.secretEnv is required when accounts are enabled",
+			)
+		}
+		if cfg.Auth.Accounts.Secret == "" {
+			return nil, fmt.Errorf(
+				"environment variable %s is required",
+				cfg.Auth.Accounts.SecretEnv,
+			)
+		}
+		if cfg.Auth.Accounts.TTLHours <= 0 {
+			return nil, fmt.Errorf(
+				"auth.accounts.ttlHours must be greater than zero",
+			)
+		}
+		if cfg.Auth.Accounts.TTLHours > maxAccountTTLHours {
+			return nil, fmt.Errorf(
+				"auth.accounts.ttlHours must not exceed %d",
+				maxAccountTTLHours,
+			)
+		}
+		// 成本留 0 表示「用默认值」（bcrypt.DefaultCost = 10）。
+		//
+		// 上界不是洁癖：bcrypt 的成本每加 1 就把单次哈希的耗时翻倍，而
+		// /auth/login 没有任何限流（见 docs/known-gaps.md）。配成 20 以上时
+		// 每次登录要占用秒级的 CPU，几个并发请求就能把进程的 CPU 打满 ——
+		// 那是一个配置就能造成的自伤。
+		if cost := cfg.Auth.Accounts.BcryptCost; cost != 0 &&
+			(cost < minAccountBcryptCost || cost > maxAccountBcryptCost) {
+			return nil, fmt.Errorf(
+				"auth.accounts.bcryptCost must be 0 (default) or between %d and %d",
+				minAccountBcryptCost,
+				maxAccountBcryptCost,
+			)
 		}
 	}
 

@@ -1,13 +1,6 @@
 package auth
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,15 +19,6 @@ const AnonymousSubjectPrefix = "anon:"
 // 第一个字段。
 const anonymousTokenPrefix = "anon."
 
-// tokenPayload 是令牌里自包含的载荷。
-//
-// 字段名取短名（s / exp）：这个串会出现在每个请求的 Authorization 头里，
-// 它只对签发方与校验方有意义，可读性由本文件的注释负责。
-type tokenPayload struct {
-	Subject   string `json:"s"`
-	ExpiresAt int64  `json:"exp"`
-}
-
 // AnonymousIssuer 签发并校验匿名身份令牌。
 //
 // ── 为什么是「服务端签发」而不是「客户端自报 id」 ──────────────────────
@@ -49,18 +33,13 @@ type tokenPayload struct {
 // 每个请求查一次库。代价是**签出去就收不回**（没有服务端吊销），以及无法
 // 统计「现在有多少匿名身份」—— 匿名身份本来就不是账号，两者都不影响隔离。
 //
-// ── 日后接入账号登录 ───────────────────────────────────────────────
-// 那时只需再实现一种签发（subject 用另一个前缀，例如 `user:`），校验路径
-// 与业务侧（actorSubject、会话归属、角色中间件）一行都不用改；已签发的匿名
-// 令牌继续有效，用户在登录前攒下的历史仍归在 anon: 名下。
+// ── 与账号身份的关系 ───────────────────────────────────────────────
+// 签名内核在 issuer.go 的 subjectIssuer 里，本类型只是给它填上「密钥、anon
+// 前缀、roles 默认 agent」这一组参数。账号身份（account.go）填的是另一组，
+// 两者的差异仅此而已 —— 校验路径与业务侧（actorSubject、会话归属、角色
+// 中间件）一行都不用改，因为它们拿到的都是一个 Identity。
 type AnonymousIssuer struct {
-	secret []byte
-	ttl    time.Duration
-	role   Role
-	prefix string
-
-	// now 可注入，只为让「过期」这条分支在测试里能确定性地触发。
-	now func() time.Time
+	subjectIssuer
 }
 
 // AnonymousConfig 是构造 AnonymousIssuer 的输入。
@@ -76,31 +55,24 @@ type AnonymousConfig struct {
 }
 
 func NewAnonymousIssuer(cfg AnonymousConfig) (*AnonymousIssuer, error) {
-	if cfg.Secret == "" {
-		return nil, errors.New("auth: anonymous secret is required")
-	}
-	if cfg.TTL <= 0 {
-		return nil, errors.New("auth: anonymous token ttl must be greater than zero")
-	}
-	if cfg.Role == "" {
-		cfg.Role = RoleAgent
-	}
-	switch cfg.Role {
-	case RoleAgent, RoleApprover, RoleAdmin:
-	default:
-		return nil, fmt.Errorf("auth: anonymous role %q is not a known role", cfg.Role)
-	}
-	if cfg.SubjectPrefix == "" {
-		cfg.SubjectPrefix = AnonymousSubjectPrefix
+	prefix := cfg.SubjectPrefix
+	if prefix == "" {
+		prefix = AnonymousSubjectPrefix
 	}
 
-	return &AnonymousIssuer{
-		secret: []byte(cfg.Secret),
-		ttl:    cfg.TTL,
-		role:   cfg.Role,
-		prefix: cfg.SubjectPrefix,
-		now:    time.Now,
-	}, nil
+	kernel, err := newSubjectIssuer(subjectIssuerConfig{
+		Secret:        cfg.Secret,
+		TTL:           cfg.TTL,
+		Role:          cfg.Role,
+		SubjectPrefix: prefix,
+		TokenPrefix:   anonymousTokenPrefix,
+		Label:         "anonymous",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &AnonymousIssuer{subjectIssuer: kernel}, nil
 }
 
 // Role 是匿名身份被授予的角色，供签发接口回传给客户端（前端据此说明
@@ -108,7 +80,7 @@ func NewAnonymousIssuer(cfg AnonymousConfig) (*AnonymousIssuer, error) {
 func (i *AnonymousIssuer) Role() Role { return i.role }
 
 // SubjectPrefix 是匿名 subject 的前缀，语义同 AnonymousSubjectPrefix。
-func (i *AnonymousIssuer) SubjectPrefix() string { return i.prefix }
+func (i *AnonymousIssuer) SubjectPrefix() string { return i.subjectPrefix }
 
 // NewAnonymousSubject 生成一个新的匿名 subject。
 func NewAnonymousSubject(prefix string) string {
@@ -124,96 +96,42 @@ func NewAnonymousSubject(prefix string) string {
 // 它的 subject 再签一个，这样刷新页面、重启浏览器都不会换身份（换身份等于
 // 把历史会话留在一个再也拿不回来的 subject 名下）。subject 必须带本 issuer
 // 的前缀 —— 否则就变成「拿任意 subject 换一个合法令牌」，那是越权。
+//
+// 刻意不把角色写进载荷：匿名角色来自配置，每个请求都一样，让它跟着每个令牌
+// 走只会给「客户端影响角色」留下想象空间。载荷里没有 r 时，verify 会回落到
+// issuer 的 role（见 subjectIssuer.identity）。
 func (i *AnonymousIssuer) Issue(subject string) (string, string, time.Time, error) {
 	if subject == "" {
-		subject = NewAnonymousSubject(i.prefix)
-	} else if !strings.HasPrefix(subject, i.prefix) {
-		return "", "", time.Time{}, fmt.Errorf(
-			"auth: anonymous subject must start with %q", i.prefix,
-		)
+		subject = NewAnonymousSubject(i.subjectPrefix)
+	} else if err := i.checkSubject(subject); err != nil {
+		return "", "", time.Time{}, err
 	}
 
-	expiresAt := i.now().Add(i.ttl)
-	payload, err := json.Marshal(tokenPayload{
-		Subject:   subject,
-		ExpiresAt: expiresAt.Unix(),
-	})
+	token, expiresAt, err := i.issue(subject, "", false)
 	if err != nil {
-		return "", "", time.Time{}, fmt.Errorf("auth: marshal anonymous payload: %w", err)
+		return "", "", time.Time{}, err
 	}
 
-	encoded := base64.RawURLEncoding.EncodeToString(payload)
-	signed := encoded + "." + base64.RawURLEncoding.EncodeToString(i.sign(encoded))
-
-	return anonymousTokenPrefix + signed, subject, expiresAt, nil
+	return token, subject, expiresAt, nil
 }
 
 // Verify 校验令牌并还原成身份。任何一种失败都只回 false，不区分原因：
 // 调用方（token 校验路径）对外的表现一律是 401，区分「过期」与「伪造」只会
 // 给探测者提供信息，而客户端能做的动作是一样的（重新申请）。
 func (i *AnonymousIssuer) Verify(token string) (Identity, bool) {
-	encoded, signature, ok := splitAnonymousToken(token)
+	payload, ok := i.verify(token)
 	if !ok {
 		return Identity{}, false
 	}
 
-	expected := i.sign(encoded)
-	actual, err := base64.RawURLEncoding.DecodeString(signature)
-	if err != nil {
-		return Identity{}, false
-	}
-	// hmac.Equal 是常量时间比较：逐字节比较会把签名暴露给计时攻击。
-	//
-	// 注意签名的 base64 表示**不唯一**：32 字节编码成 43 个字符是 258 bit，
-	// 多出的 2 bit 会被解码器丢弃，所以「只改了最后一个字符」的令牌解出来的
-	// 签名可能与原文完全相同、验签照样通过。这不影响安全性（等价编码不能伪造
-	// 签名），但意味着**不能拿令牌串本身当唯一键**去去重或索引。
-	if !hmac.Equal(expected, actual) {
-		return Identity{}, false
-	}
-
-	var payload tokenPayload
-	if err := json.Unmarshal(decode(encoded), &payload); err != nil {
-		return Identity{}, false
-	}
-	if payload.Subject == "" || !strings.HasPrefix(payload.Subject, i.prefix) {
-		return Identity{}, false
-	}
-	// 过期判定用 >= ：exp 是「有效期截止的那一刻」，落在那一刻上即失效。
-	if i.now().Unix() >= payload.ExpiresAt {
-		return Identity{}, false
-	}
-
-	return Identity{Subject: payload.Subject, Role: i.role}, true
+	return i.identity(payload)
 }
 
-func (i *AnonymousIssuer) sign(encoded string) []byte {
-	mac := hmac.New(sha256.New, i.secret)
-	mac.Write([]byte(encoded))
-	return mac.Sum(nil)
-}
-
-// splitAnonymousToken 把 `anon.<payload>.<signature>` 拆成两段。
-//
-// 前缀在这里判掉，是为了让**静态 API key 走不到这条路径**：静态 key 是一个
-// 任意串，命中匿名分支只可能浪费一次 HMAC（甚至误判），先按前缀分流最省。
-func splitAnonymousToken(token string) (string, string, bool) {
-	rest, ok := strings.CutPrefix(token, anonymousTokenPrefix)
-	if !ok {
-		return "", "", false
-	}
-	encoded, signature, ok := strings.Cut(rest, ".")
-	if !ok || encoded == "" || signature == "" {
-		return "", "", false
-	}
-	return encoded, signature, true
-}
-
-// decode 解 base64url；失败时返回 nil，交给 json.Unmarshal 去拒绝空输入。
-func decode(encoded string) []byte {
-	raw, err := base64.RawURLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil
-	}
-	return raw
-}
+// 编译期断言：AnonymousIssuer 必须仍然满足「能签发、能校验、能报角色」这个
+// 对外形状。它现在通过内嵌 subjectIssuer 拿到大部分能力，接口变了这里会先炸。
+var _ interface {
+	Role() Role
+	SubjectPrefix() string
+	Issue(subject string) (string, string, time.Time, error)
+	Verify(token string) (Identity, bool)
+} = (*AnonymousIssuer)(nil)
