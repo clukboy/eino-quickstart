@@ -47,6 +47,12 @@ func NewCreateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 // /api/v1/auth/* 之外什么都访问不了（middleware/password_guard.go）。响应里
 // 把 must_change_password 回给前端，就是为了让管理员看到「待改密」这一列，
 // 从而明白这枚密码不是长期凭证。
+//
+// ── username 与 nickname 是两件事 ────────────────────────────────
+// 前者是登录名（唯一、ASCII、有格式限制），后者是显示名（可中文、可重名）。
+// 两个都校验，但规则不同：详见 helpers.go 的 usernamePattern 与 nicknameLimit。
+// 昵称是**必填**的（建号接口不带它会被 400），因为「列表里只有一串 ASCII 登录名」
+// 对管理员毫无帮助 —— 他需要认出这是谁。
 func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.UserResp, err error) {
 	store, err := accountStore(l.svcCtx)
 	if err != nil {
@@ -54,6 +60,11 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.User
 	}
 
 	username, err := normalizeUsername(req.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	nickname, err := normalizeNickname(req.Nickname)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +81,13 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.User
 		return nil, httpx.Internal("创建账号失败")
 	}
 
-	record, err := store.Create(l.ctx, username, passwordHash)
+	record, err := store.Create(l.ctx, account.CreateParams{
+		Username: username,
+		Nickname: nickname,
+		// 注意顺序无关：CreateParams 是带字段名的结构体，不是三个连着的 string
+		// —— 后者把昵称当密码传也能编译过（见 store.go 里的说明）。
+		PasswordHash: passwordHash,
+	})
 	if errors.Is(err, account.ErrUsernameTaken) {
 		// 409 而不是 400：用户名重复是**资源冲突**，前端的处置也不同（把输入框
 		// 标红并提示换一个），与「格式不对」不是一类。
@@ -84,10 +101,14 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.User
 	// 记 subject（= user:<id>）而不是密码或哈希。管理员的操作值得留痕：这条
 	// 日志是「这个账号是谁建的、什么时候建的」唯一能回答的地方（users 表里
 	// 没有 creator 列）。
+	//
+	// 昵称也一起记：它是排查「管理员说他建的是张三、列表里却没有」这类问题的
+	// 唯一线索，而且它不是凭证，留在日志里没有风险。
 	l.Infof(
-		"account created subject=%s username=%s role=%s must_change_password=%t",
+		"account created subject=%s username=%s nickname=%s role=%s must_change_password=%t",
 		auth.NewAccountSubject(record.ID),
 		record.Username,
+		record.Nickname,
 		record.Role,
 		record.MustChangePassword,
 	)

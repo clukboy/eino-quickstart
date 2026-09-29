@@ -107,6 +107,7 @@ type CreateSessionResp struct {
 
 type CreateUserReq struct {
 	Username string `json:"username"`
+	Nickname string `json:"nickname"`
 	Password string `json:"password"`
 }
 
@@ -273,6 +274,10 @@ type UpdateDocumentReq struct {
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
+type UserListReq struct {
+	Keyword string `form:"keyword,optional"`
+}
+
 type UserListResp struct {
 	Data  []UserResp `json:"data"`
 	Total int        `json:"total"`
@@ -282,6 +287,7 @@ type UserResp struct {
 	ID                 uint64 `json:"id"`
 	Subject            string `json:"subject"`
 	Username           string `json:"username"`
+	Nickname           string `json:"nickname"`
 	Role               string `json:"role"`
 	Status             string `json:"status"`
 	MustChangePassword bool   `json:"must_change_password"`

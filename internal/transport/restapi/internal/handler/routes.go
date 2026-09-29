@@ -259,7 +259,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.RoleAdmin},
 			[]rest.Route{
 				{
-					// 列出全部账号（按创建时间倒序，暂不分页）
+					// 列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）
 					Method:  http.MethodGet,
 					Path:    "/users",
 					Handler: user.ListUsersHandler(serverCtx),

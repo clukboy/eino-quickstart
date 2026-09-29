@@ -11,6 +11,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// 创建会话
 func CreateSessionHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l := agent.NewCreateSessionLogic(r.Context(), svcCtx)

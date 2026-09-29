@@ -24,6 +24,11 @@ syntax = "v1"
 // （internal/platform/auth/account.go），status 只在**登录时**被检查，
 // 一枚已经发出去的令牌会一直有效到 exp。
 //
+// 同样**没有「改昵称」的接口**：昵称在建号时定下来，之后只能改库。这与上面
+// 那几条同源 —— 本组至今没有任何 Update 类端点。真要做的话，加
+// PATCH /users/:id 时别忘了同步 restapi/routes_test.go 里那张**手工维护**的
+// 期望路由表，否则 TestRoutingContract 会直接失败。
+//
 // ── 与「同步」的关系 ────────────────────────────────────────────────
 //
 // /users/sync 是预留给「从外部数据源批量拉账号」的占位接口。它与上面两条
@@ -31,8 +36,16 @@ syntax = "v1"
 type UserResp {
 	ID      uint64 `json:"id"`
 	Subject string `json:"subject"`
-	// Username 是登录名，唯一。
+	// Username 是登录名：唯一，且**只能是 ASCII**（见 logic/user/helpers.go
+	// 的 usernamePattern，那里解释了为什么要收紧）。
 	Username string `json:"username"`
+	// Nickname 是**显示名**，与 Username 分工不同：这一个给人看（可中文、
+	// 可重名），那一个用来登录（唯一、ASCII）。建号时必填，之后没有修改接口。
+	//
+	// 本字段是后加的列，比它更早建的账号由 entx.Open 里的启动回填按 username
+	// 补上（见 persistence/account 与 ent/schema/user.go 的说明），所以正常
+	// 状态下它不会是空串；真拿到空串说明有人绕过接口直接写了库。
+	Nickname string `json:"nickname"`
 	// Role 取值 agent / approver / admin。通过本组接口创建的账号恒为 agent。
 	Role string `json:"role"`
 	// Status 取值 ACTIVE / DISABLED。本次没有改动它的接口，所以恒为 ACTIVE。
@@ -51,11 +64,39 @@ type UserListResp {
 	// Total 与 len(Data) 恒相等：本轮不分页（与 /sessions 同一取舍，账号在
 	// 人工建号的前提下天然很少）。真到要分页时，请把 page/pageSize 加成显式
 	// 的请求参数，而不是在这里加一个不透明的默认上限。
+	//
+	// ⚠️ 加上 keyword 之后这条**仍然成立**：搜索不是分页，过滤后的结果整体
+	// 返回，Total 依旧是 len(Data)。别把它当成「命中总数」使用 —— 那需要另一个
+	// 字段，而在分页做出来之前它没有意义（不分页时两者本来就相等）。
 	Total int `json:"total"`
+}
+
+// UserListReq 是列表的查询条件。
+//
+// ⚠️ Keyword 必须带 `optional` 关键字：go-zero 的请求解析只认 optional（见
+// core/mapping），漏掉它就会把这个查询参数当成**必填**，于是不带 ?keyword=
+// 的请求直接 400 `field "keyword" is not set` —— 而「不做搜索」恰恰是最常见
+// 的调用方式。
+type UserListReq {
+	// Keyword 按**用户名或昵称**做大小写不敏感的模糊匹配（子串），两端空白
+	// 会被去掉。留空或不传表示不过滤，行为与没有这个参数时完全一致。
+	//
+	// 关于通配符：匹配走 ent 的 ContainsFold（PostgreSQL 上生成 ILIKE），它会
+	// 对用户输入里的 % 与 _ 做转义，所以搜 "a_b" 不会命中 "axb"、搜 "%" 也不会
+	// 命中全部。这一点由库保证，后端不需要再包一层转义。
+	Keyword string `form:"keyword,optional"`
 }
 
 type CreateUserReq {
 	Username string `json:"username"`
+	// Nickname 是显示名，**必填**：空串或全空白会被 400（长度上界见
+	// logic/user/helpers.go 的 nicknameLimit）。规则与提示文案也要和前端
+	// 表单逐字对应，否则管理员会收到一条「按提示做却还是不通过」的报错。
+	//
+	// 它没有 optional 关键字，所以按 go-zero 的规则是**必填标量**：即使要传
+	// 空值，字段本身也必须出现在请求体里，否则 400
+	// `field "nickname" is not set`。这与下面 Password 的处理一致。
+	Nickname string `json:"nickname"`
 	// Password 是**管理员设定的初始密码**。
 	//
 	// 它只能用一次：服务端把新账号的 must_change_password 设为真，这个身份在
@@ -76,9 +117,9 @@ type CreateUserReq {
 	middleware: RoleAdmin
 )
 service restapi {
-	@doc "列出全部账号（按创建时间倒序，暂不分页）"
+	@doc "列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）"
 	@handler ListUsers
-	get /users returns (UserListResp)
+	get /users (UserListReq) returns (UserListResp)
 
 	@doc "创建账号（角色固定 agent，初始密码由管理员设定并强制首登改密）"
 	@handler CreateUser

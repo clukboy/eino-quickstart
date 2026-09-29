@@ -29,6 +29,12 @@ type Record struct {
 	// 拼接与解析都归 auth 包管，本包只认数字 id。
 	ID       uint64
 	Username string
+	// Nickname 是**显示名**：可中文、可重名，与 Username（登录名，唯一且只能是
+	// ASCII）分工不同。
+	//
+	// 这一列是后加的，比它更早建的账号由 entx.Open 的启动回填按 username 补上
+	// （见 ent/schema/user.go 里关于 DDL 默认值那段），所以这里正常不会是空串。
+	Nickname string
 	// Role 取值与 ent/user 的枚举一致：agent / approver / admin。
 	Role string
 	// Status 取值 ACTIVE / DISABLED。
@@ -60,6 +66,26 @@ func NewStore(client *ent.Client) *Store {
 	return &Store{client: client}
 }
 
+// CreateParams 是建号需要的那几项。
+//
+// 特意做成结构体而不是三个连着的 string：username / nickname / passwordHash
+// 都是字符串，位置传错（把昵称当密码传、或反过来）**编译器不会报错**，而症状
+// 是「密码怎么输都不对」这种要查很久的问题。带字段名的调用点让这类错误在评审
+// 时一眼可见，而不是靠调用方记住参数顺序。
+//
+// 这里**没有 role**，理由见下面 Create 的注释：提权能力必须停留在类型之外。
+type CreateParams struct {
+	// Username 是登录名，唯一。调用方必须先做形状校验与去空白
+	// （见 logic/user/helpers.go 的 normalizeUsername）。
+	Username string
+	// Nickname 是显示名，必填 —— 不能是空串，也不能是纯空白（同样由 logic
+	// 层负责归一化）。
+	Nickname string
+	// PasswordHash 必须是**已经哈希过**的（bcrypt）。本包不做哈希，因为哈希成本
+	// 是纯 CPU 且要在一次请求里只做一次，放在 logic 层更容易被看见和调优。
+	PasswordHash string
+}
+
 // Create 建一个账号。
 //
 // ── 为什么签名里没有 role ──────────────────────────────────────────
@@ -69,18 +95,16 @@ func NewStore(client *ent.Client) *Store {
 //
 // 同理 mustChangePassword 也不可传：管理员设定的初始密码只能用一次，这条规则
 // 不该取决于调用方记不记得传 true。
-//
-// passwordHash 必须是**已经哈希过**的（bcrypt）。本包不做哈希，因为哈希成本
-// 是纯 CPU 且要在一次请求里只做一次，放在 logic 层更容易被看见和调优。
-func (s *Store) Create(ctx context.Context, username string, passwordHash string) (*Record, error) {
-	if username == "" || passwordHash == "" {
-		return nil, errors.New("account: username and password hash are required")
+func (s *Store) Create(ctx context.Context, params CreateParams) (*Record, error) {
+	if params.Username == "" || params.Nickname == "" || params.PasswordHash == "" {
+		return nil, errors.New("account: username, nickname and password hash are required")
 	}
 
 	record, err := s.client.User.
 		Create().
-		SetUsername(username).
-		SetPasswordHash(passwordHash).
+		SetUsername(params.Username).
+		SetNickname(params.Nickname).
+		SetPasswordHash(params.PasswordHash).
 		// 三项都显式写出来而不是靠 schema 默认值：默认值是「建表时」的约定，
 		// 这里显式声明的是「建号时」的业务规则，两者将来可能分别演化。
 		SetRole(entUser.RoleAgent).
@@ -97,14 +121,39 @@ func (s *Store) Create(ctx context.Context, username string, passwordHash string
 	return fromEnt(record), nil
 }
 
-// List 按创建时间倒序列出全部账号（新建的排在最前）。
+// List 按创建时间倒序列出账号（新建的排在最前）。
+//
+// keyword 非空时按**用户名或昵称**做大小写不敏感的模糊过滤；空串表示不过滤，
+// 与没有这个参数时的行为完全一致。
 //
 // 本轮不分页：与 /sessions 同一取舍，先跑通再按需加 —— 账号数量在人工建号的
 // 前提下天然很小。真到了要分页的时候，请把 page/pageSize 加成显式参数，而不是
 // 在这里默默加一个 limit。
-func (s *Store) List(ctx context.Context) ([]Record, error) {
-	records, err := s.client.User.
-		Query().
+//
+// 去空白与空串归一由调用方负责（见 logic/user/helpers.go 的 normalizeKeyword）：
+// 本包只认「空串 = 不过滤」这一条，不去猜「全空白算不算空」——
+// 那种判断放两个地方做，迟早会出现一处松一处紧。
+func (s *Store) List(ctx context.Context, keyword string) ([]Record, error) {
+	query := s.client.User.Query()
+
+	if keyword != "" {
+		// 用一次 Or 而不是查两遍再合并：命中判定交给数据库算完，省掉一次额外
+		// 往返和两份结果的手工去重（同一个账号完全可能用户名与昵称都命中）。
+		//
+		// ContainsFold 在 PostgreSQL 上生成 ILIKE，所以大小写不敏感；而且它会
+		// 转义输入里的 % 与 _（见 ent 的 escapedLikeFold），因此管理员搜 "%"
+		// 不会命中全部、搜 "a_b" 也不会命中 "axb"。
+		// ⚠️ 别在这里再包一层转义：二次转义会把反斜杠本身也吃掉，反而搜不到
+		// 名字里真带下划线的账号。
+		query = query.Where(
+			entUser.Or(
+				entUser.UsernameContainsFold(keyword),
+				entUser.NicknameContainsFold(keyword),
+			),
+		)
+	}
+
+	records, err := query.
 		// ID 是兜底：created_at 精度到微秒仍可能撞（同一请求里连着建两条），
 		// 撞了就靠自增主键定序，免得每次刷新的顺序都在抖。
 		Order(
@@ -262,6 +311,7 @@ func fromEnt(record *ent.User) *Record {
 	return &Record{
 		ID:                 record.ID,
 		Username:           record.Username,
+		Nickname:           record.Nickname,
 		Role:               string(record.Role),
 		Status:             string(record.Status),
 		MustChangePassword: record.MustChangePassword,

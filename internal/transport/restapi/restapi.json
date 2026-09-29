@@ -1955,8 +1955,16 @@
         "schemes": [
           "https"
         ],
-        "summary": "列出全部账号（按创建时间倒序，暂不分页）",
+        "summary": "列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）",
         "operationId": "userListUsers",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "keyword",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1971,6 +1979,7 @@
                       "id",
                       "subject",
                       "username",
+                      "nickname",
                       "role",
                       "status",
                       "must_change_password",
@@ -1985,6 +1994,9 @@
                       },
                       "must_change_password": {
                         "type": "boolean"
+                      },
+                      "nickname": {
+                        "type": "string"
                       },
                       "role": {
                         "type": "string"
@@ -2030,9 +2042,13 @@
               "type": "object",
               "required": [
                 "username",
+                "nickname",
                 "password"
               ],
               "properties": {
+                "nickname": {
+                  "type": "string"
+                },
                 "password": {
                   "type": "string"
                 },
@@ -2057,6 +2073,9 @@
                 },
                 "must_change_password": {
                   "type": "boolean"
+                },
+                "nickname": {
+                  "type": "string"
                 },
                 "role": {
                   "type": "string"
@@ -2155,7 +2174,7 @@
       }
     }
   },
-  "x-date": "2026-09-28 12:03:02",
+  "x-date": "2026-09-29 11:58:27",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

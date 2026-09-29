@@ -420,6 +420,7 @@ var (
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "username", Type: field.TypeString, Unique: true},
+		{Name: "nickname", Type: field.TypeString, Default: schema.Expr("''")},
 		{Name: "password_hash", Type: field.TypeString},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"agent", "approver", "admin"}, Default: "agent"},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ACTIVE", "DISABLED"}, Default: "ACTIVE"},

@@ -1743,6 +1743,30 @@ func (_m *UserCreate) SetNotNilUsername(value *string) *UserCreate {
 }
 
 // set field if value's pointer is not nil.
+func (_m *UserUpdate) SetNotNilNickname(value *string) *UserUpdate {
+	if value != nil {
+		return _m.SetNickname(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserUpdateOne) SetNotNilNickname(value *string) *UserUpdateOne {
+	if value != nil {
+		return _m.SetNickname(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
+func (_m *UserCreate) SetNotNilNickname(value *string) *UserCreate {
+	if value != nil {
+		return _m.SetNickname(*value)
+	}
+	return _m
+}
+
+// set field if value's pointer is not nil.
 func (_m *UserUpdate) SetNotNilPasswordHash(value *string) *UserUpdate {
 	if value != nil {
 		return _m.SetPasswordHash(*value)

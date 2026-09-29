@@ -16,6 +16,8 @@ const (
 	FieldID = "id"
 	// FieldUsername holds the string denoting the username field in the database.
 	FieldUsername = "username"
+	// FieldNickname holds the string denoting the nickname field in the database.
+	FieldNickname = "nickname"
 	// FieldPasswordHash holds the string denoting the password_hash field in the database.
 	FieldPasswordHash = "password_hash"
 	// FieldRole holds the string denoting the role field in the database.
@@ -38,6 +40,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldUsername,
+	FieldNickname,
 	FieldPasswordHash,
 	FieldRole,
 	FieldStatus,
@@ -60,6 +63,8 @@ func ValidColumn(column string) bool {
 var (
 	// UsernameValidator is a validator for the "username" field. It is called by the builders before save.
 	UsernameValidator func(string) error
+	// NicknameValidator is a validator for the "nickname" field. It is called by the builders before save.
+	NicknameValidator func(string) error
 	// PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
 	PasswordHashValidator func(string) error
 	// DefaultMustChangePassword holds the default value on creation for the "must_change_password" field.
@@ -136,6 +141,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByUsername orders the results by the username field.
 func ByUsername(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUsername, opts...).ToFunc()
+}
+
+// ByNickname orders the results by the nickname field.
+func ByNickname(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNickname, opts...).ToFunc()
 }
 
 // ByPasswordHash orders the results by the password_hash field.

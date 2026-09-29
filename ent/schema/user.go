@@ -27,6 +27,30 @@ func (User) Fields() []ent.Field {
 		// 生成两个功能重复的索引（一个来自字段的 Unique，一个来自 Indexes）。
 		field.String("username").Unique().NotEmpty(),
 
+		// nickname 是**显示名**，与上面的 username（登录名）分工不同：
+		// username 是身份标识（ASCII、唯一、可用来登录），nickname 是人看的名字
+		// （可中文、可重名）。两者必须分开 —— usernamePattern 那段注释解释了
+		// 为什么登录名要收紧到 ASCII，而「真实姓名」正是那里的反例：把它塞进
+		// username 会让显示需求与标识需求互相牵制，最后两边都做不好。
+		//
+		// NotEmpty：本列是**接口层必填**的（见 logic/user/helpers.go 的
+		// normalizeNickname），建号时不带昵称会被回 400。
+		//
+		// ⚠️ entsql.DefaultExpr("''") 是**给 ALTER TABLE 用的**，理由与下面
+		// updated_at 那段完全相同，别删：这一列加在一张**已存在**的表上，只写
+		// NotEmpty 的话 ent 生成的 DDL 是 `ADD COLUMN nickname ... NOT NULL`
+		// （没有默认值），PostgreSQL 对任何非空表都会直接报
+		// `column "nickname" contains null values` —— 后端起不来，而且失败发生在
+		// 迁移阶段，看起来像「代码有问题」而不是「DDL 缺默认值」。
+		// 有了这个注解，DDL 才是 `ADD COLUMN nickname ... NOT NULL DEFAULT ''`，
+		// 存量行先落成空串，再由 entx.Open 的启动回填按 username 补上。
+		//
+		// 它不影响「接口必填」：默认值只作用于数据库层，ent 的 Create() 仍会按
+		// NotEmpty 在校验阶段拒绝空串。
+		field.String("nickname").
+			NotEmpty().
+			Annotations(entsql.DefaultExpr("''")),
+
 		// password_hash 是 bcrypt 的产物（$2a$...），**永远不出后端**：
 		// 所有 DTO 里都没有这个字段，日志也不记它。见 logic/user 与 logic/auth。
 		field.String("password_hash").NotEmpty(),
