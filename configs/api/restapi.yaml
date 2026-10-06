@@ -1,4 +1,3 @@
-# Legacy HTTP config; the API default is now configs/api/restapi.yaml.
 Name: eino-quickstart-restapi
 Host: 0.0.0.0
 Port: 8090

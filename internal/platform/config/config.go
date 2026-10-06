@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -370,35 +371,54 @@ type AsynqQueueConfig struct {
 	Weight int    `yaml:"weight"`
 }
 
-func Load(path string) (*Config, error) {
+// Load retains the legacy combined profile for callers with existing configurations.
+func Load(path string) (*Config, error) { return load(path, profileLegacy) }
+
+// LoadAPI loads only API-owned settings; worker-only sections are rejected.
+func LoadAPI(path string) (*Config, error) { return load(path, profileAPI) }
+
+// LoadWorker does not read or validate API credentials, HTTP settings or workspace.
+func LoadWorker(path string) (*Config, error) { return load(path, profileWorker) }
+
+func load(path string, profile configProfile) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if profile != profileLegacy {
+		if err := validateProfileSections(data, profile); err != nil {
+			return nil, err
+		}
+	}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(profile != profileLegacy)
+	if err := decoder.Decode(&cfg); err != nil {
 		return nil, err
 	}
 
-	if v := os.Getenv("EINO_MODEL_API_KEY"); v != "" {
-		cfg.Model.APIKey = v
-	}
-	if v := os.Getenv("EINO_MODEL_BASE_URL"); v != "" {
-		cfg.Model.BaseURL = v
-	}
-	if v := os.Getenv("EINO_MODEL"); v != "" {
-		cfg.Model.Model = v
-	}
-	if v := os.Getenv("EINO_SERVER_PORT"); v != "" {
-		var port int
-		if _, err := fmt.Sscanf(v, "%d", &port); err == nil {
-			cfg.Server.Port = port
+	if profile != profileWorker {
+		if v := os.Getenv("EINO_MODEL_API_KEY"); v != "" {
+			cfg.Model.APIKey = v
+		}
+		if v := os.Getenv("EINO_MODEL_BASE_URL"); v != "" {
+			cfg.Model.BaseURL = v
+		}
+		if v := os.Getenv("EINO_MODEL"); v != "" {
+			cfg.Model.Model = v
+		}
+		if v := os.Getenv("EINO_SERVER_PORT"); v != "" {
+			var port int
+			if _, err := fmt.Sscanf(v, "%d", &port); err == nil {
+				cfg.Server.Port = port
+			}
+		}
+		if v := os.Getenv("EINO_WORKSPACE_ROOT"); v != "" {
+			cfg.Workspace.Root = v
 		}
 	}
-	if v := os.Getenv("EINO_WORKSPACE_ROOT"); v != "" {
-		cfg.Workspace.Root = v
-	}
+
 	if cfg.Storage.PasswordEnv != "" {
 		cfg.Storage.Password = os.Getenv(cfg.Storage.PasswordEnv)
 	}
@@ -409,27 +429,18 @@ func Load(path string) (*Config, error) {
 	if cfg.ES.PasswordEnv != "" {
 		cfg.ES.Password = os.Getenv(cfg.ES.PasswordEnv)
 	}
-	// 匿名令牌的签名密钥同理：它一旦泄漏，任何人都能伪造任意 subject。
-	if cfg.Auth.Anonymous.SecretEnv != "" {
-		cfg.Auth.Anonymous.Secret = os.Getenv(cfg.Auth.Anonymous.SecretEnv)
-	}
-	// 账号令牌的签名密钥同理，且后果更重：泄漏出去等于任何人都能伪造任意
-	// `user:<id>`（包括 admin）的身份。
-	if cfg.Auth.Accounts.SecretEnv != "" {
-		cfg.Auth.Accounts.Secret = os.Getenv(cfg.Auth.Accounts.SecretEnv)
-	}
-
-	if !filepath.IsAbs(cfg.Workspace.Root) {
-		abs, err := filepath.Abs(cfg.Workspace.Root)
-		if err != nil {
-			return nil, err
+	if profile != profileWorker {
+		// 匿名令牌的签名密钥同理：它一旦泄漏，任何人都能伪造任意 subject。
+		if cfg.Auth.Anonymous.SecretEnv != "" {
+			cfg.Auth.Anonymous.Secret = os.Getenv(cfg.Auth.Anonymous.SecretEnv)
 		}
-		cfg.Workspace.Root = abs
+		// 账号令牌的签名密钥同理，且后果更重：泄漏出去等于任何人都能伪造任意
+		// `user:<id>`（包括 admin）的身份。
+		if cfg.Auth.Accounts.SecretEnv != "" {
+			cfg.Auth.Accounts.Secret = os.Getenv(cfg.Auth.Accounts.SecretEnv)
+		}
 	}
 
-	if len(cfg.Security.AllowedTools) == 0 {
-		return nil, fmt.Errorf("security.allowedTools must contain at least one tool")
-	}
 	if cfg.Storage.PasswordEnv == "" {
 		return nil, fmt.Errorf("storage.passwordEnv is required")
 	}
@@ -439,165 +450,178 @@ func Load(path string) (*Config, error) {
 			cfg.Storage.PasswordEnv,
 		)
 	}
-	if cfg.Security.MaxApprovalArgumentBytes <= 0 {
-		return nil, errors.New("security.maxApprovalArgumentBytes must be greater than zero")
-	}
-	if len(cfg.Security.SensitiveArgumentKeys) == 0 {
-		return nil, errors.New("security.sensitiveArgumentKeys must contain at least one key")
-	}
-	if cfg.Security.ApprovalTTLSeconds <= 0 {
-		return nil, fmt.Errorf(
-			"security.approvalTTLSeconds must be greater than zero",
-		)
-	}
+	if profile != profileWorker {
+		if !filepath.IsAbs(cfg.Workspace.Root) {
+			abs, err := filepath.Abs(cfg.Workspace.Root)
+			if err != nil {
+				return nil, err
+			}
+			cfg.Workspace.Root = abs
+		}
 
-	if !cfg.Auth.Enabled {
-		return nil, fmt.Errorf("auth.enabled must be true")
-	}
-	if len(cfg.Auth.APIKeys) == 0 {
-		return nil, fmt.Errorf("auth.apiKeys must contain at least one API key")
-	}
+		if len(cfg.Security.AllowedTools) == 0 {
+			return nil, fmt.Errorf("security.allowedTools must contain at least one tool")
+		}
+		if cfg.Security.MaxApprovalArgumentBytes <= 0 {
+			return nil, errors.New("security.maxApprovalArgumentBytes must be greater than zero")
+		}
+		if len(cfg.Security.SensitiveArgumentKeys) == 0 {
+			return nil, errors.New("security.sensitiveArgumentKeys must contain at least one key")
+		}
+		if cfg.Security.ApprovalTTLSeconds <= 0 {
+			return nil, fmt.Errorf(
+				"security.approvalTTLSeconds must be greater than zero",
+			)
+		}
 
-	for _, key := range cfg.Auth.APIKeys {
-		if key.Subject == "" {
-			return nil, fmt.Errorf("auth.apiKeys.subject must be set")
+		if !cfg.Auth.Enabled {
+			return nil, fmt.Errorf("auth.enabled must be true")
 		}
-		if key.KeyEnv == "" {
-			return nil, fmt.Errorf(
-				"auth API key %q has an empty keyEnv",
-				key.Subject,
-			)
+		if len(cfg.Auth.APIKeys) == 0 {
+			return nil, fmt.Errorf("auth.apiKeys must contain at least one API key")
 		}
-		switch key.Role {
-		case "agent", "approver", "admin":
-		default:
-			return nil, fmt.Errorf(
-				"auth API key %q has invalid role %q",
-				key.Subject,
-				key.Role,
-			)
-		}
-		if os.Getenv(key.KeyEnv) == "" {
-			return nil, fmt.Errorf(
-				"environment variable %s is required",
-				key.KeyEnv,
-			)
-		}
-	}
 
-	// 匿名身份。关掉时一个字段都不校验（部署形态就是「只有管理台」），
-	// 打开时**每一项都必须齐**：leaving 一个可选的签名密钥等于线上静默地
-	// 给所有人签发同一个（或空密钥签的）身份，而症状只是「会话还是互相可见」，
-	// 与没开匿名一模一样 —— 所以宁可启动失败。
-	if cfg.Auth.Anonymous.Enabled {
-		switch cfg.Auth.Anonymous.Role {
-		case "agent", "approver", "admin":
-		default:
-			return nil, fmt.Errorf(
-				"auth.anonymous.role %q is not a known role",
-				cfg.Auth.Anonymous.Role,
-			)
+		for _, key := range cfg.Auth.APIKeys {
+			if key.Subject == "" {
+				return nil, fmt.Errorf("auth.apiKeys.subject must be set")
+			}
+			if key.KeyEnv == "" {
+				return nil, fmt.Errorf(
+					"auth API key %q has an empty keyEnv",
+					key.Subject,
+				)
+			}
+			switch key.Role {
+			case "agent", "approver", "admin":
+			default:
+				return nil, fmt.Errorf(
+					"auth API key %q has invalid role %q",
+					key.Subject,
+					key.Role,
+				)
+			}
+			if os.Getenv(key.KeyEnv) == "" {
+				return nil, fmt.Errorf(
+					"environment variable %s is required",
+					key.KeyEnv,
+				)
+			}
 		}
-		if cfg.Auth.Anonymous.SecretEnv == "" {
-			return nil, fmt.Errorf(
-				"auth.anonymous.secretEnv is required when anonymous access is enabled",
-			)
-		}
-		if cfg.Auth.Anonymous.Secret == "" {
-			return nil, fmt.Errorf(
-				"environment variable %s is required",
-				cfg.Auth.Anonymous.SecretEnv,
-			)
-		}
-		if cfg.Auth.Anonymous.TTLHours <= 0 {
-			return nil, fmt.Errorf(
-				"auth.anonymous.ttlHours must be greater than zero",
-			)
-		}
-		if cfg.Auth.Anonymous.TTLHours > maxAnonymousTTLHours {
-			return nil, fmt.Errorf(
-				"auth.anonymous.ttlHours must not exceed %d",
-				maxAnonymousTTLHours,
-			)
-		}
-		// 前缀空着时回填默认值而不是报错：它有一个显然正确的取值，且必须与
-		// internal/platform/auth 的 AnonymousSubjectPrefix 一致，否则
-		// 「哪个 subject 是匿名的」在库里就认不出来。
-		if cfg.Auth.Anonymous.SubjectPrefix == "" {
-			cfg.Auth.Anonymous.SubjectPrefix = "anon:"
-		}
-	}
 
-	// 账号登录。口径与匿名完全一致：关掉时一个字段都不校验（部署形态就是
-	// 「只有管理台 + 匿名访客」），打开时每一项都必须齐 —— 少一个密钥会让
-	// 所有账号令牌用空密钥签出去（谁都能伪造任意 user:<id>，包括 admin），
-	// 而症状不是崩溃，只是「一切正常」。
-	//
-	// 刻意**不**校验「accounts 与 anonymous 的密钥必须不同」：两个 issuer 的
-	// 令牌前缀不同（user. / anon.），配成同一个值不会导致串用；把它写成硬
-	// 校验只会让「本地图省事只配一个密钥」变成启动失败。这一点写在
-	// configs/config.yaml 的注释里。
-	if cfg.Auth.Accounts.Enabled {
-		if cfg.Auth.Accounts.SecretEnv == "" {
-			return nil, fmt.Errorf(
-				"auth.accounts.secretEnv is required when accounts are enabled",
-			)
+		// 匿名身份。关掉时一个字段都不校验（部署形态就是「只有管理台」），
+		// 打开时**每一项都必须齐**：leaving 一个可选的签名密钥等于线上静默地
+		// 给所有人签发同一个（或空密钥签的）身份，而症状只是「会话还是互相可见」，
+		// 与没开匿名一模一样 —— 所以宁可启动失败。
+		if cfg.Auth.Anonymous.Enabled {
+			switch cfg.Auth.Anonymous.Role {
+			case "agent", "approver", "admin":
+			default:
+				return nil, fmt.Errorf(
+					"auth.anonymous.role %q is not a known role",
+					cfg.Auth.Anonymous.Role,
+				)
+			}
+			if cfg.Auth.Anonymous.SecretEnv == "" {
+				return nil, fmt.Errorf(
+					"auth.anonymous.secretEnv is required when anonymous access is enabled",
+				)
+			}
+			if cfg.Auth.Anonymous.Secret == "" {
+				return nil, fmt.Errorf(
+					"environment variable %s is required",
+					cfg.Auth.Anonymous.SecretEnv,
+				)
+			}
+			if cfg.Auth.Anonymous.TTLHours <= 0 {
+				return nil, fmt.Errorf(
+					"auth.anonymous.ttlHours must be greater than zero",
+				)
+			}
+			if cfg.Auth.Anonymous.TTLHours > maxAnonymousTTLHours {
+				return nil, fmt.Errorf(
+					"auth.anonymous.ttlHours must not exceed %d",
+					maxAnonymousTTLHours,
+				)
+			}
+			// 前缀空着时回填默认值而不是报错：它有一个显然正确的取值，且必须与
+			// internal/platform/auth 的 AnonymousSubjectPrefix 一致，否则
+			// 「哪个 subject 是匿名的」在库里就认不出来。
+			if cfg.Auth.Anonymous.SubjectPrefix == "" {
+				cfg.Auth.Anonymous.SubjectPrefix = "anon:"
+			}
 		}
-		if cfg.Auth.Accounts.Secret == "" {
-			return nil, fmt.Errorf(
-				"environment variable %s is required",
-				cfg.Auth.Accounts.SecretEnv,
-			)
-		}
-		if cfg.Auth.Accounts.TTLHours <= 0 {
-			return nil, fmt.Errorf(
-				"auth.accounts.ttlHours must be greater than zero",
-			)
-		}
-		if cfg.Auth.Accounts.TTLHours > maxAccountTTLHours {
-			return nil, fmt.Errorf(
-				"auth.accounts.ttlHours must not exceed %d",
-				maxAccountTTLHours,
-			)
-		}
-		// 成本留 0 表示「用默认值」（bcrypt.DefaultCost = 10）。
+
+		// 账号登录。口径与匿名完全一致：关掉时一个字段都不校验（部署形态就是
+		// 「只有管理台 + 匿名访客」），打开时每一项都必须齐 —— 少一个密钥会让
+		// 所有账号令牌用空密钥签出去（谁都能伪造任意 user:<id>，包括 admin），
+		// 而症状不是崩溃，只是「一切正常」。
 		//
-		// 上界不是洁癖：bcrypt 的成本每加 1 就把单次哈希的耗时翻倍，而
-		// /auth/login 没有任何限流（见 docs/known-gaps.md）。配成 20 以上时
-		// 每次登录要占用秒级的 CPU，几个并发请求就能把进程的 CPU 打满 ——
-		// 那是一个配置就能造成的自伤。
-		if cost := cfg.Auth.Accounts.BcryptCost; cost != 0 &&
-			(cost < minAccountBcryptCost || cost > maxAccountBcryptCost) {
+		// 刻意**不**校验「accounts 与 anonymous 的密钥必须不同」：两个 issuer 的
+		// 令牌前缀不同（user. / anon.），配成同一个值不会导致串用；把它写成硬
+		// 校验只会让「本地图省事只配一个密钥」变成启动失败。这一点写在
+		// configs/config.yaml 的注释里。
+		if cfg.Auth.Accounts.Enabled {
+			if cfg.Auth.Accounts.SecretEnv == "" {
+				return nil, fmt.Errorf(
+					"auth.accounts.secretEnv is required when accounts are enabled",
+				)
+			}
+			if cfg.Auth.Accounts.Secret == "" {
+				return nil, fmt.Errorf(
+					"environment variable %s is required",
+					cfg.Auth.Accounts.SecretEnv,
+				)
+			}
+			if cfg.Auth.Accounts.TTLHours <= 0 {
+				return nil, fmt.Errorf(
+					"auth.accounts.ttlHours must be greater than zero",
+				)
+			}
+			if cfg.Auth.Accounts.TTLHours > maxAccountTTLHours {
+				return nil, fmt.Errorf(
+					"auth.accounts.ttlHours must not exceed %d",
+					maxAccountTTLHours,
+				)
+			}
+			// 成本留 0 表示「用默认值」（bcrypt.DefaultCost = 10）。
+			//
+			// 上界不是洁癖：bcrypt 的成本每加 1 就把单次哈希的耗时翻倍，而
+			// /auth/login 没有任何限流（见 docs/known-gaps.md）。配成 20 以上时
+			// 每次登录要占用秒级的 CPU，几个并发请求就能把进程的 CPU 打满 ——
+			// 那是一个配置就能造成的自伤。
+			if cost := cfg.Auth.Accounts.BcryptCost; cost != 0 &&
+				(cost < minAccountBcryptCost || cost > maxAccountBcryptCost) {
+				return nil, fmt.Errorf(
+					"auth.accounts.bcryptCost must be 0 (default) or between %d and %d",
+					minAccountBcryptCost,
+					maxAccountBcryptCost,
+				)
+			}
+		}
+
+		if cfg.Runtime.ReadTimeoutSeconds <= 0 {
+			return nil, fmt.Errorf("runtime.readTimeoutSeconds must be greater than zero")
+		}
+
+		if cfg.Runtime.WriteTimeoutSeconds <= 0 {
+			return nil, fmt.Errorf("runtime.writeTimeoutSeconds must be greater than zero")
+		}
+
+		if cfg.Runtime.IdleTimeoutSeconds <= 0 {
+			return nil, fmt.Errorf("runtime.idleTimeoutSeconds must be greater than zero")
+		}
+
+		if cfg.Runtime.MaxRequestBodyBytes <= 0 {
+			return nil, fmt.Errorf("runtime.maxRequestBodyBytes must be greater than zero")
+		}
+		if cfg.Knowledge.MaxDocumentBytes <= 0 {
+			return nil, fmt.Errorf("knowledge.maxDocumentBytes must be greater than zero")
+		}
+		if cfg.Runtime.MaxRequestBodyBytes < cfg.Knowledge.MaxDocumentBytes {
 			return nil, fmt.Errorf(
-				"auth.accounts.bcryptCost must be 0 (default) or between %d and %d",
-				minAccountBcryptCost,
-				maxAccountBcryptCost,
+				"runtime.maxRequestBodyBytes must be at least knowledge.maxDocumentBytes",
 			)
 		}
-	}
-
-	if cfg.Runtime.ReadTimeoutSeconds <= 0 {
-		return nil, fmt.Errorf("runtime.readTimeoutSeconds must be greater than zero")
-	}
-
-	if cfg.Runtime.WriteTimeoutSeconds <= 0 {
-		return nil, fmt.Errorf("runtime.writeTimeoutSeconds must be greater than zero")
-	}
-
-	if cfg.Runtime.IdleTimeoutSeconds <= 0 {
-		return nil, fmt.Errorf("runtime.idleTimeoutSeconds must be greater than zero")
-	}
-
-	if cfg.Runtime.MaxRequestBodyBytes <= 0 {
-		return nil, fmt.Errorf("runtime.maxRequestBodyBytes must be greater than zero")
-	}
-	if cfg.Knowledge.MaxDocumentBytes <= 0 {
-		return nil, fmt.Errorf("knowledge.maxDocumentBytes must be greater than zero")
-	}
-	if cfg.Runtime.MaxRequestBodyBytes < cfg.Knowledge.MaxDocumentBytes {
-		return nil, fmt.Errorf(
-			"runtime.maxRequestBodyBytes must be at least knowledge.maxDocumentBytes",
-		)
 	}
 
 	switch cfg.Observability.LogLevel {
@@ -656,87 +680,94 @@ func Load(path string) (*Config, error) {
 		)
 	}
 
-	switch cfg.Execution.Mode {
-	case "disabled", "docker", "local":
-	default:
-		return nil, fmt.Errorf(
-			"execution.mode must be docker or local",
-		)
-	}
-
-	if cfg.Execution.Mode == "docker" &&
-		cfg.Server.Host != "127.0.0.1" &&
-		cfg.Server.Host != "localhost" {
-		if cfg.Execution.Image == "" {
+	if profile != profileWorker {
+		switch cfg.Execution.Mode {
+		case "disabled", "docker", "local":
+		default:
 			return nil, fmt.Errorf(
-				"execution.image is required in docker mode",
+				"execution.mode must be docker or local",
 			)
 		}
-		if cfg.Execution.User == "" {
+
+		if cfg.Execution.Mode == "docker" &&
+			cfg.Server.Host != "127.0.0.1" &&
+			cfg.Server.Host != "localhost" {
+			if cfg.Execution.Image == "" {
+				return nil, fmt.Errorf(
+					"execution.image is required in docker mode",
+				)
+			}
+			if cfg.Execution.User == "" {
+				return nil, fmt.Errorf(
+					"execution.user is required in docker mode",
+				)
+			}
+			if cfg.Execution.MemoryLimit == "" {
+				return nil, fmt.Errorf(
+					"execution.memoryLimit is required in docker mode",
+				)
+			}
+			if cfg.Execution.CPULimit == "" {
+				return nil, fmt.Errorf(
+					"execution.cpuLimit is required in docker mode",
+				)
+			}
+			if cfg.Execution.PIDsLimit <= 0 {
+				return nil, fmt.Errorf(
+					"execution.pidsLimit must be greater than zero",
+				)
+			}
+		}
+
+		if cfg.Execution.Mode == "local" &&
+			!cfg.Execution.AllowLocalRunner {
 			return nil, fmt.Errorf(
-				"execution.user is required in docker mode",
+				"local execution requires execution.allowLocalRunner=true",
 			)
 		}
-		if cfg.Execution.MemoryLimit == "" {
+	}
+
+	if profile != profileAPI {
+		if cfg.Knowledge.Root == "" {
+			return nil, fmt.Errorf("knowledge.root is required")
+		}
+
+		if cfg.Knowledge.MaxDocumentBytes <= 0 {
 			return nil, fmt.Errorf(
-				"execution.memoryLimit is required in docker mode",
+				"knowledge.maxDocumentBytes must be greater than zero",
 			)
 		}
-		if cfg.Execution.CPULimit == "" {
+
+		if cfg.Knowledge.ChunkSizeCharacters <= 0 {
 			return nil, fmt.Errorf(
-				"execution.cpuLimit is required in docker mode",
+				"knowledge.chunkSizeCharacters must be greater than zero",
 			)
 		}
-		if cfg.Execution.PIDsLimit <= 0 {
+
+		if cfg.Knowledge.ChunkOverlapChars < 0 ||
+			cfg.Knowledge.ChunkOverlapChars >=
+				cfg.Knowledge.ChunkSizeCharacters {
 			return nil, fmt.Errorf(
-				"execution.pidsLimit must be greater than zero",
+				"knowledge.chunkOverlapCharacters must be non-negative and smaller than chunkSizeCharacters",
+			)
+		}
+
+		if cfg.Knowledge.MaxChunksPerDoc <= 0 {
+			return nil, fmt.Errorf(
+				"knowledge.maxChunksPerDocument must be greater than zero",
 			)
 		}
 	}
 
-	if cfg.Execution.Mode == "local" &&
-		!cfg.Execution.AllowLocalRunner {
-		return nil, fmt.Errorf(
-			"local execution requires execution.allowLocalRunner=true",
-		)
+	if profile != profileWorker {
+		if cfg.Knowledge.DefaultTopK <= 0 ||
+			cfg.Knowledge.DefaultTopK > cfg.Knowledge.MaxTopK {
+			return nil, fmt.Errorf(
+				"knowledge.defaultTopK must be between 1 and maxTopK",
+			)
+		}
 	}
 
-	if cfg.Knowledge.Root == "" {
-		return nil, fmt.Errorf("knowledge.root is required")
-	}
-
-	if cfg.Knowledge.MaxDocumentBytes <= 0 {
-		return nil, fmt.Errorf(
-			"knowledge.maxDocumentBytes must be greater than zero",
-		)
-	}
-
-	if cfg.Knowledge.ChunkSizeCharacters <= 0 {
-		return nil, fmt.Errorf(
-			"knowledge.chunkSizeCharacters must be greater than zero",
-		)
-	}
-
-	if cfg.Knowledge.ChunkOverlapChars < 0 ||
-		cfg.Knowledge.ChunkOverlapChars >=
-			cfg.Knowledge.ChunkSizeCharacters {
-		return nil, fmt.Errorf(
-			"knowledge.chunkOverlapCharacters must be non-negative and smaller than chunkSizeCharacters",
-		)
-	}
-
-	if cfg.Knowledge.MaxChunksPerDoc <= 0 {
-		return nil, fmt.Errorf(
-			"knowledge.maxChunksPerDocument must be greater than zero",
-		)
-	}
-
-	if cfg.Knowledge.DefaultTopK <= 0 ||
-		cfg.Knowledge.DefaultTopK > cfg.Knowledge.MaxTopK {
-		return nil, fmt.Errorf(
-			"knowledge.defaultTopK must be between 1 and maxTopK",
-		)
-	}
 	if cfg.Embedding.Model == "" {
 		return nil, fmt.Errorf("embedding.model is required")
 	}
@@ -760,84 +791,88 @@ func Load(path string) (*Config, error) {
 		)
 	}
 
-	if cfg.Maintenance.CleanupIntervalSeconds <= 0 {
-		return nil, fmt.Errorf(
-			"maintenance.cleanupIntervalSeconds must be greater than zero",
-		)
+	if profile != profileWorker {
+		if cfg.Maintenance.CleanupIntervalSeconds <= 0 {
+			return nil, fmt.Errorf(
+				"maintenance.cleanupIntervalSeconds must be greater than zero",
+			)
+		}
+
+		if cfg.Maintenance.ApprovalRetentionHours <= 0 {
+			return nil, fmt.Errorf(
+				"maintenance.approvalRetentionHours must be greater than zero",
+			)
+		}
+
+		if cfg.Maintenance.CheckpointRetentionHours <= 0 {
+			return nil, fmt.Errorf(
+				"maintenance.checkpointRetentionHours must be greater than zero",
+			)
+		}
+
+		if cfg.Maintenance.TurnRetentionHours <= 0 {
+			return nil, fmt.Errorf(
+				"maintenance.turnRetentionHours must be greater than zero",
+			)
+		}
+
+		if cfg.Maintenance.CleanupBatchSize <= 0 {
+			return nil, fmt.Errorf(
+				"maintenance.cleanupBatchSize must be greater than zero",
+			)
+		}
+
+		if cfg.Retrieval.VectorWeight < 0 ||
+			cfg.Retrieval.KeywordWeight < 0 ||
+			(cfg.Retrieval.VectorWeight == 0 &&
+				cfg.Retrieval.KeywordWeight == 0 &&
+				cfg.Retrieval.ExactWeight == 0) {
+			return nil, fmt.Errorf(
+				"at least one retrieval weight must be greater than zero",
+			)
+		}
+
+		if cfg.Retrieval.RRFSmoothing <= 0 {
+			return nil, fmt.Errorf(
+				"retrieval.rrfSmoothing must be greater than zero",
+			)
+		}
+
+		if cfg.Retrieval.VectorCandidateLimit <
+			cfg.Knowledge.MaxTopK {
+			return nil, fmt.Errorf(
+				"retrieval.vectorCandidateLimit must be at least knowledge.maxTopK",
+			)
+		}
+
+		if cfg.Retrieval.KeywordCandidateLimit <
+			cfg.Knowledge.MaxTopK {
+			return nil, fmt.Errorf(
+				"retrieval.keywordCandidateLimit must be at least knowledge.maxTopK",
+			)
+		}
+
+		if cfg.Retrieval.ExactCandidateLimit <
+			cfg.Knowledge.MaxTopK {
+			return nil, fmt.Errorf(
+				"retrieval.exactCandidateLimit must be at least knowledge.maxTopK",
+			)
+		}
+
+		if cfg.Retrieval.EnableRerank &&
+			cfg.Retrieval.MaxRerankCandidates <= 0 {
+			return nil, fmt.Errorf(
+				"retrieval.maxRerankCandidates must be greater than zero when rerank is enabled",
+			)
+		}
 	}
 
-	if cfg.Maintenance.ApprovalRetentionHours <= 0 {
-		return nil, fmt.Errorf(
-			"maintenance.approvalRetentionHours must be greater than zero",
-		)
-	}
-
-	if cfg.Maintenance.CheckpointRetentionHours <= 0 {
-		return nil, fmt.Errorf(
-			"maintenance.checkpointRetentionHours must be greater than zero",
-		)
-	}
-
-	if cfg.Maintenance.TurnRetentionHours <= 0 {
-		return nil, fmt.Errorf(
-			"maintenance.turnRetentionHours must be greater than zero",
-		)
-	}
-
-	if cfg.Maintenance.CleanupBatchSize <= 0 {
-		return nil, fmt.Errorf(
-			"maintenance.cleanupBatchSize must be greater than zero",
-		)
-	}
-
-	if cfg.Retrieval.VectorWeight < 0 ||
-		cfg.Retrieval.KeywordWeight < 0 ||
-		(cfg.Retrieval.VectorWeight == 0 &&
-			cfg.Retrieval.KeywordWeight == 0 &&
-			cfg.Retrieval.ExactWeight == 0) {
-		return nil, fmt.Errorf(
-			"at least one retrieval weight must be greater than zero",
-		)
-	}
-
-	if cfg.Retrieval.RRFSmoothing <= 0 {
-		return nil, fmt.Errorf(
-			"retrieval.rrfSmoothing must be greater than zero",
-		)
-	}
-
-	if cfg.Retrieval.VectorCandidateLimit <
-		cfg.Knowledge.MaxTopK {
-		return nil, fmt.Errorf(
-			"retrieval.vectorCandidateLimit must be at least knowledge.maxTopK",
-		)
-	}
-
-	if cfg.Retrieval.KeywordCandidateLimit <
-		cfg.Knowledge.MaxTopK {
-		return nil, fmt.Errorf(
-			"retrieval.keywordCandidateLimit must be at least knowledge.maxTopK",
-		)
-	}
-
-	if cfg.Retrieval.ExactCandidateLimit <
-		cfg.Knowledge.MaxTopK {
-		return nil, fmt.Errorf(
-			"retrieval.exactCandidateLimit must be at least knowledge.maxTopK",
-		)
-	}
-
-	if cfg.Retrieval.EnableRerank &&
-		cfg.Retrieval.MaxRerankCandidates <= 0 {
-		return nil, fmt.Errorf(
-			"retrieval.maxRerankCandidates must be greater than zero when rerank is enabled",
-		)
-	}
-
-	if cfg.Indexer.BatchSize <= 0 {
-		return nil, fmt.Errorf(
-			"indexer.batchSize must be greater than zero",
-		)
+	if profile != profileAPI {
+		if cfg.Indexer.BatchSize <= 0 {
+			return nil, fmt.Errorf(
+				"indexer.batchSize must be greater than zero",
+			)
+		}
 	}
 
 	// ES 段关着（address 为空）时一律不校验：这条降级路径是设计的一部分，
@@ -848,8 +883,24 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
+	if profile == profileWorker {
+		if !cfg.Asynq.Enabled {
+			return nil, fmt.Errorf("asynq.enabled must be true for worker")
+		}
+		consumesIndex := false
+		for _, q := range cfg.Asynq.Queues {
+			consumesIndex = consumesIndex || q.Name == "index"
+		}
+		if !consumesIndex {
+			return nil, fmt.Errorf("worker asynq.queues must include the index queue")
+		}
+		if cfg.Milvus.Address == "" || cfg.Milvus.Collection == "" {
+			return nil, fmt.Errorf("worker milvus.address and milvus.collection are required")
+		}
+	}
+
 	if cfg.Asynq.Enabled {
-		if err := validateAsynq(cfg.Asynq); err != nil {
+		if err := validateAsynq(cfg.Asynq, profile != profileAPI); err != nil {
 			return nil, err
 		}
 	}
@@ -907,7 +958,7 @@ func validateES(cfg ESConfig) error {
 
 // validateAsynq 只在 asynq.enabled=true 时执行：关掉队列意味着整个索引链路
 // 停摆，那种情况下再校验连接参数只会挡住一次有意为之的排障启动。
-func validateAsynq(cfg AsynqConfig) error {
+func validateAsynq(cfg AsynqConfig, consumer bool) error {
 	if cfg.Redis.Addr == "" {
 		return fmt.Errorf("asynq.redis.addr is required")
 	}
@@ -920,38 +971,42 @@ func validateAsynq(cfg AsynqConfig) error {
 			cfg.Redis.PasswordEnv,
 		)
 	}
-	if len(cfg.Queues) == 0 {
-		return fmt.Errorf("asynq.queues must contain at least one queue")
-	}
-	for _, queue := range cfg.Queues {
-		if queue.Name == "" {
-			return fmt.Errorf("asynq.queues.name must be set")
+	if consumer {
+		if len(cfg.Queues) == 0 {
+			return fmt.Errorf("asynq.queues must contain at least one queue")
 		}
-		if queue.Weight <= 0 {
-			return fmt.Errorf(
-				"asynq queue %q must have a positive weight",
-				queue.Name,
-			)
+		for _, queue := range cfg.Queues {
+			if queue.Name == "" {
+				return fmt.Errorf("asynq.queues.name must be set")
+			}
+			if queue.Weight <= 0 {
+				return fmt.Errorf(
+					"asynq queue %q must have a positive weight",
+					queue.Name,
+				)
+			}
 		}
-	}
-	if cfg.Concurrency <= 0 {
-		return fmt.Errorf("asynq.concurrency must be greater than zero")
+		if cfg.Concurrency <= 0 {
+			return fmt.Errorf("asynq.concurrency must be greater than zero")
+		}
 	}
 	if cfg.MaxRetries < 0 {
 		return fmt.Errorf("asynq.maxRetries must not be negative")
 	}
-	if cfg.RetryDelaySeconds <= 0 {
-		return fmt.Errorf("asynq.retryDelaySeconds must be greater than zero")
-	}
-	if cfg.MaxRetryDelaySeconds < cfg.RetryDelaySeconds {
-		return fmt.Errorf(
-			"asynq.maxRetryDelaySeconds must be >= retryDelaySeconds",
-		)
-	}
-	if cfg.ShutdownTimeoutSeconds <= 0 {
-		return fmt.Errorf(
-			"asynq.shutdownTimeoutSeconds must be greater than zero",
-		)
+	if consumer {
+		if cfg.RetryDelaySeconds <= 0 {
+			return fmt.Errorf("asynq.retryDelaySeconds must be greater than zero")
+		}
+		if cfg.MaxRetryDelaySeconds < cfg.RetryDelaySeconds {
+			return fmt.Errorf(
+				"asynq.maxRetryDelaySeconds must be >= retryDelaySeconds",
+			)
+		}
+		if cfg.ShutdownTimeoutSeconds <= 0 {
+			return fmt.Errorf(
+				"asynq.shutdownTimeoutSeconds must be greater than zero",
+			)
+		}
 	}
 	return nil
 }

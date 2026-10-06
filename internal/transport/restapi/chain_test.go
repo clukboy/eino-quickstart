@@ -38,7 +38,7 @@ import (
 // literal would leave every flag false and test a chain that never ships.
 
 const (
-	restConfigPath  = "etc/restapi.yaml"
+	restConfigPath  = "../../../configs/api/restapi.yaml"
 	testAdminSecret = "test-admin-secret"
 )
 
@@ -72,11 +72,11 @@ func ensureSetUp(t *testing.T) {
 			setupErr = err
 			return
 		}
-		cfg.Prometheus.Host = "127.0.0.1"
-		cfg.Prometheus.Port = port
+		cfg.DevServer.Host = "127.0.0.1"
+		cfg.DevServer.Port = port
 		cfg.Log.Level = "severe"
 
-		metricsURL = fmt.Sprintf("http://127.0.0.1:%d%s", port, cfg.Prometheus.Path)
+		metricsURL = fmt.Sprintf("http://127.0.0.1:%d%s", port, cfg.DevServer.MetricsPath)
 		setupErr = cfg.SetUp()
 	})
 

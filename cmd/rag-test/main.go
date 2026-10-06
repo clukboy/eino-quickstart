@@ -8,7 +8,7 @@
 // 它与 cmd/ragserver 的区别是「谁问了算数」：ragserver 是人在终端里随手问，
 // 看的是单次结果；本命令跑的是固定用例集，看的是指标随版本的变化。
 //
-// 链路：configs/config.yaml -> PostgreSQL + Milvus + Elasticsearch + embedding ->
+// 链路：configs/api/config.yaml -> PostgreSQL + Milvus + Elasticsearch + embedding ->
 // rag.Store（向量通道 + 词法通道）-> rag.HybridRetriever（RRF 融合）->
 // internal/eval（指标）-> 报告 + 退出码。
 //
@@ -48,9 +48,8 @@ import (
 )
 
 const (
-	defaultBusinessConfig = "./configs/config.yaml"
-	defaultDataset        = "internal/eval/datasets/retrieval.jsonl"
-	defaultThresholds     = "internal/eval/thresholds.yaml"
+	defaultDataset    = "internal/eval/datasets/retrieval.jsonl"
+	defaultThresholds = "internal/eval/thresholds.yaml"
 
 	// 默认报告落在 logs/ 下：那一整个目录已经在 .gitignore 里，
 	// 评测产物不该混进 git status 让人误提交。
@@ -67,12 +66,12 @@ func main() {
 
 func run() error {
 	var (
-		configPath = flag.String("config", envOr("EINO_CONFIG", defaultBusinessConfig), "业务配置路径")
+		configPath = flag.String("config", config.APIConfigPath(), "业务配置路径")
 		thresholds = flag.String("thresholds", defaultThresholds, "门禁配置路径，置空则只评测不卡门禁")
 		topK       = flag.Int("topk", 0, "默认 topK，0 表示取 knowledge.defaultTopK")
 		reportPath = flag.String("out", defaultReportPath, "报告 JSON 落盘路径，置空则不落盘")
 		verbose    = flag.Bool("v", false, "打印每条用例的明细")
-		// 粒度按知识库类型配（configs/config.yaml 的 knowledge.recallGrouping）。
+		// 粒度按知识库类型配（configs/api/config.yaml 的 knowledge.recallGrouping）。
 		// 语料混了好几类库时，逐个类型跑一轮再比，别指望一份数字覆盖两类库。
 		datasetType = flag.String("dataset-type", "",
 			"评测语料的数据集类型，用来查该库的召回归并粒度；留空取 recallGrouping 的 default")
@@ -85,7 +84,7 @@ func run() error {
 		datasets = append(datasets, defaultDataset)
 	}
 
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.LoadAPI(*configPath)
 	if err != nil {
 		return fmt.Errorf("加载配置: %w", err)
 	}
@@ -345,7 +344,7 @@ func preflightSearchIndex(ctx context.Context, clients *searchClients, indexedCh
 		// 没配 ES 不是错误：词法通道回落 PostgreSQL 子串匹配，评测照样有意义。
 		slog.Default().Warn(
 			"未配置检索索引，关键词通道走 PostgreSQL 子串匹配（没有词频与 IDF 权重）",
-			slog.String("hint", "配好 configs/config.yaml 的 es.address 可评测真实的 BM25 召回"),
+			slog.String("hint", "配好 configs/api/config.yaml 的 es.address 可评测真实的 BM25 召回"),
 		)
 		return nil
 	}
@@ -488,7 +487,7 @@ func (s retrieverSearcher) Search(ctx context.Context, query string, topK int) (
 // renderDetail 打印每条用例的召回明细，用来人肉判断"差多少"。
 //
 // 明细按**归并粒度**逐条列出 —— 粒度由知识库类型决定（-dataset-type 配合
-// configs/config.yaml 的 knowledge.recallGrouping）：产品型录一篇文档就是一个
+// configs/api/config.yaml 的 knowledge.recallGrouping）：产品型录一篇文档就是一个
 // 产品，列出一条文档；普通文档库一个分块就是一条内容，逐个分块列出。把同一篇
 // 文档的 8 个命中块摊成 8 行，等于让人自己再做一遍归并；反过来把 200 个分块压成
 // 1 行，人就完全看不出内容被哪一段吃掉了。
@@ -550,13 +549,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func envOr(key, fallback string) string {
-	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
-		return value
-	}
-	return fallback
 }
 
 // stringList 让 -dataset 可以重复出现。

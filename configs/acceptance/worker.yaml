@@ -1,0 +1,81 @@
+# Isolated acceptance template; provision local dependencies before normal startup.
+# Index worker only: no HTTP, agent, model, auth, workspace or retrieval settings.
+# API and worker must target the same storage/Redis/vector/keyword resources.
+# For isolated acceptance, use configs/acceptance/worker.yaml instead.
+storage:
+  host: 127.0.0.1
+  port: 5432
+  dbName: eino_acceptance
+  username: postgres
+  passwordEnv: "EINO_STORAGE_PASSWORD"
+  maxOpenConn: 100
+  sslMode: disable
+
+observability:
+  logLevel: "info"
+  serviceName: "eino-harness-worker"
+  environment: "acceptance"
+  otlpEndpoint: "127.0.0.1:4317"
+  otlpInsecure: true
+  traceSampleRatio: 1.0
+  logFilePath: "logs/acceptance/worker.json"
+  logMaxSizeMB: 100
+  logMaxBackups: 5
+  logMaxAgeDays: 14
+
+# Legacy content directory is read only; new bodies come from PostgreSQL.
+knowledge:
+  root: "./tests/knowledge/acceptance"
+  maxDocumentBytes: 5242880
+  chunkSizeCharacters: 1200
+  chunkOverlapCharacters: 200
+  maxChunksPerDocument: 2000
+
+embedding:
+  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  apiKeyEnv: "EINO_EMBEDDING_API_KEY"
+  model: "qwen3.7-text-embedding"
+  dimensions: 1024
+  # 单次 embedding 请求最多带几段文本 —— 服务方的硬上限，不是调优项。
+  # 超了会回 400「batch size is invalid, it should not be larger than 10」，
+  # 而那一刻向量还没写、检索索引也还没写，整篇文档会什么都索引不上。
+  # DashScope：text-embedding-v3/v4 上限 10，qwen3.7-text-embedding 上限 20。
+  batchSize: 10
+
+milvus:
+  address: "127.0.0.1:19530"
+  collection: "eino_acceptance_document_chunks_v1"
+  metricType: "COSINE"
+
+# Optional ES: configure an isolated address and index in BOTH profiles.
+es:
+  address: []
+  index: "eino_acceptance_document_chunks_v1"
+  analyzer: "standard"
+  username: ""
+  passwordEnv: ""
+  caCertPath: ""
+  bulkSize: 500
+  mappingFile: "configs/es/chunk_mapping.yaml"
+
+indexer:
+  # 一轮从 document_chunks 里取多少 pending 分块做 embedding + 写库。
+  # 只影响批处理粒度，不是单次 embedding 请求的大小 —— 后者由
+  # embedding.batchSize 决定，Embedder 会把请求切到那个上限以内。
+  batchSize: 32
+
+asynq:
+  enabled: true
+  redis:
+    addr: "127.0.0.1:6379"
+    username: ""
+    passwordEnv: ""
+    db: 15
+  queues:
+    - name: "index"
+      weight: 1
+  concurrency: 10
+  maxRetries: 5
+  retryDelaySeconds: 30
+  maxRetryDelaySeconds: 900
+  shutdownTimeoutSeconds: 300

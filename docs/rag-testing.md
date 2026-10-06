@@ -6,7 +6,7 @@
 
 ## 前置条件
 
-1. PostgreSQL、Milvus、Redis 都可访问，且 `configs/config.yaml` 里的 `storage`、
+1. PostgreSQL、Milvus、Redis 都可访问，且 `configs/api/config.yaml` 与 `configs/worker/config.yaml` 里的 `storage`、
    `milvus`、`embedding`、`asynq` 配置与实际环境一致。
 2. Elasticsearch 可选：`es.address` 填了就启用 BM25 词法通道，留空则词法通道回落
    PostgreSQL 子串匹配（**此时按产品型号搜不到东西** —— 型号只存在于分块的
@@ -82,7 +82,7 @@ go run ./cmd/restapi
 - `cmd/worker` 启动时会先建/校验 Milvus collection（维度、metric、load 一次往返），
   然后才开 Consume。启动日志里出现 `eino worker started` 且 `queues` 字段含
   `index` 才说明它真的在领任务。
-- `cmd/restapi` 监听 `internal/transport/restapi/etc/restapi.yaml` 里的 `Host`/`Port`
+- `cmd/restapi` 监听 `configs/api/restapi.yaml` 里的 `Host`/`Port`
   （默认 8090）。
 - 两个进程都会在启动时探一次 Redis，地址或密码不对会直接失败退出。
 - 只起了 HTTP 没起 worker 时，写文档的请求**仍然成功**（正文落库、任务进队列），
@@ -154,6 +154,9 @@ ORDER BY c.chunk_index;
 预期 `documents.status = 'ready'`，每行 `vector_status` 都是 `indexed`，
 且 `content_bytes` 大于 0（等于 0 说明正文没落库，见「排错」）。
 
+配置拆分、覆盖变量和隔离验收步骤见 [P02 配置指南](p02-configuration.md)。
+验收 Redis 默认 DB 15；下方排错命令的 `-n 0` 需按实际 `asynq.redis.db` 调整。
+
 ## 排错
 
 - **写文档的请求直接报错**：队列不可用。投递失败会让写请求失败，不会静默落库
@@ -161,8 +164,8 @@ ORDER BY c.chunk_index;
 - **文档停在 `indexing` 且 `chunk_count` 恒为 0**：worker 没在跑，或者任务投进了
   没人消费的队列。
   1. 确认 `cmd/worker` 进程活着，日志里有 `eino worker started`；
-  2. 比对 `asynq.queues`（HTTP 与 worker 读同一份 `configs/config.yaml`）——
-     漏配会让任务投进 `index` 却永远没人领，asynq 默认只消费 `default`；
+  2. 比对两份配置的 `asynq.redis.addr/db`，worker 的 `asynq.queues` 必须包含 `index`；
+     API 只配置投递参数，不再包含消费队列权重或并发数；
   3. 直接看队列积压：`redis-cli -n 0 llen 'asynq:{index}:pending'`。
 - **文档变 `failed`**：任务重试耗尽（`asynq.maxRetries`）。日志里搜
   `index document failed`，`retries_exhausted=true` 的那条会带原始错误（常见是
@@ -189,8 +192,8 @@ ORDER BY c.chunk_index;
    `LogHandler` 经 logx 桥过来的，同样这个值在它那里叫 `trace`（键名由 `Log.TraceKey`
    决定，默认就是 `trace`）;
 3. 在 trace 界面上应当看到两个服务名：HTTP 进程的来自 `etc/restapi.yaml` 的
-   `Telemetry.Name`，worker 的来自 `configs/config.yaml` 的
-   `observability.workerServiceName`。span 形状符合 `docs/architecture.md` 里
+   `Telemetry.Name`，worker 的来自 `configs/worker/config.yaml` 的
+   `observability.serviceName`。span 形状符合 `docs/architecture.md` 里
    「链路追踪」那一节。
 
 排查用的两条：
@@ -440,7 +443,7 @@ knowledge: 这批分块没有可检索的业务元数据，检索索引里只会
 
 ### 召回结果的归并粒度
 
-「一条结果」是什么，由知识库类型决定 —— 配置在 `configs/config.yaml` 的
+「一条结果」是什么，由知识库类型决定 —— 配置在 `configs/api/config.yaml` 的
 `knowledge.recallGrouping`（键是 `dataset.type`，`default` 兜底）：
 
 | 粒度 | 一条结果 = | 适合 |

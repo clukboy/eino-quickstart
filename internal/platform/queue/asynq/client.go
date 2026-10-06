@@ -75,6 +75,12 @@ func (c *AsynqConf) NewRedisOpt() *asynq.RedisClientOpt {
 	}
 }
 
+// NewProducer creates only a publisher. API configuration never needs consumer
+// concurrency, queue weights or shutdown settings, and owns no worker server.
+func NewProducer(c *AsynqConf) *AsynqClient {
+	return &AsynqClient{Client: c.newClient()}
+}
+
 func NewAsynqClient(c *AsynqConf) *AsynqClient {
 	return &AsynqClient{
 		Client:  c.newClient(),

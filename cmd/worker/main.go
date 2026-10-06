@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -26,29 +27,31 @@ import (
 	"github.com/zeromicro/go-zero/core/service"
 )
 
-const defaultBusinessConfig = "./configs/config.yaml"
-
 // traceFlushTimeout 是退出前等 OTLP 导出的上限。只在进程收尾时用，短一点没关系：
 // 超时就丢掉未发送的 span，不能让一个连不上的 collector 拖住整个进程的退出。
 const traceFlushTimeout = 5 * time.Second
 
 func main() {
+	checkConfig := flag.Bool("check-config", false, "validate worker config without opening external connections")
+	flag.Parse()
+	if *checkConfig {
+		if _, err := config.LoadWorker(config.WorkerConfigPath()); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("worker config OK: %s\n", config.WorkerConfigPath())
+		return
+	}
 	if err := runWorker(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func runWorker() error {
-	businessConfigPath := envOr("EINO_CONFIG", defaultBusinessConfig)
+	businessConfigPath := config.WorkerConfigPath()
 
-	cfg, err := config.Load(businessConfigPath)
+	cfg, err := config.LoadWorker(businessConfigPath)
 	if err != nil {
 		return fmt.Errorf("load business config: %w", err)
-	}
-
-	// worker 进程不需要 workspace，但 config.Load 之后业务代码可能依赖它存在。
-	if err := os.MkdirAll(cfg.Workspace.Root, 0o755); err != nil {
-		return err
 	}
 
 	if !cfg.Asynq.Enabled {
@@ -79,7 +82,7 @@ func runWorker() error {
 
 	otlpEndpoint := cfg.Observability.OTLPEndpoint
 	shutdownTracing, err := observability.SetupTracing(ctx, observability.TraceConfig{
-		ServiceName: cfg.Observability.WorkerTraceName(),
+		ServiceName: cfg.Observability.ServiceName,
 		Environment: cfg.Observability.Environment,
 		Endpoint:    otlpEndpoint,
 		Insecure:    cfg.Observability.OTLPInsecure,
@@ -100,7 +103,7 @@ func runWorker() error {
 	}()
 	logger.Info(
 		"tracing enabled",
-		slog.String("service_name", cfg.Observability.WorkerTraceName()),
+		slog.String("service_name", cfg.Observability.ServiceName),
 		slog.String("otlp_endpoint", otlpEndpoint),
 		slog.Bool("exporting", otlpEndpoint != ""),
 		slog.Float64("sample_ratio", cfg.Observability.TraceSampleRatio),
@@ -326,13 +329,6 @@ func newAsynqConf(cfg *config.Config) *asynqqueue.AsynqConf {
 		MaxRetryDelaySeconds:   cfg.Asynq.MaxRetryDelaySeconds,
 		ShutdownTimeoutSeconds: cfg.Asynq.ShutdownTimeoutSeconds,
 	}
-}
-
-func envOr(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }
 
 // searchIndexName 把「没配」显示成一句话，而不是一个空字段。

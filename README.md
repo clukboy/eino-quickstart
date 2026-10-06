@@ -30,6 +30,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 
 ## 文档
 
+- [P02 独立配置与验收准备](docs/p02-configuration.md)：API / worker 各改哪份文件、离线配置检查、隔离资源与启动步骤。
 - [架构与运行说明](docs/architecture.md)：组件、数据流、配置和 HTTP API。
 - [RAG 本地验证](docs/rag-testing.md)：上传 Markdown、检查分块、创建索引，以及跑召回评测。
 - [扩展 Agent、工具与 Skill](docs/agent-development.md)：专项 Agent、工具和 Skill 的接入方式。
@@ -38,8 +39,10 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 
 ## 快速开始
 
-1. 准备 PostgreSQL、Milvus，以及可选但强烈建议的 Elasticsearch，并按部署环境修改
-   `configs/config.yaml`。配置内的地址仅是示例，不应直接用于生产。ES 留空时系统照常
+1. 准备 PostgreSQL、Redis、Milvus，以及可选但强烈建议的 Elasticsearch，并按部署环境分别修改
+   `configs/api/config.yaml` 和 `configs/worker/config.yaml`（对应数据源必须一致）。
+   HTTP 参数单独配置在 `configs/api/restapi.yaml`；P02 隔离验收请用 `configs/acceptance/`，
+   详见 [配置指南](docs/p02-configuration.md)。配置内的地址仅是示例，不应直接用于生产。ES 留空时系统照常
    运行，只是关键词通道搜不到产品型号（型号只存在于分块元数据里，见
    [待完善项](docs/known-gaps.md)）。
 2. 设置运行所需的环境变量：
@@ -52,13 +55,15 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
    export EINO_API_KEY_DEVELOPER=...
    export EINO_API_KEY_APPROVER=...
    export EINO_API_KEY_ADMIN=...
+   export EINO_ANONYMOUS_SECRET=...
+   export EINO_ACCOUNT_SECRET=...
    ```
 
-3. 创建知识库目录并将 Markdown 放入其中。目录结构会成为文档的稳定 `source`：
+3. 先检查配置（只校验，不连接服务）。worker 不需要上面的 API 身份或对话模型凭据：
 
    ```bash
-   mkdir -p knowledge
-   cp /path/to/your-document.md knowledge/
+   go run ./cmd/worker -check-config
+   go run ./cmd/restapi -check-config
    ```
 
 4. 启动 worker。它会在启动时就校验 PostgreSQL / Milvus / embedding 三者可用（缺一个就
@@ -74,7 +79,9 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
    go run ./cmd/restapi
    ```
 
-服务默认监听 `:8080`；`GET /health` 用于存活检查，`GET /ready` 检查 PostgreSQL 连通性。
+**配置覆盖：** API 业务用 `EINO_API_CONFIG`，API HTTP 用 `EINO_REST_CONFIG`，worker 用 `EINO_WORKER_CONFIG`；不再读取共享的 `EINO_CONFIG`。
+
+服务默认监听 `:8090`（以 API HTTP 配置的 `Port` 为准）；`GET /health` 用于存活检查，`GET /ready` 检查 PostgreSQL 连通性。
 `asynq.enabled=false` 时 worker 拒绝启动，HTTP 仍可起来但文档写操作会报错。完整的 RAG
 验证命令见 [RAG 本地验证](docs/rag-testing.md)。
 
@@ -89,4 +96,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 | `internal/application` | Agent 组装、上下文与工具中间件、`knowledge` 用例 |
 | `internal/rag` | Loader、parser、Chunker、embedder 与向量存储（Milvus） |
 | `internal/platform` | 配置、认证、执行、可观测性、队列、持久化与关键词索引（`storage/es`） |
-| `configs/config.yaml` | 本地开发配置（含 `asynq` 队列段与 `es` 关键词索引段） |
+| `configs/api/config.yaml` / `restapi.yaml` | API 业务配置 / HTTP 监听配置 |
+| `configs/worker/config.yaml` | 独立索引消费配置 |
+| `configs/acceptance` | API / worker 分离的隔离验收模板 |
+| `configs/config.yaml` | 历史完整配置，新入口不再默认读取 |

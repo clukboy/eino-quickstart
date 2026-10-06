@@ -4,6 +4,7 @@
 > 阅读范围：当前后端仓库的入口程序、应用层、RAG、工具、持久化、REST API 契约及测试。  
 > 源码基线：HEAD `8887fce`，提交日期 2026-09-29，提交说明「用户列表支持昵称与关键字搜索」；**同时计入当前工作区尚未提交的源码变更与新增文件**。  
 > 本文是源码进度快照，不是上线验收报告；未对独立前端仓库或真实外部服务完成情况作背书。
+> 后续 P02 配置拆分进展见第 10 节；最新启动配置以 [P02 配置指南](p02-configuration.md) 为准。
 
 ## 1. 总体结论
 
@@ -281,3 +282,17 @@ HTTP 创建/更新/上传/重建
 ---
 
 **一句话进度：主要业务代码和接口链路已经形成；当前最需要的是测试收敛、真实依赖联调，以及将已有接缝补成可上线、可持续验证的运行闭环。**
+
+
+## 10. P02 配置交付补充（2026-10-06）
+
+本节补充上述源码快照之后的配置改动，不将其等同于真实服务验收。
+
+- API 业务配置改为 `configs/api/config.yaml`（`EINO_API_CONFIG`）；HTTP 配置改为 `configs/api/restapi.yaml`（`EINO_REST_CONFIG`）。
+- worker 配置改为 `configs/worker/config.yaml`（`EINO_WORKER_CONFIG`），不再要求 API 模型、身份、HTTP 或工作区配置，也不创建工作区；两个入口不再读取 `EINO_CONFIG`。
+- API 使用纯队列投递客户端；消费并发、队列权重、消费重试间隔和退出超时只放在 worker 配置。
+- 已交付 `configs/acceptance/api.yaml`、`worker.yaml` 和 `restapi.yaml`，采用独立验收库 / Redis DB / collection，分别落盘 API 和 worker 日志。
+- 已提供两个入口的 `-check-config`；配置及队列回归测试、入口相关包测试、两个离线配置检查均通过。
+- 全量测试仍有 P01 指标相关的两项失败；未部署依赖、未跑真实端到端联调，P02 的编号执行器、实际依赖预检和安全清理仍待交付。
+
+详细修改、迁移和用户直接验证步骤见 [P02 独立配置指南](p02-configuration.md)；逐项计划见 [用户验收计划](user-acceptance-plan.md)。

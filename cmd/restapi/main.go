@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
@@ -36,16 +37,26 @@ import (
 	"eino-quickstart/internal/tool/registry"
 	"eino-quickstart/internal/transport/restapi"
 
+	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
-)
-
-const (
-	defaultBusinessConfig  = "./configs/config.yaml"
-	defaultTransportConfig = "./internal/transport/restapi/etc/restapi.yaml"
+	"github.com/zeromicro/go-zero/rest"
 )
 
 func main() {
+	checkConfig := flag.Bool("check-config", false, "validate API config without opening external connections")
+	flag.Parse()
+	if *checkConfig {
+		if _, err := config.LoadAPI(config.APIConfigPath()); err != nil {
+			log.Fatal(err)
+		}
+		var transport rest.RestConf
+		if err := conf.Load(config.APITransportConfigPath(), &transport); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("API config OK: %s; HTTP config OK: %s\n", config.APIConfigPath(), config.APITransportConfigPath())
+		return
+	}
 	if err := runServer(); err != nil {
 		log.Fatal(err)
 	}
@@ -54,10 +65,10 @@ func main() {
 // runServer is named rather than `run` because the composition root also
 // imports internal/platform/persistence/run.
 func runServer() error {
-	businessConfigPath := envOr("EINO_CONFIG", defaultBusinessConfig)
-	transportConfigPath := envOr("EINO_REST_CONFIG", defaultTransportConfig)
+	businessConfigPath := config.APIConfigPath()
+	transportConfigPath := config.APITransportConfigPath()
 
-	cfg, err := config.Load(businessConfigPath)
+	cfg, err := config.LoadAPI(businessConfigPath)
 	if err != nil {
 		return fmt.Errorf("load business config: %w", err)
 	}
@@ -137,8 +148,8 @@ func runServer() error {
 		return fmt.Errorf("knowledge retrieval is unavailable")
 	}
 
-	asynqQueue := asynq.NewAsynqClient(newAsynqConf(cfg))
-	// 本进程只当 Producer：asynqQueue.Server 保持未启动状态，消费端在
+	asynqQueue := asynq.NewProducer(newAsynqConf(cfg))
+	// 本进程只当 Producer：不创建 asynq.Server，消费端在
 	// cmd/worker 进程里。两者通过共享 Redis 连接，任务契约见
 	// internal/platform/queue/tasks。asynq.enabled=false 时 Enqueue 会返回
 	// 明确的错误，调用方必须把它当作请求失败浮出来。
@@ -332,8 +343,7 @@ func runServer() error {
 	return nil
 }
 
-// newRunner builds the tool executor. Mirrors cmd/server so the two transports
-// accept the same configs/config.yaml.
+// newRunner builds the tool executor from the API-owned business config.
 func newRunner(cfg *config.Config) (execution.Runner, error) {
 	switch cfg.Execution.Mode {
 	case "docker":
@@ -357,27 +367,16 @@ func newRunner(cfg *config.Config) (execution.Runner, error) {
 	}
 }
 
-// newAsynqConf 把业务配置里的 asynq 段翻译成适配器配置。
-//
-// 连接参数、队列权重、重试上限、关闭超时都收在 asynq 一段里 —— 早先这些散在
-// queue 与 asynq 两处、只有一处生效，是很容易配错的结构。
+// newAsynqConf maps API-owned connection and publish settings only.
+// Consumer concurrency, queue weights and shutdown settings belong to worker.
 func newAsynqConf(cfg *config.Config) *asynq.AsynqConf {
-	queues := make(map[string]int, len(cfg.Asynq.Queues))
-	for _, q := range cfg.Asynq.Queues {
-		queues[q.Name] = q.Weight
-	}
 	return &asynq.AsynqConf{
-		Addr:                   cfg.Asynq.Redis.Addr,
-		Username:               cfg.Asynq.Redis.Username,
-		Pass:                   cfg.Asynq.Redis.Password,
-		DB:                     cfg.Asynq.Redis.DB,
-		Concurrency:            cfg.Asynq.Concurrency,
-		Enable:                 cfg.Asynq.Enabled,
-		Queues:                 queues,
-		MaxRetries:             cfg.Asynq.MaxRetries,
-		RetryDelaySeconds:      cfg.Asynq.RetryDelaySeconds,
-		MaxRetryDelaySeconds:   cfg.Asynq.MaxRetryDelaySeconds,
-		ShutdownTimeoutSeconds: cfg.Asynq.ShutdownTimeoutSeconds,
+		Addr:       cfg.Asynq.Redis.Addr,
+		Username:   cfg.Asynq.Redis.Username,
+		Pass:       cfg.Asynq.Redis.Password,
+		DB:         cfg.Asynq.Redis.DB,
+		Enable:     cfg.Asynq.Enabled,
+		MaxRetries: cfg.Asynq.MaxRetries,
 	}
 }
 
@@ -402,6 +401,7 @@ func newVectorCleaner(
 			"vector store unavailable, document delete will skip vector cleanup",
 			slog.String("error", err.Error()),
 		)
+		panic(err)
 	}
 	return store
 }

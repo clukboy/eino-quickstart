@@ -55,19 +55,20 @@ knowledge workspace automation
 
 ## 配置与环境变量
 
-默认配置文件为 `configs/config.yaml`，可通过 `EINO_CONFIG` 覆盖。`cmd/restapi` 还会
-额外读一份传输层配置 `internal/transport/restapi/etc/restapi.yaml`（`EINO_REST_CONFIG`
-可覆盖），里面只放监听地址、请求体上限、超时和日志；业务配置一律走前者。支持以下
-覆盖项：
+API 默认业务配置为 `configs/api/config.yaml`（`EINO_API_CONFIG`），HTTP 配置为
+`configs/api/restapi.yaml`（`EINO_REST_CONFIG`）；worker 使用独立的
+`configs/worker/config.yaml`（`EINO_WORKER_CONFIG`）。两个入口不再读取 `EINO_CONFIG`。
+worker 只校验索引消费配置，不要求 API 的模型、身份、HTTP 或工作区参数。
+隔离模板、离线 `-check-config` 与迁移步骤见 [P02 配置指南](p02-configuration.md)。支持以下覆盖项：
 
 | 环境变量 | 用途 |
 | --- | --- |
 | `EINO_MODEL_API_KEY` | 对话模型 API Key |
 | `EINO_MODEL_BASE_URL` | 对话模型 Base URL |
 | `EINO_MODEL` | 对话模型名称 |
-| `EINO_SERVER_PORT` | HTTP 端口 |
+| `EINO_SERVER_PORT` | API 业务配置的 `server.port`；实际 HTTP 端口由 HTTP YAML 的 `Port` 决定 |
 | `EINO_WORKSPACE_ROOT` | 工作区根目录 |
-| `EINO_EMBEDDING_API_KEY` | Embedding API Key，名称由 `embedding.apiKeyEnv` 配置；只有 `cmd/worker` 需要 |
+| `EINO_EMBEDDING_API_KEY` | Embedding API Key，名称由 `embedding.apiKeyEnv` 配置；API 查询 embedding 和 worker 文档 embedding 都需要 |
 | `EINO_STORAGE_PASSWORD` | PostgreSQL 密码，名称由 `storage.passwordEnv` 配置 |
 | `EINO_ES_PASSWORD` | Elasticsearch 密码，名称由 `es.passwordEnv` 配置；ES 未配置时不需要 |
 | `EINO_API_KEY_DEVELOPER` | Agent 调用 API Key |
@@ -159,7 +160,7 @@ SSE 帧是 goctl 生成器的原生形态 —— 只有 `data: {...}` 行、没�
 （含「必填字段缺失仍是 400」）见 `docs/stream/stream.api`。
 
 指标不再暴露在同端口：go-zero 自带 Prometheus agent 在
-`internal/transport/restapi/etc/restapi.yaml` 的 `Prometheus.Host/Port` 上独立监听
+`configs/api/restapi.yaml` 的 `Prometheus.Host/Port` 上独立监听
 （当前该段是注释状态，即指标未暴露）。
 
 ## 身份与账号
@@ -538,8 +539,8 @@ reindex。指纹只覆盖**索引期**形态（分词器、字段名/类型/取�
 
 | 进程 | 挂载的 service | 关闭预算来自 |
 | --- | --- | --- |
-| `cmd/restapi` | `transport/restapi.Server`（HTTP 监听） | `internal/transport/restapi/etc/restapi.yaml` 的 `Shutdown.WaitTime` |
-| `cmd/worker` | `asynq.AsynqClient`（消费端，`Start()` 阻塞到 `Stop()`） | `configs/config.yaml` 的 `asynq.shutdownTimeoutSeconds` |
+| `cmd/restapi` | `transport/restapi.Server`（HTTP 监听） | `configs/api/restapi.yaml` 的 `Shutdown.WaitTime` |
+| `cmd/worker` | `asynq.AsynqClient`（消费端，`Start()` 阻塞到 `Stop()`） | `configs/worker/config.yaml` 的 `asynq.shutdownTimeoutSeconds` |
 
 HTTP 进程有一个容易踩的细节：监听的关闭**不由** `Stop()` 触发。go-zero 把监听的关闭
 挂在 `core/proc` 的全局 shutdown 链上（SIGTERM/SIGINT 触发），而那条链只能被 notify
@@ -599,8 +600,8 @@ W3C `traceparent`；消费端拆信封、恢复上下文，再开一个消费 sp
 
 | 进程 | provider 谁装 | 服务名来自 |
 | --- | --- | --- |
-| `cmd/restapi` | go-zero 的 `ServiceConf.SetUp()` → `trace.StartAgent` | `internal/transport/restapi/etc/restapi.yaml` 的 `Telemetry.Name` |
-| `cmd/worker` | `observability.SetupTracing`（组合根显式调用） | `configs/config.yaml` 的 `observability.workerServiceName` |
+| `cmd/restapi` | go-zero 的 `ServiceConf.SetUp()` → `trace.StartAgent` | `configs/api/restapi.yaml` 的 `Telemetry.Name` |
+| `cmd/worker` | `observability.SetupTracing`（组合根显式调用） | `configs/worker/config.yaml` 的 `observability.serviceName` |
 
 - **worker 必须自己装**：它不跑 rest/rpc，没有任何东西会替它调 `SetUp()`。没有
   provider 时 `otel.Tracer()` 是空实现，从 payload 里恢复出来的上下文无处落地 ——
