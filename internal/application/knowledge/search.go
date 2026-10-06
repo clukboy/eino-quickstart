@@ -203,10 +203,6 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (_ SearchOutcome, 
 		span.End()
 	}()
 
-	if s.searcher == nil {
-		return SearchOutcome{}, ErrSearchUnavailable
-	}
-
 	query := strings.TrimSpace(in.Query)
 	if query == "" {
 		return SearchOutcome{}, invalid("query is required")
@@ -217,6 +213,9 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (_ SearchOutcome, 
 		return SearchOutcome{}, invalid(
 			"query is too long: %d characters (limit %d)", length, s.limits.MaxQueryCharacters,
 		)
+	}
+	if s.searcher == nil {
+		return SearchOutcome{}, ErrSearchUnavailable
 	}
 
 	// 取数据集实体而不是只判存在，就是为了拿到 type：同一套检索链路要同时服务

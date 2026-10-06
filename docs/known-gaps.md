@@ -28,9 +28,9 @@ Recall@K（宏平均）、MRR、HitRate@1、ACL 泄漏数、P50/P95 延迟，并
    避免参数改动造成隐性质量回归。
 3. 补 private 语料后的 ACL 对照用例；Rerank 接入后补排名前后对比。
 
-## P0：search_knowledge 尚未接检索
+## P0：Phase 0 基础闭环
 
-**状态：HTTP 检索端点已接入，对话侧工具仍是空实现**
+**状态：核心检索、审批列表、授权矩阵和前端页面已完成，仅剩流水线门禁与跨版本评测留档**
 
 HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `dataset_id` 限定范围，
 走三通道加权 RRF 召回，响应含 `channels`（各通道是否执行/命中数）与 `degraded`（失败通道）
@@ -39,20 +39,15 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 装配在 `cmd/restapi/retrieval.go`：Milvus / ES / embedder 任一缺失只关掉对应通道，
 全缺才返回不可用。
 
-仍未接的是 `cmd/restapi` 注册的 `search_knowledge` 工具：它是 bindings 版本，只解析主体的
-数据集白名单，`run` 方法整段被注释、直接返回空串。这意味着**对话侧目前不会真的召回任何
-内容**，Agent 的回答里也不会出现引用 —— 知识库问答这条链路的最后一跳仍然是断的。
+对话侧的 `search_knowledge` 已注入 HTTP 进程的同一检索器：每次调用都按认证主体解析服务端
+维护的数据集白名单，模型不能通过参数扩大范围；多个授权数据集的结果按相关性合并，并以
+`source#chunk-N` 形式返回引用。没有授权数据集时返回明确的空结果，检索依赖全部失败时
+返回错误而不是伪造空答案。
 
-接上它需要：
-
-1. 把 HTTP 侧同一个检索器（或直接复用 `application/knowledge.Service.Search`）注入工具，
-   `run` 里按解析出的数据集白名单过滤后检索 —— 白名单是强制的，不能让模型通过工具参数
-   扩大范围。复用 `Service.Search` 还能顺带拿到按库类型归并好的结果，不用在工具里重做一遍。
-2. 把命中结果的 source / heading_path / chunk id 格式化成引用，供回答标注。
-3. 用 `cmd/rag-test` 的同一批用例，验证「经工具返回的结果」与「直连检索器」一致，
-   确保过滤逻辑加在工具层时不会被绕过。
-4. 明确工具侧是否按 `owner` 进一步收窄：HTTP 端点以数据集为授权边界（private 文档的
-   owner 过滤留给对话侧），这个策略要随工具一起定下来。
+审批中心已提供 `GET /api/v1/approvals` 的状态筛选、分页、总数、详情、决策和续跑链路；
+授权矩阵已提供 `GET /api/v1/subjects`、`GET /api/v1/dataset/:id/subjects` 以及既有的主体
+授权增删与按主体查询接口；前端审批列表和授权矩阵已接入这些契约。剩余工作是补充跨版本
+召回结果留档，并在 CI 中执行评测阈值作为发布门禁。
 
 ## P1：Rerank 接入
 
@@ -79,7 +74,7 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 
 ## P1：ES 未配置时，精确通道整体缺失、关键词通道搜不到元数据
 
-**状态：降级路径的能力缺口**
+**状态：关键词降级已补元数据，精确通道仍待补齐**
 
 三个召回通道里有**两个依赖 ES**，所以「没配 `es.address`」不是少一个通道，而是少两个：
 
@@ -89,22 +84,25 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
   `heading_path`/`content`/`metadata_text`，代码内置）**加上** mapping 文件
   `configs/es/chunk_mapping.yaml` 里声明的**业务层**字段（`model`、`product_id`、
   `series_name`、`category_l1/l2`、`variants` …，值从分块 `metadata` 列按 `from` 路径提取）；
-  没配 ES 则回落 `rag.Store.searchBySubstring`，它只在 `document_chunks.content`、
-  `heading_path` 与 `documents.source` 上做词元子串匹配 —— **完全不看 metadata 列**。
+  没配 ES 则回落 `rag.Store.searchBySubstring`，现在会在
+  `document_chunks.content`、`heading_path`、`documents.source` 与 `metadata::text`
+  上做词元子串匹配；它仍不是 BM25 等价替代。
 
-两者叠加起来意味着：没有 ES 时，「H105P」「图冠系列」这类只出现在产品块 YAML 头里的查询
-两条通道都够不着，只剩向量通道兜底 —— 而向量通道对短型号串的语义相似度往往不足以兜住。
-这不是 bug 而是降级路径的能力边界，但它很隐蔽：**症状与「召回质量差」完全一样**，只有
-对照 `documents.metadata` 才会发现型号根本没进过检索面。
+因此没有 ES 时，「H105P」「图冠系列」这类只出现在产品块 YAML 头里的查询，关键词通道
+已经可以从 `metadata` 捞回候选；精确通道仍不可用，只剩关键词与向量通道。关键词降级
+不是 BM25 等价替代，但不再因为产品值不在正文里而静默漏召。
 
 好在降级是**显式**的：未配 ES 时响应里的 `degraded` 会带上 `exact`，不是静默返回空结果。
 
-完成标准（任选其一）：
+已完成的首个切片：
 
-1. 在 `searchBySubstring` 的 SQL 里加上 `document_chunks.metadata::text ILIKE ANY(...)`
-   —— `document_chunks.metadata` 上已经有 GIN 索引（见 `ent/schema/documentchunk.go`），
-   加这一路不会引入新的索引成本，顺带把精确通道的无 ES 兜底也补上；或
-2. 把 ES 列为部署的硬依赖，并在 `cmd/rag-test` 的预检里把「没配 ES」从告警升级为失败。
+1. 在 `searchBySubstring` 的 SQL 里加入 `document_chunks.metadata::text ILIKE`
+   谓词。`metadata` 上已有 JSON GIN 索引（见 `ent/schema/documentchunk.go`），但这条
+   文本回落路径不保证使用它；若无 ES 部署规模扩大，再单独评估 trigram 索引。
+
+后续切片：
+
+1. 为没有 ES 的精确通道提供真正的结构化相等匹配，避免把子串命中误报为 exact。
 
 ## P1：知识库文件上传与批量导入
 

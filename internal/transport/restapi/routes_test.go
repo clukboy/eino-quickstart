@@ -51,6 +51,7 @@ func TestRoutingContract(t *testing.T) {
 		"POST /api/v1/users":                                 true,
 		"POST /api/v1/users/sync":                            true,
 		"POST /api/v1/chat":                                  true,
+		"GET /api/v1/approvals":                              true,
 		"GET /api/v1/approvals/:id":                          true,
 		"POST /api/v1/approvals/:id/decision":                true,
 		"POST /api/v1/approvals/:id/resume":                  true,
@@ -72,6 +73,8 @@ func TestRoutingContract(t *testing.T) {
 		"GET /api/v1/agents/:subject/dataset":                true,
 		"PUT /api/v1/agents/:subject/dataset/:id":            true,
 		"DELETE /api/v1/agents/:subject/dataset/:id":         true,
+		"GET /api/v1/subjects":                               true,
+		"GET /api/v1/dataset/:id/subjects":                   true,
 	}
 
 	got := make(map[string]bool, len(want))

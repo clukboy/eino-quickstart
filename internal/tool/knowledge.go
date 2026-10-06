@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"eino-quickstart/ent"
 	"eino-quickstart/ent/agentdataset"
+	"eino-quickstart/ent/dataset"
+	"eino-quickstart/internal/application/knowledge"
+	"eino-quickstart/internal/platform/auth"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
@@ -16,6 +20,7 @@ import (
 type KnowledgeSearch struct {
 	ActorSubject string
 	Bindings     DatasetBindings
+	Service      KnowledgeSearchService
 
 	// AllowedDatasetIDs supports fixed bindings for callers that do not
 	// have an authenticated subject-to-dataset resolver.
@@ -26,6 +31,10 @@ type KnowledgeSearch struct {
 
 type DatasetBindings interface {
 	DatasetIDs(ctx context.Context, subject string) ([]uint64, error)
+}
+
+type KnowledgeSearchService interface {
+	Search(ctx context.Context, input knowledge.SearchInput) (knowledge.SearchOutcome, error)
 }
 
 type EntDatasetBindings struct {
@@ -51,7 +60,10 @@ func (b *EntDatasetBindings) DatasetIDs(
 		return nil, errors.New("authenticated actor subject is required")
 	}
 	bindings, err := b.client.AgentDataset.Query().
-		Where(agentdataset.SubjectEQ(subject)).
+		Where(
+			agentdataset.SubjectEQ(subject),
+			agentdataset.HasDatasetWith(dataset.StatusEQ(dataset.StatusACTIVE)),
+		).
 		Order(agentdataset.ByDatasetID()).
 		All(ctx)
 	if err != nil {
@@ -76,10 +88,10 @@ func NewKnowledgeSearch(actorSubject string) (tool.InvokableTool, error) {
 	)
 }
 
-func NewKnowledgeSearchWithDatasets(actorSubject string, datasetIDs []uint64) (tool.InvokableTool, error) {
-	// if retriever == nil {
-	// 	return nil, errors.New("knowledge retriever is required")
-	// }
+func NewKnowledgeSearchWithDatasets(actorSubject string, datasetIDs []uint64, service KnowledgeSearchService) (tool.InvokableTool, error) {
+	if service == nil {
+		return nil, errors.New("knowledge search service is required")
+	}
 	allowedDatasetIDs := normalizeDatasetIDs(datasetIDs)
 	if len(allowedDatasetIDs) == 0 {
 		return nil, errors.New(
@@ -88,7 +100,7 @@ func NewKnowledgeSearchWithDatasets(actorSubject string, datasetIDs []uint64) (t
 	}
 
 	search := &KnowledgeSearch{
-		// Retriever:        retriever,
+		Service:           service,
 		ActorSubject:      strings.TrimSpace(actorSubject),
 		AllowedDatasetIDs: allowedDatasetIDs,
 	}
@@ -97,10 +109,10 @@ func NewKnowledgeSearchWithDatasets(actorSubject string, datasetIDs []uint64) (t
 
 // NewKnowledgeSearchWithBindings creates a search tool whose dataset whitelist
 // is resolved from the authenticated subject every time the tool is invoked.
-func NewKnowledgeSearchWithBindings(actorSubject string, bindings DatasetBindings) (tool.InvokableTool, error) {
-	// if retriever == nil {
-	// 	return nil, errors.New("knowledge retriever is required")
-	// }
+func NewKnowledgeSearchWithBindings(actorSubject string, bindings DatasetBindings, service KnowledgeSearchService) (tool.InvokableTool, error) {
+	if service == nil {
+		return nil, errors.New("knowledge search service is required")
+	}
 	if bindings == nil {
 		return nil, errors.New("dataset bindings are required")
 	}
@@ -108,6 +120,7 @@ func NewKnowledgeSearchWithBindings(actorSubject string, bindings DatasetBinding
 		"search_knowledge",
 		"Search authorized knowledge documents and return cited source excerpts.",
 		(&KnowledgeSearch{
+			Service:      service,
 			ActorSubject: strings.TrimSpace(actorSubject),
 			Bindings:     bindings,
 		}).run,
@@ -120,72 +133,99 @@ func NewKnowledgeSearchTool(actorSubject string) (tool.InvokableTool, error) {
 }
 
 func (s *KnowledgeSearch) run(ctx context.Context, input knowledgeSearchInput) (string, error) {
-	// if s == nil {
-	// 	return "", errors.New("knowledge search is not initialized")
-	// }
+	if s == nil || s.Service == nil {
+		return "", errors.New("knowledge search is not initialized")
+	}
 
-	// query := strings.TrimSpace(input.Query)
-	// if query == "" {
-	// 	return "", errors.New("knowledge query is required")
-	// }
-	// if input.TopK < 0 {
-	// 	return "", errors.New("knowledge topK must not be negative")
-	// }
+	query := strings.TrimSpace(input.Query)
+	if query == "" {
+		return "", errors.New("knowledge query is required")
+	}
+	if input.TopK < 0 {
+		return "", errors.New("knowledge topK must not be negative")
+	}
 
-	// actorSubject := s.ActorSubject
-	// if identity, ok := auth.IdentityFromContext(ctx); ok {
-	// 	actorSubject = identity.Subject
-	// }
-	// actorSubject = strings.TrimSpace(actorSubject)
-	// if actorSubject == "" {
-	// 	return "", errors.New("authenticated actor subject is required")
-	// }
-	// datasetIDs := s.AllowedDatasetIDs
-	// if s.Bindings != nil {
-	// 	resolvedIDs, err := s.Bindings.DatasetIDs(ctx, actorSubject)
-	// 	if err != nil {
-	// 		return "", fmt.Errorf("resolve dataset bindings: %w", err)
-	// 	}
-	// 	datasetIDs = resolvedIDs
-	// }
+	actorSubject := strings.TrimSpace(s.ActorSubject)
+	if identity, ok := auth.IdentityFromContext(ctx); ok {
+		actorSubject = strings.TrimSpace(identity.Subject)
+	}
 
-	// results, err := s.Retriever.Search(ctx, retrieval.SearchRequest{
-	// 	ActorSubject: actorSubject,
-	// 	Query:        query,
-	// 	TopK:         input.TopK,
-	// 	DatasetIDs:   datasetIDs,
-	// })
-	// if err != nil {
-	// 	return "", fmt.Errorf("search knowledge: %w", err)
-	// }
-	// if len(results) == 0 {
-	// 	return "No authorized knowledge-base results found.", nil
-	// }
+	datasetIDs := s.AllowedDatasetIDs
+	if s.Bindings != nil {
+		if actorSubject == "" {
+			return "", errors.New("authenticated actor subject is required")
+		}
+		resolvedIDs, err := s.Bindings.DatasetIDs(ctx, actorSubject)
+		if err != nil {
+			return "", fmt.Errorf("resolve dataset bindings: %w", err)
+		}
+		datasetIDs = resolvedIDs
+	}
+	if len(datasetIDs) == 0 {
+		return "No authorized knowledge-base results found.", nil
+	}
 
-	// var output strings.Builder
-	// output.WriteString("Authorized knowledge search results:\n")
-	// for _, result := range results {
-	// 	citation := strings.TrimSpace(result.CitationID)
-	// 	if citation == "" {
-	// 		citation = fmt.Sprintf("%s#chunk-%d", result.Source, result.ChunkID)
-	// 	}
+	results := make([]knowledge.SearchHit, 0)
+	limit := input.TopK
+	var firstErr error
+	for _, datasetID := range datasetIDs {
+		outcome, err := s.Service.Search(ctx, knowledge.SearchInput{
+			DatasetID: datasetID,
+			Query:     query,
+			TopK:      input.TopK,
+		})
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if limit <= 0 && outcome.TopK > 0 {
+			limit = outcome.TopK
+		}
+		results = append(results, outcome.Hits...)
+	}
+	if len(results) == 0 && firstErr != nil {
+		return "", fmt.Errorf("search knowledge: %w", firstErr)
+	}
 
-	// 	fmt.Fprintf(&output, "\n[%s]\n", citation)
-	// 	fmt.Fprintf(&output, "Source: %s\n", result.Source)
-	// 	if result.Title != "" {
-	// 		fmt.Fprintf(&output, "Title: %s\n", result.Title)
-	// 	}
-	// 	if result.HeadingPath != "" {
-	// 		fmt.Fprintf(&output, "Section: %s\n", result.HeadingPath)
-	// 	}
-	// 	if result.StartLine > 0 || result.EndLine > 0 {
-	// 		fmt.Fprintf(&output, "Lines: %d-%d\n", result.StartLine, result.EndLine)
-	// 	}
-	// 	fmt.Fprintf(&output, "Excerpt: %s\n", result.Content)
-	// }
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+	if limit <= 0 {
+		limit = 5
+	}
+	if len(results) > limit {
+		results = results[:limit]
+	}
+	if len(results) == 0 {
+		return "No authorized knowledge-base results found.", nil
+	}
 
-	// return output.String(), nil
-	return "", nil
+	var output strings.Builder
+	output.WriteString("Authorized knowledge search results:\n")
+	for _, result := range results {
+		source := strings.TrimSpace(result.Source)
+		if source == "" {
+			source = fmt.Sprintf("document-%d", result.DocumentID)
+		}
+		citation := fmt.Sprintf("%s#chunk-%d", source, result.ChunkID)
+
+		fmt.Fprintf(&output, "\n[%s]\n", citation)
+		fmt.Fprintf(&output, "Source: %s\n", source)
+		if result.Title != "" {
+			fmt.Fprintf(&output, "Title: %s\n", result.Title)
+		}
+		if result.HeadingPath != "" {
+			fmt.Fprintf(&output, "Section: %s\n", result.HeadingPath)
+		}
+		fmt.Fprintf(&output, "Excerpt: %s\n", result.Content)
+		if result.Truncated {
+			output.WriteString("Note: excerpt truncated by the knowledge service.\n")
+		}
+	}
+
+	return output.String(), nil
 }
 
 func normalizeDatasetIDs(datasetIDs []uint64) []uint64 {

@@ -39,6 +39,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/agents/:subject/dataset/:id",
 					Handler: admin.RevokeAgentDatasetHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/dataset/:id/subjects",
+					Handler: admin.ListDatasetAgentsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/subjects",
+					Handler: admin.ListAgentSubjectsHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1"),
@@ -75,6 +85,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.RoleApprover},
 			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/approvals",
+					Handler: approver.ListApprovalsHandler(serverCtx),
+				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/approvals/:id",

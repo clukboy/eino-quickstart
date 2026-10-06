@@ -119,16 +119,77 @@ func runServer() error {
 		}
 	}()
 
+	logger, err := observability.NewLogger(
+		cfg.Observability.LogLevel,
+		cfg.Observability.ServiceName,
+		cfg.Observability.Environment,
+		cfg.Observability.LogFilePath,
+		cfg.Observability.LogMaxSizeMB,
+		cfg.Observability.LogMaxBackups,
+		cfg.Observability.LogMaxAgeDays,
+	)
+	if err != nil {
+		return err
+	}
+
+	searcher := newRetrievalSearcher(ctx, cfg, entClient, logger)
+	if searcher == nil {
+		return fmt.Errorf("knowledge retrieval is unavailable")
+	}
+
+	asynqQueue := asynq.NewAsynqClient(newAsynqConf(cfg))
+	// 本进程只当 Producer：asynqQueue.Server 保持未启动状态，消费端在
+	// cmd/worker 进程里。两者通过共享 Redis 连接，任务契约见
+	// internal/platform/queue/tasks。asynq.enabled=false 时 Enqueue 会返回
+	// 明确的错误，调用方必须把它当作请求失败浮出来。
+
+	// 知识库用例是 HTTP 侧唯一的索引入口：它把正文写进 documents.content、
+	// 建行、投递任务。transport 只调它，不认识队列。
+	//
+	// 召回也在这里装配：这个进程既要能写（上传、重建索引）也要能读
+	// （POST /dataset/:id/search）。装配是分级的 —— 向量库或 embedding 没配
+	// 只会关掉对应通道，关键词与精确通道照常工作，见 newRetrievalSearcher。
+	// 召回结果的归并粒度按数据集类型配（knowledge.recallGrouping）。在这里解析
+	// 一次并注入：粒度名写错要在启动时就报出来，而不是等某个数据集被搜到时静默
+	// 回落成默认粒度 —— 后者只会表现为「条数不太对」，没人会联想到配置。
+	recallGrouping, err := grouping.NewPolicy(cfg.Knowledge.RecallGrouping)
+	if err != nil {
+		return fmt.Errorf("解析 knowledge.recallGrouping: %w", err)
+	}
+
+	knowledgeService, err := knowledge.NewService(knowledge.ServiceDeps{
+		Client: entClient,
+		Queue: asynq.NewIndexQueue(asynqQueue, asynq.IndexQueueConfig{
+			MaxRetries: cfg.Asynq.MaxRetries,
+		}),
+		Vectors:  newVectorCleaner(ctx, cfg, logger),
+		Keywords: newKeywordCleaner(ctx, cfg, logger),
+		Searcher: searcher,
+		Grouping: recallGrouping,
+		Limits: knowledge.Limits{
+			DefaultTopK:        cfg.Knowledge.DefaultTopK,
+			MaxTopK:            cfg.Knowledge.MaxTopK,
+			MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
+			// 单条结果正文的上限在 document 粒度下就是整篇文档的长度上限：
+			// 一篇长型录几万字，不设上限时一次 top_k=20 就能带出几百 KB。
+			MaxContentBytes: cfg.Knowledge.MaxResultBytes,
+		},
+		MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
+		Logger:           logger,
+	})
+	if err != nil {
+		return fmt.Errorf("init knowledge service: %w", err)
+	}
+
 	// The harness refuses to start unless "search_knowledge" is registered.
-	// Retrieval is not wired into this transport yet — the retriever-backed
-	// pipeline still lives behind the in-progress RAG refactor — so the
-	// bindings-backed tool stands in and answers with the authorized knowledge
-	// bases it can see.
+	// The same retrieval adapter is injected into the HTTP search API and the
+	// conversation tool so ACL, channel degradation, and result formatting use
+	// one authoritative search pipeline.
 	bindings, err := tool.NewEntDatasetBindings(entClient)
 	if err != nil {
 		return err
 	}
-	knowledgeSearchTool, err := tool.NewKnowledgeSearchWithBindings("", bindings)
+	knowledgeSearchTool, err := tool.NewKnowledgeSearchWithBindings("", bindings, knowledgeService)
 	if err != nil {
 		return err
 	}
@@ -158,19 +219,6 @@ func runServer() error {
 	checkpoints := checkpoint.NewStore(entClient)
 
 	harness, err := agent.NewHarness(ctx, cfg, registryInstance, policy, checkpoints)
-	if err != nil {
-		return err
-	}
-
-	logger, err := observability.NewLogger(
-		cfg.Observability.LogLevel,
-		cfg.Observability.ServiceName,
-		cfg.Observability.Environment,
-		cfg.Observability.LogFilePath,
-		cfg.Observability.LogMaxSizeMB,
-		cfg.Observability.LogMaxBackups,
-		cfg.Observability.LogMaxAgeDays,
-	)
 	if err != nil {
 		return err
 	}
@@ -232,50 +280,6 @@ func runServer() error {
 	)
 	if err != nil {
 		return err
-	}
-
-	asynqQueue := asynq.NewAsynqClient(newAsynqConf(cfg))
-	// 本进程只当 Producer：asynqQueue.Server 保持未启动状态，消费端在
-	// cmd/worker 进程里。两者通过共享 Redis 连接，任务契约见
-	// internal/platform/queue/tasks。asynq.enabled=false 时 Enqueue 会返回
-	// 明确的错误，调用方必须把它当作请求失败浮出来。
-
-	// 知识库用例是 HTTP 侧唯一的索引入口：它把正文写进 documents.content、
-	// 建行、投递任务。transport 只调它，不认识队列。
-	//
-	// 召回也在这里装配：这个进程既要能写（上传、重建索引）也要能读
-	// （POST /dataset/:id/search）。装配是分级的 —— 向量库或 embedding 没配
-	// 只会关掉对应通道，关键词与精确通道照常工作，见 newRetrievalSearcher。
-	// 召回结果的归并粒度按数据集类型配（knowledge.recallGrouping）。在这里解析
-	// 一次并注入：粒度名写错要在启动时就报出来，而不是等某个数据集被搜到时静默
-	// 回落成默认粒度 —— 后者只会表现为「条数不太对」，没人会联想到配置。
-	recallGrouping, err := grouping.NewPolicy(cfg.Knowledge.RecallGrouping)
-	if err != nil {
-		return fmt.Errorf("解析 knowledge.recallGrouping: %w", err)
-	}
-
-	knowledgeService, err := knowledge.NewService(knowledge.ServiceDeps{
-		Client: entClient,
-		Queue: asynq.NewIndexQueue(asynqQueue, asynq.IndexQueueConfig{
-			MaxRetries: cfg.Asynq.MaxRetries,
-		}),
-		Vectors:  newVectorCleaner(ctx, cfg, logger),
-		Keywords: newKeywordCleaner(ctx, cfg, logger),
-		Searcher: newRetrievalSearcher(ctx, cfg, entClient, logger),
-		Grouping: recallGrouping,
-		Limits: knowledge.Limits{
-			DefaultTopK:        cfg.Knowledge.DefaultTopK,
-			MaxTopK:            cfg.Knowledge.MaxTopK,
-			MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
-			// 单条结果正文的上限在 document 粒度下就是整篇文档的长度上限：
-			// 一篇长型录几万字，不设上限时一次 top_k=20 就能带出几百 KB。
-			MaxContentBytes: cfg.Knowledge.MaxResultBytes,
-		},
-		MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
-		Logger:           logger,
-	})
-	if err != nil {
-		return fmt.Errorf("init knowledge service: %w", err)
 	}
 
 	server, err := restapi.New(restapi.Options{

@@ -2,7 +2,7 @@ syntax = "v1"
 
 // 审批的读取与决策。
 //
-// 本组只含 JSON 路由：读取（GET /approvals/:id）与决策（POST /approvals/:id/decision）。
+// 本组只含 JSON 路由：列表、详情（GET /approvals*）与决策（POST /approvals/:id/decision）。
 //
 // 决策后恢复执行流的 POST /api/v1/approvals/:id/resume 是 SSE 路由，归在
 // stream 组（stream/stream.api）—— sse: true 是**组级**开关，把它放在本组会把
@@ -28,6 +28,19 @@ type ApprovalPathReq {
 	ID string `path:"id"`
 }
 
+type ApprovalListReq {
+	Status   string `form:"status,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type ApprovalListResp {
+	Data     []*ApprovalResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
 type ApprovalDecisionReq {
 	ID       string `path:"id"`
 	Approved bool   `json:"approved"`
@@ -41,6 +54,9 @@ type ApprovalDecisionReq {
 	middleware: RoleApprover
 )
 service restapi {
+	@handler ListApprovals
+	get /approvals (ApprovalListReq) returns (ApprovalListResp)
+
 	@handler GetApproval
 	get /approvals/:id (ApprovalPathReq) returns (ApprovalResp)
 

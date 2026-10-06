@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"eino-quickstart/ent/agentdataset"
+	"eino-quickstart/ent/dataset"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -35,7 +36,10 @@ func (l *ListAgentDatasetsLogic) ListAgentDatasets(req *types.AgentSubjectReq) (
 	}
 
 	bindings, err := entClient.AgentDataset.Query().
-		Where(agentdataset.SubjectEQ(req.Subject)).
+		Where(
+			agentdataset.SubjectEQ(req.Subject),
+			agentdataset.HasDatasetWith(dataset.StatusEQ(dataset.StatusACTIVE)),
+		).
 		Order(agentdataset.ByDatasetID()).
 		WithDataset().
 		All(l.ctx)

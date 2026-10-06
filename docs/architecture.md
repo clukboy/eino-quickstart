@@ -93,6 +93,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/api/v1/sessions` | `agent` | 列出自己的会话，按最后活动时间倒序 |
 | `GET` | `/api/v1/sessions/{id}/messages` | `agent` | 列出某个会话的历史消息（时间正序） |
 | `POST` | `/api/v1/chat` | `agent` | 发起流式对话（SSE） |
+| `GET` | `/api/v1/approvals` | `approver` | 按状态分页查询审批 |
 | `GET` | `/api/v1/approvals/{id}` | `approver` | 查询审批 |
 | `POST` | `/api/v1/approvals/{id}/decision` | `approver` | 批准或拒绝 |
 | `POST` | `/api/v1/approvals/{id}/resume` | `agent` | 恢复已批准运行（SSE） |
@@ -110,6 +111,8 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/api/v1/agents/{subject}/dataset` | `admin` | 查询 API Key 主体可访问的数据集 |
 | `PUT` | `/api/v1/agents/{subject}/dataset/{id}` | `admin` | 为 API Key 主体授权一个启用中的数据集；成功与重复授权都是空体 204 |
 | `DELETE` | `/api/v1/agents/{subject}/dataset/{id}` | `admin` | 撤销授权；成功返回空体 204 |
+| `GET` | `/api/v1/subjects` | `admin` | 分页列出账号和已有授权记录中的主体，支持关键字筛选 |
+| `GET` | `/api/v1/dataset/{id}/subjects` | `admin` | 分页反查某个数据集已授权的主体 |
 | `GET` | `/api/v1/users` | `admin` | 列出账号（按创建时间倒序，暂不分页） |
 | `POST` | `/api/v1/users` | `admin` | 创建账号；角色固定 `agent`，初始密码由管理员设定 |
 | `POST` | `/api/v1/users/sync` | `admin` | 从外部数据源同步账号；**占位**，当前恒返回 501 `not_implemented` |
@@ -238,9 +241,9 @@ Immutable，ent 没有生成它的 setter。`chat_turns` / `agent_runs` / `appro
 > embedding 服务**。产品型号这类查询（`H105P`、`图冠系列`）本就不该指望语义相似度，
 > 所以权重上精确 > 关键字 > 向量，且向量不可用时前两条仍然完整可用。
 >
-> 消费方有两处：HTTP 的 `GET /dataset/:id/search`，以及 `cmd/rag-test` 的离线评测。
-> 对话侧的 `search_knowledge` 仍是 bindings 版本、没有接检索，所以「带引用输出」
-> 尚未生效，见 [待完善项](known-gaps.md)。
+> 消费方有三处：HTTP 的 `POST /dataset/:id/search`、对话侧的 `search_knowledge`，
+> 以及 `cmd/rag-test` 的离线评测。前两者共用同一混合检索装配；对话工具按认证主体的
+> 服务端授权数据集检索，并格式化带 source 与 chunk id 的引用。
 
 拆分的收益是故障域隔离：embedding 或 Milvus 慢/挂只影响消费进度，不影响 HTTP 收发；
 HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署、独立配队列的进程，运维上
@@ -304,7 +307,7 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 | `rag/grouping` | 按 `dataset.type` 解析召回结果的归并粒度（`chunk` / `document`），并把「要 N 条结果」折算成「向检索侧要多少分块」（`FetchPlan`）—— 见「召回结果的归并粒度」与「条数的单位」 | 判定命中的口径、RRF 融合 |
 | `platform/storage/es` | 关键词索引的读写：索引生命周期（建/校验/演进）、按 `_id=chunk_id` 的幂等批量写入、按文档清理、多字段 BM25 查询（`bool.should` 组合 `multi_match` 与各字段 `.keyword` 子字段的 `term`）；精确查走 `SearchExact` | 权限判定、正文存储、向量检索 |
 | `eval` | 离线召回评测：装载金标用例、驱动检索、按配置粒度整理结果明细、折算成 Recall@K/MRR/ACL 泄漏/P95 并按门禁判定。质量指标恒按文档去重，不随粒度变 | 在线检索、生成式回答质量 |
-| `tool.KnowledgeSearch` | 将经过认证的主体和服务端 KB 白名单转换为检索请求并格式化引用（**当前是 bindings 版本，尚未接检索**） | 让模型决定可访问的知识库 |
+| `tool.KnowledgeSearch` | 将经过认证的主体和服务端 KB 白名单转换为检索请求，并格式化带 source / chunk id 的引用 | 让模型决定可访问的知识库 |
 
 `application/knowledge` 是这条链路上的**唯一业务入口**：HTTP transport 只认识
 `Service`，不认识队列；`Indexer` 只认识任务 payload，不认识 HTTP。两边各自依赖

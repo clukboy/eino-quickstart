@@ -21,8 +21,9 @@
 逐字查询按独立权重优先，未配 ES 时该通道降级并在响应里标注。**检索面由一份映射声明驱动**
 （`es.mappingFile`，默认 `configs/es/chunk_mapping.yaml`）：索引里有哪些业务字段、各自
 权重、值从元数据的哪个路径取，都在这一处声明 —— 换产品线改文件即可，不用改代码。
-HTTP 侧的 `GET /api/v1/dataset/:id/search` 已接通这条链路；对话侧的 `search_knowledge`
-仍是 bindings 版本、尚未接上，见 [待完善项](docs/known-gaps.md)。
+HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge` 共用同一条
+混合检索装配链路；对话工具会在每次调用时解析认证主体的知识库授权，并输出带 source、章节
+和 chunk id 的引用。检索质量持续评测与发布门禁仍见 [待完善项](docs/known-gaps.md)。
 
 维护清理（过期审批、检查点、对话轮次）的实现在 `internal/maintenance`，目前**没有**
 入口进程把它接起来。

@@ -227,12 +227,12 @@ go test ./internal/platform/queue/...
 
 ## 检索
 
-> **当前状态：检索链路已经实现，HTTP 已接通、对话侧还没接上。** 三个召回通道
+> **当前状态：检索链路已经实现，HTTP 与对话侧均已接通。** 三个召回通道
 > （精确 + 关键字 + 向量）与加权 RRF 融合都在 `rag.Store` / `rag.HybridRetriever` 里，
 > `cmd/rag-test` 与 HTTP 的 `POST /api/v1/dataset/:id/search` 跑的都是它们（见下一节）。
-> 而 `cmd/restapi` 注册的 `search_knowledge` 仍是 bindings 版本，只回答「当前主体被
-> 授权了哪些知识库」，不会真的召回内容。所以下面这条命令现在验证的是「Agent 路由 +
-> 授权白名单」，**不是**「召回质量」—— 后者请用下一节的 `cmd/rag-test`。
+> `cmd/restapi` 注册的 `search_knowledge` 会在每次调用时解析当前主体的授权数据集，调用同一
+> 检索器并格式化引用。所以下面这条命令可以同时验证「Agent 路由 + 授权白名单 + 引用输出」；
+> 三通道的召回质量与阈值门禁仍请用下一节的 `cmd/rag-test`。
 
 索引完成后，可以直接用 HTTP 端点验证召回（注意响应里的 `channels` 与 `degraded`
 能告诉你每条通道到底跑没跑）：
@@ -297,9 +297,10 @@ curl -sS "http://127.0.0.1:8090/api/v1/sessions/$SESSION/messages" \
 两条接口都**没有 owner 参数**，归属只取自 token；别人的（或不存在的）`session_id` 返回 404
 而不是 403 —— 「不存在」与「不是你的」刻意不区分，免得被拿来试探 uuid。
 
-根 Agent 会把知识类问题路由给知识 Agent，后者调用 `search_knowledge`（注意它目前是
-bindings 版空实现，回答里不会出现引用，见 `docs/known-gaps.md` 的 P0）。要验证索引本身
-是否成功，看上面的「等待索引完成」和「查库核对」两节 —— 那两节不依赖检索链路。
+根 Agent 会把知识类问题路由给知识 Agent，后者调用 `search_knowledge`。工具只会读取当前
+主体已授权的数据集，并把命中结果以 source、章节和 chunk id 引用返回；若回答没有引用，
+先检查主体授权和索引状态。要验证召回质量，看下面的 `cmd/rag-test` 评测，而不是只看 SSE
+连接是否建立。
 
 ## 召回评测
 

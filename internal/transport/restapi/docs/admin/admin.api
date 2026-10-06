@@ -2,11 +2,12 @@ syntax = "v1"
 
 // agent 授权。
 //
-// 本组 3 条路由需要 admin 角色，统一挂 RoleAdmin 中间件：
-//   /agents/:subject/dataset*   给 agent 授予 / 撤销 / 列出数据集访问权
+// 本组授权矩阵路由需要 admin 角色，统一挂 RoleAdmin 中间件：
+//   /subjects、/dataset/:id/subjects     主体列表与按知识库反查
+//   /agents/:subject/dataset*             给主体授予 / 撤销 / 列出数据集访问权
 //
 // 类型归属说明：
-//   本文件不定义任何类型，只复用两组各自拥有的：
+//   本文件定义授权矩阵自己的请求与响应类型，并复用两组各自拥有的：
 //     StatusResp       定义在 common/types.api
 //     DatasetListResp  定义在 dataset.api（数据集归 dataset 组所有）
 //   goctl 会先合并所有 import 的文件再解析类型，因此定义在哪都可见；
@@ -25,6 +26,32 @@ type AgentSubjectReq {
 	Subject string `path:"subject"`
 }
 
+type AgentListReq {
+	Keyword  string `form:"keyword,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type DatasetAgentsReq {
+	ID       uint64 `path:"id"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type AgentSubjectResp {
+	Subject  string `json:"subject"`
+	Username string `json:"username,omitempty"`
+	Nickname string `json:"nickname,omitempty"`
+	Role     string `json:"role,omitempty"`
+}
+
+type AgentSubjectListResp {
+	Data     []*AgentSubjectResp `json:"data"`
+	Total    int                 `json:"total"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+}
+
 // agent 授权全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
@@ -32,6 +59,12 @@ type AgentSubjectReq {
 	middleware: RoleAdmin
 )
 service restapi {
+	@handler ListAgentSubjects
+	get /subjects (AgentListReq) returns (AgentSubjectListResp)
+
+	@handler ListDatasetAgents
+	get /dataset/:id/subjects (DatasetAgentsReq) returns (AgentSubjectListResp)
+
 	@handler ListAgentDatasets
 	get /agents/:subject/dataset (AgentSubjectReq) returns (DatasetListResp)
 

@@ -80,6 +80,16 @@ func TestSearchValidatesBeforeTouchingDependencies(t *testing.T) {
 	}
 }
 
+func TestSearchValidatesBeforeReportingUnavailable(t *testing.T) {
+	service := &Service{limits: testLimits()}
+
+	_, err := service.Search(context.Background(), SearchInput{DatasetID: 1, Query: "   "})
+	var invalidErr *ValidationError
+	if !errors.As(err, &invalidErr) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
 // TestLimitsClampTopK 钉住条数的收敛区间。
 //
 // 不收敛的表现是「传 top_k=1000 真的取回 1000 条」—— 一次请求就能把提示词

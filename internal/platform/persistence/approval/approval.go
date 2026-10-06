@@ -43,6 +43,17 @@ type Store struct {
 	approvalTTL    time.Duration
 }
 
+type ListQuery struct {
+	Status string
+	Offset int
+	Limit  int
+}
+
+type ListResult struct {
+	Items []*Request
+	Total int
+}
+
 func NewStore(client *ent.Client, argumentPolicy privacy.ArgumentPolicy, approvalTTL time.Duration) *Store {
 	return &Store{client: client, argumentPolicy: argumentPolicy, approvalTTL: approvalTTL}
 }
@@ -117,15 +128,43 @@ func (s *Store) Get(ctx context.Context, id string) (*Request, bool) {
 	if err != nil {
 		return nil, false
 	}
-	return &Request{
-		ID:               record.ApprovalID,
-		SessionID:        record.SessionID,
-		Tool:             record.Tool,
-		ArgumentsHash:    record.ArgumentsHash,
-		DisplayArguments: record.DisplayArguments,
-		Status:           record.Status.String(),
-		CreatedAt:        record.CreatedAt,
-	}, true
+	return toRequest(record), true
+}
+
+func (s *Store) List(ctx context.Context, query ListQuery) (ListResult, error) {
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+	if query.Limit <= 0 {
+		query.Limit = 20
+	}
+
+	request := s.client.Approval.Query()
+	if query.Status != "" {
+		if !validStatus(query.Status) {
+			return ListResult{}, fmt.Errorf("invalid approval status %q", query.Status)
+		}
+		request = request.Where(approval.StatusEQ(approval.Status(query.Status)))
+	}
+
+	total, err := request.Clone().Count(ctx)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("count approvals: %w", err)
+	}
+	records, err := request.
+		Order(ent.Desc(approval.FieldCreatedAt)).
+		Offset(query.Offset).
+		Limit(query.Limit).
+		All(ctx)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("list approvals: %w", err)
+	}
+
+	items := make([]*Request, 0, len(records))
+	for _, record := range records {
+		items = append(items, toRequest(record))
+	}
+	return ListResult{Items: items, Total: total}, nil
 }
 
 func (s *Store) Decide(ctx context.Context, id string, approved bool, actorSubject string) error {
@@ -439,5 +478,14 @@ func toRequest(record *ent.Approval) *Request {
 		CheckpointID:     record.CheckpointID,
 		InterruptID:      record.InterruptID,
 		ExpiresAt:        record.ExpiresAt,
+	}
+}
+
+func validStatus(status string) bool {
+	switch status {
+	case StatusPending, StatusApproved, StatusRejected, StatusResuming, StatusExecuted, StatusExpired:
+		return true
+	default:
+		return false
 	}
 }

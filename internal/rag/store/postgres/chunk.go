@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -61,7 +62,7 @@ func (l *Postgres) SearchChunks(
 	if len(terms) == 0 || limit <= 0 {
 		return nil, nil
 	}
-	predicates := make([]predicate.DocumentChunk, 0, len(terms)*3)
+	predicates := make([]predicate.DocumentChunk, 0, len(terms)*4)
 	for _, term := range terms {
 		term = strings.TrimSpace(term)
 		if term == "" {
@@ -71,6 +72,7 @@ func (l *Postgres) SearchChunks(
 			documentchunk.ContentContainsFold(term),
 			documentchunk.HeadingPathContainsFold(term),
 			documentchunk.HasDocumentWith(document.SourceContainsFold(term)),
+			metadataContainsFold(term),
 		)
 	}
 	if len(predicates) == 0 {
@@ -83,6 +85,27 @@ func (l *Postgres) SearchChunks(
 		}).
 		Limit(limit).
 		All(ctx)
+}
+
+// metadataContainsFold keeps the PostgreSQL fallback searchable when a product
+// value only exists in the JSON metadata column (for example model or
+// series_name) and never appears in the chunk body.
+func metadataContainsFold(term string) predicate.DocumentChunk {
+	return func(selector *sql.Selector) {
+		selector.Where(sql.P(func(builder *sql.Builder) {
+			builder.WriteString(selector.C(documentchunk.FieldMetadata))
+			builder.WriteString("::text ILIKE ")
+			builder.Arg("%" + escapeLikeTerm(term) + "%")
+			builder.WriteString(" ESCAPE '\\\\'")
+		}))
+	}
+}
+
+func escapeLikeTerm(term string) string {
+	term = strings.ReplaceAll(term, `\`, `\\`)
+	term = strings.ReplaceAll(term, "%", `\%`)
+	term = strings.ReplaceAll(term, "_", `\_`)
+	return term
 }
 
 func (l *Postgres) CreateChunk(ctx context.Context, docs []*schema.Document) ([]*schema.Document, error) {

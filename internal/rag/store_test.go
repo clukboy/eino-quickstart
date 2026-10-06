@@ -1,6 +1,7 @@
 package rag
 
 import (
+	"eino-quickstart/ent"
 	"strings"
 	"testing"
 
@@ -84,6 +85,18 @@ func TestTokenizeDeduplicates(t *testing.T) {
 		if count > 1 {
 			t.Fatalf("词元 %q 重复出现 %d 次", term, count)
 		}
+	}
+}
+
+func TestCountTermMatchesIncludesMetadata(t *testing.T) {
+	chunk := &ent.DocumentChunk{
+		Content:  "普通正文",
+		Metadata: map[string]any{"model": "H105P", "specs": map[string]any{"install": "固装"}},
+	}
+	hit := chunkHit(chunk, 0)
+
+	if got := countTermMatches(hit, chunk, []string{"h105p", "固装"}); got != 2 {
+		t.Fatalf("metadata 中的词元应计入命中数，实际 %d", got)
 	}
 }
 

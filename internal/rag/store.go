@@ -9,6 +9,7 @@ import (
 	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/rag/store/postgres"
 	"eino-quickstart/pkg/convert"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -347,7 +348,7 @@ func (s *Store) searchByBM25(ctx context.Context, query string, candidateK int, 
 }
 
 // searchBySubstring 是没配 ES 时的词法通道：按词元在正文/标题路径/文档
-// source 上做子串匹配。
+// source/分块元数据上做子串匹配。
 //
 // 它不依赖外部分词器：中文按 2-gram 切，拉丁字母与数字按连续段切（见 Tokenize）。
 // 3-gram 以上会让中文查询完全命中不到，而 2-gram 是「不漏」的超集策略 —— 精度
@@ -355,7 +356,8 @@ func (s *Store) searchByBM25(ctx context.Context, query string, candidateK int, 
 //
 // 它和 BM25 的差距在「怎么排序」：这里只有「命中了几成词元」，没有词频、没有
 // IDF、没有长度归一化，所以长文档容易靠「什么都沾一点」挤到前面。这是 ES 没配
-// 时的降级路径，不是等价替代。
+// 时的降级路径，不是等价替代。元数据只负责把产品型号、系列等候选捞进来，最终
+// 相关性仍由本地命中词元数与其它通道共同决定。
 func (s *Store) searchBySubstring(ctx context.Context, query string, candidateK int, filter Filter) ([]Hit, error) {
 	terms := Tokenize(query)
 	if len(terms) == 0 {
@@ -438,6 +440,7 @@ func countTermMatches(hit Hit, chunk *ent.DocumentChunk, terms []string) int {
 		MetaString(hit.Doc, constant.MetaHeadingPath),
 		MetaString(hit.Doc, constant.MetaSource),
 		MetaString(hit.Doc, constant.MetaTitle),
+		metadataSearchText(hit.Doc.MetaData),
 	}, "\n"))
 
 	matched := 0
@@ -447,6 +450,14 @@ func countTermMatches(hit Hit, chunk *ent.DocumentChunk, terms []string) int {
 		}
 	}
 	return matched
+}
+
+func metadataSearchText(metadata map[string]any) string {
+	encoded, err := json.Marshal(metadata)
+	if err == nil {
+		return string(encoded)
+	}
+	return fmt.Sprint(metadata)
 }
 
 // rankLess 按 chunk ID 的数值大小比较，避免 "10" < "9" 这类字典序错位。

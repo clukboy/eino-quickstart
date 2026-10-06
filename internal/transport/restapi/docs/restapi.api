@@ -19,7 +19,8 @@ syntax = "v1"
 //                                          GET /sessions/:id/messages
 //   stream/stream.api       流式对话与续跑   SSE：POST /chat、/approvals/:id/resume
 //   approver/approver.api   审批读取与决策   /approvals/:id*
-//   admin/admin.api         agent 数据集授权 /agents/:subject/dataset*
+//   admin/admin.api         agent 数据集授权与主体矩阵 /agents/:subject/dataset*、
+//                           /subjects、/dataset/:id/subjects
 //   dataset/dataset.api     数据集与文档     /dataset*（含文档 CRUD 与重建索引）
 //
 // import 路径相对于本文件所在目录。新增接口只改对应子文件即可。

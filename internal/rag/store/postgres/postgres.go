@@ -14,7 +14,8 @@ type Store interface {
 
 	// ChunksByIDs 供向量通道按 chunk ID 回填正文与 provenance。
 	ChunksByIDs(ctx context.Context, ids []int64) ([]*ent.DocumentChunk, error)
-	// SearchChunks 是词法通道：按词元子串匹配已索引的分块。
+	// SearchChunks 是词法通道：按词元子串匹配已索引的分块正文、标题、source
+	// 与产品元数据。
 	SearchChunks(ctx context.Context, terms []string, limit int) ([]*ent.DocumentChunk, error)
 }
 
