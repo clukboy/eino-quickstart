@@ -129,7 +129,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 所以「刷新后会话还在」不依赖客户端存任何东西。两条读接口都**没有 owner 参数**，
 归属只取自 token；不存在与不属于自己都返回 404（不区分，避免用 uuid 探测资源是否存在）。
 
-文档的写操作**不同步等索引**，而且请求内**不切块**。HTTP 侧只做三件事：
+文档的写操作**不同步等索引**，而且请求内**不切块**。产品库未显式指定 source 且有产品块时，HTTP 先按产品拆成多条文档；每条文档做三件事：
 
 1. 把正文写进 `documents.content`；
 2. 写下 `documents` 行，`status=indexing`；
@@ -141,7 +141,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 
 - 刚创建时两者都是 `0`，不代表文档为空 —— 只是 worker 还没跑到。客户端不要用
   `chunk_count == 0` 判空文档；
-- `chunk_count` 由 worker 切块时逐批写入而增长；`chunk_count` 追平且该文档所有
+- `chunk_count` 由 worker 在切块事务中写入，indexed 计数随批次推进；计数追平且该文档所有
   chunk 都是 `indexed` 后，`status` 变 `ready`；
 - 重试耗尽仍失败的 chunk 会把文档置为 `failed`。所以 `status != ready` 也不等于
   失败，要看具体是 `indexing` 还是 `failed`。
@@ -580,7 +580,7 @@ POST /api/v1/dataset/:id/documents/upload     （go-zero TraceHandler，Server s
       ──── Redis ────  traceparent 随 payload 一起过去  ────
         queue.process knowledge:index         （Consumer span，上一条的子）
           knowledge.index_document
-            knowledge.ingest_document         （Pipeline：读入 → 拆产品 → 切块）
+            knowledge.ingest_document         （Pipeline：读库中正文 → 切块）
             knowledge.embed_batch             （每批一次，含 embedding + Milvus）
 ```
 

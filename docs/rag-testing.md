@@ -9,8 +9,8 @@
 1. PostgreSQL、Milvus、Redis 都可访问，且 `configs/api/config.yaml` 与 `configs/worker/config.yaml` 里的 `storage`、
    `milvus`、`embedding`、`asynq` 配置与实际环境一致。
 2. Elasticsearch 可选：`es.address` 填了就启用 BM25 词法通道，留空则词法通道回落
-   PostgreSQL 子串匹配（**此时按产品型号搜不到东西** —— 型号只存在于分块的
-   `metadata` 列里，见「关键词通道与元数据」一节）。启用时需要：
+   PostgreSQL 子串匹配（正文和元数据可做子串匹配，
+   但没有 ES 的结构化 exact 通道；质量不等同于 BM25）。启用时需要：
 
    ```yaml
    es:
@@ -29,7 +29,7 @@
    **`mappingFile` 是必填项**：它决定索引里有哪些业务字段（型号、系列、品类）、
    各自权重、以及值从分块 `metadata` 的哪个路径取。ES 启用却留空会在启动时直接报错。
    换一条产品线时改这个文件即可，不需要动代码。
-3. 设置运行所需的环境变量（两个进程读同一份配置，所以都要设）：
+3. 设置运行所需的环境变量（配置已分离：共用依赖变量要一致，API 身份变量仅 API 使用）：
 
    ```bash
    export EINO_STORAGE_PASSWORD=...
@@ -110,15 +110,14 @@ curl -sS -X POST "$BASE/dataset/1/documents" \
 ```text
 POST /dataset/:id/documents          ← cmd/restapi
   -> 事务写入 documents（content = 请求正文，source = rag.DocumentSource 派生，status=indexing）
-  -> 提交后投递 asynq 任务（队列 index，类型 knowledge:index，payload 只带 document_id）
+  -> 提交后投递 asynq 任务（队列 index，类型 knowledge:index，payload 带 dataset_id、document_id 和 mode）
   -> 返回
 
 consume                              ← cmd/worker（另一个进程）
   -> 读 documents.content（为空则从旧托管目录一次性导入，见「存量迁移」）
   -> rag.Pipeline 的 IngestContent 链
      -> TextParser 直读内存正文
-     -> Parser 按 YAML 头拆出 N 个产品块（头进 metadata，正文进 content，见 known-gaps）
-     -> MarkdownChunker 逐块切分块（标题优先，超长按字符数滑窗）
+     -> MarkdownChunker 按正文切分块（标题优先，超长按字符数滑窗）
   -> 事务写入 document_chunks，vector_status=pending
   -> 分批 embedding -> Milvus upsert
   -> 写检索索引 ES（_id = chunk_id，按 chunk 覆盖；配了 es.address 才有这一步）
@@ -126,7 +125,7 @@ consume                              ← cmd/worker（另一个进程）
 ```
 
 请求**不等待 embedding，也不切块**：返回时 `chunk_count` 和 `indexed_chunk_count`
-都还是 0 —— 因为「有几个分块」要等 worker 按内容拆出产品块才知道。这两个数是接口
+通常为 0 ——「有几个分块」要等 worker 切正文才知道；并发 worker 可能已推进。这两个数是接口
 每次从 `document_chunks` 实时聚合的，不是 `documents` 上的列，所以它们会随着 worker
 推进而增长，不是「创建时就定好的值」。
 
@@ -136,14 +135,14 @@ consume                              ← cmd/worker（另一个进程）
 curl -sS "$BASE/dataset/1/documents/1" -H "Authorization: Bearer $ADMIN"
 ```
 
-`status` 变成 `ready` 且 `indexed_chunk_count == chunk_count` 即完成。一直停在
-`indexing` 说明 worker 没跑或 Redis 不可达；变成 `failed` 说明重试次数已用尽。
+`status` 变成 `ready`、`chunk_count > 0` 且 `indexed_chunk_count == chunk_count` 即完成。一直停在
+`indexing` 需检查 worker、队列积压和可重试依赖错误；变成 `failed` 说明重试次数已用尽。
 
 ## 查库核对
 
 ```sql
 SELECT
-  d.source, d.title, d.status, length(d.content) AS content_bytes,
+  d.source, d.title, d.status, octet_length(d.content) AS content_bytes,
   c.chunk_index, c.heading_path, c.vector_status, c.indexed_at
 FROM documents AS d
 JOIN document_chunks AS c ON c.document_id = d.id
@@ -159,7 +158,7 @@ ORDER BY c.chunk_index;
 
 ## 排错
 
-- **写文档的请求直接报错**：队列不可用。投递失败会让写请求失败，不会静默落库
+- **写文档的请求直接报错**：队列不可用。投递失败会让写请求返回 503；正文可能已落库，但会标记 failed，不会静默成功
   —— 理由见 [待完善项](known-gaps.md) 里的「文档索引的异步边界」。
 - **文档停在 `indexing` 且 `chunk_count` 恒为 0**：worker 没在跑，或者任务投进了
   没人消费的队列。
@@ -526,3 +525,7 @@ embedding 模型、调 RRF 参数之后的隐性质量回归，就是靠「这�
   没答」。无答案用例现在只验证链路不报错。
 - **不覆盖 rerank**：`Reranker` 接口预留了，但 `HybridRetriever` 尚未接收它，
   所以重排前后的排名差异还测不出来。
+
+## 可复跑的 P03/P04 验收
+
+固定样例、离线回归、真实 HTTP 脚本和故障恢复步骤见 [P03/P04 验收指南](p03-p04-acceptance.md)。产品拆分发生在写入请求内，worker 不再负责把一份新型录拆成多条文档。

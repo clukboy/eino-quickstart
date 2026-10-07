@@ -150,6 +150,11 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 		),
 	)
 	defer func() {
+		// Every stage must settle exhausted retries, including parse/transaction
+		// and status-write failures, not only embedding/storage failures.
+		if err != nil {
+			err = i.report(ctx, documentID, err)
+		}
 		observability.SpanError(span, err)
 		span.End()
 	}()
@@ -602,18 +607,18 @@ func (i *Indexer) embedBatch(ctx context.Context, doc *ent.Document, chunks []*e
 
 	vectors, err := i.embedder.EmbedStrings(ctx, texts)
 	if err != nil {
-		return i.report(ctx, doc.ID, fmt.Errorf("embed %d chunks: %w", len(texts), err))
+		return fmt.Errorf("embed %d chunks: %w", len(texts), err)
 	}
 	if len(vectors) != len(chunks) {
-		return i.report(ctx, doc.ID, fmt.Errorf("embed returned %d vectors for %d chunks", len(vectors), len(chunks)))
+		return fmt.Errorf("embed returned %d vectors for %d chunks", len(vectors), len(chunks))
 	}
 
 	if err := i.vectors.Upsert(ctx, vectorIDs, convert.Float64ToFloat32(vectors)); err != nil {
-		return i.report(ctx, doc.ID, fmt.Errorf("upsert %d vectors: %w", len(vectorIDs), err))
+		return fmt.Errorf("upsert %d vectors: %w", len(vectorIDs), err)
 	}
 
 	if err := i.indexChunks(ctx, doc, chunks); err != nil {
-		return i.report(ctx, doc.ID, fmt.Errorf("index %d chunks: %w", len(chunks), err))
+		return fmt.Errorf("index %d chunks: %w", len(chunks), err)
 	}
 
 	if _, err := i.client.DocumentChunk.Update().

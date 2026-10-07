@@ -106,24 +106,24 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 
 ## P1：知识库文件上传与批量导入
 
-**状态：接口已实现，但不接收 multipart**
+**状态：JSON 写入与 multipart 多文件上传已实现；大文件流式处理和目录导入仍待完善**
 
-`/api/v1/dataset/:id/documents` 下的文档增删改查与重建索引已经落地：正文**必须**放在
-JSON 请求体里（`content`），直接写进 `documents.content` 列，不再有任何托管文件。
-`source` 是可选字段 —— 不传由服务端按 `datasetId + 标题` 派生（`rag.DocumentSource`），
-传了则作为这条文档的固定逻辑标识；两者都不指向磁盘。索引是异步的，见本文末尾的
-「文档索引的异步边界」。
+`POST /api/v1/dataset/:id/documents` 接收非空 JSON `content`；
+`POST /api/v1/dataset/:id/documents/upload` 接收 `multipart/form-data`，文件字段名
+为 **`file`**（可重复），可带 `visibility`。两者都直接写 `documents.content`，
+不创建正文托管文件。`source` 只是逻辑标识，不支持仅凭路径注册外部文件。
+产品型录在请求内按产品拆分，返回文档列表；普通文档一次文件对应一条文档。
+切 chunk、embedding 与外部索引写入由 worker 异步完成。
 
-仍未实现的是 `multipart/form-data` 上传与目录批量导入：当前没有流式的文件接收
-路径，超过 `runtime.maxRequestBodyBytes` 的文档无法通过接口写入 —— 正文必须整个
-进内存、进 JSON、进数据库单列。
+已实现不等于无限容量：`ParseMultipartForm` 可使用临时文件，但随后仍 `io.ReadAll`
+整篇正文；HTTP 请求体上限、`knowledge.maxDocumentBytes` 仍生效。目录批量导入、
+大文件流式/分片处理及部分成功语义未补齐，属于 P12/P15，而不是“缺少上传接口”。
 
 完成标准：
 
-1. 提供流式 multipart 接收，分片写进 `documents.content`，避免整个正文进内存
-   （列类型当前是 `text`，超大文件还需要一并评估 `bytea`/外部对象存储的分界）。
-2. 提供目录级批量导入，按目录扫描并幂等登记。
-3. 对私有文档保存上传者为 `owner_subject`，并覆盖 ACL 与审计测试。
+1. 定义超限、部分失败、重传与恢复的稳定语义（普通文档重复上传不保证去重）。
+2. 提供目录级批量导入的资源台账和幂等规则。
+3. 覆盖私有文档的属主、ACL 与审计；大文件方案明确内存、临时文件和正文存储边界。
 
 ## P1：Skill 未授予默认 Agent
 

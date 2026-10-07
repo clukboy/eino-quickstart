@@ -45,7 +45,7 @@ func NewUploadDocumentLogic(r *http.Request, svcCtx *svc.ServiceContext) *Upload
 
 // UploadDocument 接收上传的文件，逐个落成文档。
 //
-// 走的是和 CreateDocument 完全同一条路：正文写进 knowledge.root 的托管目录、
+// 走的是和 CreateDocument 完全同一条路：正文写进 documents.content、
 // 建文档行、投递索引任务。**这里不切块** —— 每个分块多长要等 worker 内联的
 // parse 之后才知道，请求内算不出来；本接口只保证「文件已收下并且排队了」。
 //
@@ -62,6 +62,12 @@ func (l *UploadDocumentLogic) UploadDocument(req *types.DocumentUploadReq) (resp
 		return nil, err
 	}
 
+	// Release any multipart spill files created by net/http on either path.
+	defer func() {
+		if l.r.MultipartForm != nil {
+			_ = l.r.MultipartForm.RemoveAll()
+		}
+	}()
 	if err := l.r.ParseMultipartForm(uploadMaxMemory); err != nil {
 		return nil, fmt.Errorf("解析上传文件失败: %w", err)
 	}

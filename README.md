@@ -7,7 +7,7 @@
 | 能力 | 入口 | 说明 |
 | --- | --- | --- |
 | 对话 + 知识库 API | `go run ./cmd/restapi` | 一个进程同时提供 API Key 认证的 SSE 对话 API 和知识库 admin 接口。**只投递不消费**：收到文档写请求时把正文写进 `documents.content`、建文档行、往 asynq（Redis）投一个索引任务就返回。 |
-| 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后从库里读正文（空则从旧的托管目录导入一次）、拆产品块、切块、调 embedding、写 Milvus、写关键词索引（配了 `es.address` 时），并把文档状态收敛到 `ready` / `failed`。 |
+| 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后从库里读正文（空则从旧的托管目录导入一次）、切块、调 embedding、写 Milvus、写关键词索引（配了 `es.address` 时），并把文档状态收敛到 `ready` / `failed`。 |
 | RAG 调试入口 | `go run ./cmd/ragserver` | 本地手动跑一遍 RAG 链路的调试用入口，不是生产运行形态。 |
 | 召回评测 | `go run ./cmd/rag-test` | 拿金标用例集打真实检索链路，输出 Recall@K / MRR / ACL 泄漏 / P95，并按 `internal/eval/thresholds.yaml` 判定退出码 —— 可以直接卡在 CI 或发布流水线里阻断质量回退。用法见 [RAG 本地验证](docs/rag-testing.md#召回评测)。 |
 
@@ -32,6 +32,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 
 - [P02 独立配置与验收准备](docs/p02-configuration.md)：API / worker 各改哪份文件、离线配置检查、隔离资源与启动步骤。
 - [架构与运行说明](docs/architecture.md)：组件、数据流、配置和 HTTP API。
+- [P03/P04 契约与生命周期验收](docs/p03-p04-acceptance.md)：只读生成检查、无需真实依赖的回归、真实联调命令及报告。
 - [RAG 本地验证](docs/rag-testing.md)：上传 Markdown、检查分块、创建索引，以及跑召回评测。
 - [扩展 Agent、工具与 Skill](docs/agent-development.md)：专项 Agent、工具和 Skill 的接入方式。
 - [待完善项](docs/known-gaps.md)：尚未完成或需要生产化的能力。
@@ -90,7 +91,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 | 路径 | 职责 |
 | --- | --- |
 | `cmd/restapi` | HTTP 组合根：对话 API + 知识库 API，只投递索引任务 |
-| `cmd/worker` | 索引消费组合根：读正文、拆产品块、切块、embedding、写向量与关键词索引 |
+| `cmd/worker` | 索引消费组合根：读正文、切块、embedding、写向量与关键词索引 |
 | `cmd/ragserver` | RAG 链路的手动调试入口 |
 | `internal/transport/restapi` | HTTP API、SSE 传输层与 goctl 契约（`docs/*.api`） |
 | `internal/application` | Agent 组装、上下文与工具中间件、`knowledge` 用例 |

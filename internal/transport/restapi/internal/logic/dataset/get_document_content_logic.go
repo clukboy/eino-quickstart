@@ -30,11 +30,11 @@ func NewGetDocumentContentLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 func (l *GetDocumentContentLogic) GetDocumentContent(req *types.DocumentIDReq) (resp *types.DocumentContentResp, err error) {
 	doc, err := l.svcCtx.Knowledge.Get(l.ctx, req.ID, req.DocID)
 	if err != nil {
-		return nil, err
+		return nil, documentFail(err)
 	}
 	resp, err = documentContentOne(l.ctx, l.svcCtx.Knowledge, doc)
 	if err != nil {
-		return nil, err
+		return nil, documentFail(err)
 	}
 
 	return

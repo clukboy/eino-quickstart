@@ -1,0 +1,127 @@
+{
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "multipart": {
+    "path": "/api/v1/dataset/{id}/documents/upload",
+    "method": "post",
+    "field": "file",
+    "description": "Required multipart file field. Repeat file to upload multiple documents; response is a document list. Product documents may split into more than one item."
+  },
+  "errors": {
+    "400": "Invalid request fields or business input",
+    "404": "Dataset or document not found",
+    "413": "Request body or document content exceeds configured limit",
+    "503": "Index publication or retrieval is unavailable",
+    "409": "Resource or document source conflicts with an existing resource",
+    "500": "Internal operation failed"
+  },
+  "error_operations": {
+    "/api/v1/dataset": {
+      "post": [
+        "400",
+        "409",
+        "500"
+      ],
+      "get": [
+        "400",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}": {
+      "get": [
+        "400",
+        "404",
+        "500"
+      ],
+      "delete": [
+        "400",
+        "404",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/documents": {
+      "post": [
+        "400",
+        "404",
+        "409",
+        "413",
+        "503",
+        "500"
+      ],
+      "get": [
+        "400",
+        "404",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/documents/{docId}": {
+      "get": [
+        "400",
+        "404",
+        "500"
+      ],
+      "put": [
+        "400",
+        "404",
+        "409",
+        "413",
+        "503",
+        "500"
+      ],
+      "delete": [
+        "400",
+        "404",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/documents/{docId}/reindex": {
+      "post": [
+        "400",
+        "404",
+        "503",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/reindex": {
+      "post": [
+        "400",
+        "404",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/documents/upload": {
+      "post": [
+        "400",
+        "404",
+        "409",
+        "413",
+        "503",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/search": {
+      "post": [
+        "400",
+        "404",
+        "503",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/documents/{docId}/enabled": {
+      "patch": [
+        "400",
+        "404",
+        "500"
+      ]
+    },
+    "/api/v1/dataset/{id}/documents/{docId}/content": {
+      "get": [
+        "400",
+        "404",
+        "500"
+      ]
+    }
+  }
+}

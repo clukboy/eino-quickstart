@@ -33,9 +33,9 @@ syntax = "v1"
 // 是**组级**开关（组内每条路由都变 SSE），而 chat 与审批续跑本来就在同一条流
 // 上，所以它们共处一组，而不是各自成组。
 //
-// ⚠️ goctl 不会覆盖已存在的文件。改完 .api 后若 handler 仍是旧签名（例如给路由
-//    加了 path 参数或 returns），先删掉要重生成的文件再执行 `make gen-api`，
-//    否则会编译报「参数不匹配 / 返回值个数不符」。
+// ⚠️ goctl 会覆盖 types/routes/Swagger，保留已存在的 handler/logic。
+//    改签名后必须手动适配业务代码；先执行 make check-api（隔离生成+编译），
+//    不要用 regen-api 删除手写 handler。纯生成字段一律先写进 .api。
 //
 // ────────────────────────────────────────────────────────────────
 // 全部路由都由本文件驱动生成
@@ -55,7 +55,7 @@ syntax = "v1"
 // http.HandlerFunc。
 //
 // GET /metrics 曾是第 3 条手写路由，更早之前就已移除：指标改由 go-zero 自带的
-// Prometheus agent 在独立端口暴露（见 etc/restapi.yaml 的 Prometheus 段），
+// Prometheus agent 在独立端口暴露（是否启用以 configs/api/restapi.yaml 的实际配置为准），
 // 不再需要 .api 之外的裸 handler。
 // ────────────────────────────────────────────────────────────────
 //
@@ -72,8 +72,9 @@ syntax = "v1"
 // （httpx.New(http.StatusNoContent, "", "").Empty()，见 internal/httpx）。
 //
 // 文档接口另有一条时间维度的约定：写操作**不同步等索引**。创建、更新正文、
-// 重建索引返回的 DocumentResp.status 是 indexing，此时 chunk_count 已经是
-// 最终值（切块在请求内完成），indexed_chunk_count 会由后台 worker 逐渐追上。
+// 重建索引通常返回 indexing；计数是查询时的实时值，不是最终值。产品拆分
+// 在请求内完成，chunk 切分和 embedding 在 worker 完成。新建时通常为 0，
+// 并发 worker 也可能已经推进；更新/重建时还可能读到旧分块数。
 // 因此客户端不要用 status != ready 判定失败，只有 failed 才需要处理。
 // 详情见 dataset.api 的说明与 docs/known-gaps.md。
 // ────────────────────────────────────────────────────────────────

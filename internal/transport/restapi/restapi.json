@@ -6,6 +6,7 @@
     "application/json"
   ],
   "schemes": [
+    "http",
     "https"
   ],
   "swagger": "2.0",
@@ -20,6 +21,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "ListAgentDatasets",
@@ -95,6 +97,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "GrantAgentDataset",
@@ -135,6 +138,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "RevokeAgentDataset",
@@ -174,6 +178,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "ListApprovals",
@@ -212,14 +217,9 @@
                       "id",
                       "sessionId",
                       "tool",
-                      "displayArguments",
                       "status",
                       "requestedBy",
-                      "decidedBy",
-                      "checkpointId",
-                      "interruptId",
-                      "createdAt",
-                      "expiresAt"
+                      "createdAt"
                     ],
                     "properties": {
                       "checkpointId": {
@@ -279,6 +279,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "GetApproval",
@@ -345,6 +346,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "DecideApproval",
@@ -397,6 +399,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "ResumeApproval",
@@ -448,6 +451,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "签发匿名身份令牌（带旧令牌时为续期）",
@@ -503,6 +507,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "账号登录（账号由管理员创建，没有注册接口）",
@@ -571,6 +576,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "查询当前身份（区分登录账号与匿名访客）",
@@ -614,6 +620,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "修改当前账号的密码（成功后返回新令牌，无需重新登录）",
@@ -682,6 +689,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "Chat",
@@ -743,6 +751,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "列出数据集",
@@ -815,6 +824,48 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -826,6 +877,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "创建数据集",
@@ -891,6 +943,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource or document source conflicts with an existing resource",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -901,6 +1016,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "获取数据集详情",
@@ -945,6 +1061,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -956,6 +1135,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "删除数据集",
@@ -979,6 +1159,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -989,6 +1232,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "列出数据集文档",
@@ -1023,7 +1267,6 @@
                       "indexed_chunk_count",
                       "createdAt",
                       "updatedAt",
-                      "operation",
                       "enabled"
                     ],
                     "properties": {
@@ -1071,6 +1314,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -1082,6 +1388,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "创建文档（产品型录会按产品拆成多条）",
@@ -1101,10 +1408,7 @@
               "type": "object",
               "required": [
                 "title",
-                "content",
-                "source",
-                "visibility",
-                "metadata"
+                "content"
               ],
               "properties": {
                 "content": {
@@ -1151,7 +1455,6 @@
                       "indexed_chunk_count",
                       "createdAt",
                       "updatedAt",
-                      "operation",
                       "enabled"
                     ],
                     "properties": {
@@ -1199,6 +1502,132 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource or document source conflicts with an existing resource",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body or document content exceeds configured limit",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index publication or retrieval is unavailable",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1206,12 +1635,13 @@
     "/api/v1/dataset/{id}/documents/upload": {
       "post": {
         "consumes": [
-          "application/x-www-form-urlencoded"
+          "multipart/form-data"
         ],
         "produces": [
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "上传文档",
@@ -1227,7 +1657,14 @@
             "type": "string",
             "name": "visibility",
             "in": "formData",
-            "required": true
+            "allowEmptyValue": true
+          },
+          {
+            "in": "formData",
+            "name": "file",
+            "type": "file",
+            "required": true,
+            "description": "Required multipart file field. Repeat file to upload multiple documents; response is a document list. Product documents may split into more than one item."
           }
         ],
         "responses": {
@@ -1252,7 +1689,6 @@
                       "indexed_chunk_count",
                       "createdAt",
                       "updatedAt",
-                      "operation",
                       "enabled"
                     ],
                     "properties": {
@@ -1300,6 +1736,132 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource or document source conflicts with an existing resource",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body or document content exceeds configured limit",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index publication or retrieval is unavailable",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1310,6 +1872,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "获取文档详情",
@@ -1375,6 +1938,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -1386,6 +2012,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "更新文档",
@@ -1409,12 +2036,6 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": [
-                "title",
-                "content",
-                "visibility",
-                "metadata"
-              ],
               "properties": {
                 "content": {
                   "type": "string"
@@ -1482,6 +2103,132 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource or document source conflicts with an existing resource",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body or document content exceeds configured limit",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index publication or retrieval is unavailable",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -1493,6 +2240,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "删除文档",
@@ -1522,6 +2270,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1532,6 +2343,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "获取文档内容",
@@ -1601,6 +2413,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1614,6 +2489,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "禁用启用文档",
@@ -1679,6 +2555,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1692,6 +2631,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "重建文档索引",
@@ -1757,6 +2697,90 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index publication or retrieval is unavailable",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1770,6 +2794,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "重建数据集全部文档索引",
@@ -1802,6 +2827,69 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1815,6 +2903,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "数据召回",
@@ -1833,8 +2922,7 @@
             "schema": {
               "type": "object",
               "required": [
-                "query",
-                "top_k"
+                "query"
               ],
               "properties": {
                 "query": {
@@ -1873,7 +2961,6 @@
                       "title",
                       "heading_path",
                       "content",
-                      "content_truncated",
                       "score"
                     ],
                     "properties": {
@@ -1921,6 +3008,90 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid request fields or business input",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset or document not found",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Index publication or retrieval is unavailable",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal operation failed",
+            "schema": {
+              "type": "object",
+              "required": [
+                "code",
+                "error"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1931,6 +3102,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "ListDatasetAgents",
@@ -1966,10 +3138,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "subject",
-                      "username",
-                      "nickname",
-                      "role"
+                      "subject"
                     ],
                     "properties": {
                       "nickname": {
@@ -2008,6 +3177,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "列出我的会话（按最后活动时间倒序）",
@@ -2054,6 +3224,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "创建会话",
@@ -2079,6 +3250,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "列出会话的历史消息",
@@ -2135,6 +3307,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "ListAgentSubjects",
@@ -2170,10 +3343,7 @@
                   "items": {
                     "type": "object",
                     "required": [
-                      "subject",
-                      "username",
-                      "nickname",
-                      "role"
+                      "subject"
                     ],
                     "properties": {
                       "nickname": {
@@ -2212,6 +3382,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）",
@@ -2288,6 +3459,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "创建账号（角色固定 agent，初始密码由管理员设定并强制首登改密）",
@@ -2360,6 +3532,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "从外部数据源同步账号（占位：当前恒返回 501 not_implemented）",
@@ -2385,6 +3558,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "Health",
@@ -2410,6 +3584,7 @@
           "application/json"
         ],
         "schemes": [
+          "http",
           "https"
         ],
         "summary": "Ready",
@@ -2433,7 +3608,7 @@
       }
     }
   },
-  "x-date": "2026-09-30 16:12:01",
+  "x-date": "2026-10-06 16:26:00",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

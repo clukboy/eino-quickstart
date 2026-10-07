@@ -9,3 +9,7 @@ workspace/
 .vscode
 uploads
 logs/**
+
+# Python acceptance/check scripts
+__pycache__/
+*.pyc

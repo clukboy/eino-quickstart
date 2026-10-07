@@ -31,6 +31,7 @@ gen-ent: # Generate Ent codes | 生成 Ent 的代码
 gen-api: # Generate API codes (skips existing handlers/logic, rewrites generated files) | 生成 API 代码
 	goctl api go -api ./internal/transport/restapi/docs/restapi.api -dir ./internal/transport/restapi -style go_zero
 	goctl api swagger -api ./internal/transport/restapi/docs/restapi.api -dir ./internal/transport/restapi
+	python3 ./scripts/normalize-swagger.py ./internal/transport/restapi/restapi.json ./internal/transport/restapi/internal/types/types.go ./internal/transport/restapi/docs/swagger-overrides.json
 	@echo "Generate API codes successfully"
 
 # 强制重生成 handler 与 types：删掉 internal/handler 下所有 .go 和 types.go 再生成，
@@ -61,3 +62,11 @@ gen-ts: # Generate TypeScript codes (keeps hand-written gocliRequest.ts) | 生�
 	find $(TS_TMP) -name '*.ts' ! -name 'gocliRequest.ts' -exec cp {} $(TS_DIR)/ \;
 	@rm -rf $(TS_TMP)
 	@echo "Generate TypeScript codes successfully (gocliRequest.ts 为手写 axios 适配层，已保留)"
+.PHONY: check-api test-knowledge-lifecycle
+check-api: # Read-only contract regeneration + compilation in an isolated directory
+	bash ./scripts/check-api.sh
+
+test-knowledge-lifecycle: # Deterministic lifecycle regression, no external services
+	go test -count=1 ./internal/application/knowledge -run TestDocumentLifecycle
+	go test -count=1 ./internal/transport/restapi/internal/handler/dataset -run TestDocumentHTTPContract
+	python3 -m unittest discover -s scripts/acceptance -p 'test_*.py'

@@ -2,19 +2,19 @@ syntax = "v1"
 
 // 数据集与文档。
 //
-// 本组 11 条路由需要 admin 角色，统一挂 RoleAdmin 中间件：
+// 本组 15 条路由需要 admin 角色，统一挂 RoleAdmin 中间件：
 //   /dataset*   数据集的增/查/删，以及其下文档的增删改查与重建索引
 //
 // 文档正文的去向：创建时给的 content 直接写进 **documents.content**（PostgreSQL），
-// 正文以数据库为唯一真相，同时不再落任何本地文件。给的正文若带 YAML 头，头会被
-// 解析进 documents.metadata、不留在正文里；召回时按 document_id 查库取正文即可。
+// 正文以数据库为唯一真相，同时不再落任何本地文件。产品拆分路径会将 YAML 头
+// 解析进 documents.metadata、不留在正文里；普通正文原样保存。召回按 document_id 取正文。
 //
 // documents.source 现在只是**溯源信息**（这份正文是从哪来的、或历史上曾写成哪个
 // 路径），不再指向一个可读的文件 —— 读正文请走 GET .../content，不要按 source 去
 // 磁盘上找。基于同一原因，「重建索引」是重新切库里的正文，不是重读文件。
 //
 // **文档粒度是产品，不是文件。** 产品型录（dataset.type = product）的一次上传
-// 通常包含多个产品块，创建/上传时会在请求内按产品块拆开，**一个产品一条文档**。
+// 通常包含多个产品块；未显式指定 source 且可解析产品块时，在请求内拆开，**一个产品一条文档**。
 // 这样每个产品都能单独改、单独重建索引、单独删除，不必重传整份型录。
 // 拆分用的是与 worker 同一个解析器（internal/rag/parser 的 SplitBlocks），
 // 不会出现「上传时看到 10 条、索引后只剩 1 条」这种两边对不上的情况。
@@ -81,32 +81,30 @@ type DocumentIDReq {
 	DocID uint64 `path:"docId"`
 }
 
-// CreateDocumentReq 的 Content 与 Source 二选一：
-//   Content 非空 -> 正文写进托管目录（Source 若填写只能指向托管目录内的位置）
-//   Content 为空 -> 注册 Source 指向的既有文件，标题可省略（从文件名推断）
-//
-// 给 content 且数据集是产品型录时，正文会被拆成多个产品，响应是列表。
+// CreateDocumentReq 的 Content 必须是非空正文，直接写入 documents.content。
+// Source 可省略，由服务端派生；提供时只是固定逻辑标识，不会读取或写入文件。
+// 产品型录会在请求内拆为一产品一文档；worker 随后只负责正文切 chunk 与索引。
 type CreateDocumentReq {
 	ID         uint64            `path:"id"`
 	Title      string            `json:"title"`
 	Content    string            `json:"content"`
-	Source     string            `json:"source,omitempty"`
-	Visibility string            `json:"visibility,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Source     string            `json:"source,optional"`
+	Visibility string            `json:"visibility,optional"`
+	Metadata   map[string]string `json:"metadata,optional"`
 }
 
 // UpdateDocumentReq 的零值字段表示「不改」。Content 非空会改写正文并重新
-// 索引；只对托管文件有效，注册进来的外部文件不允许由接口覆盖。
+// 索引；所有新文档均从数据库读取和更新正文，不注册外部文件。
 //
 // 一个产品一条文档之后，改单个产品就用这个接口改那一条 —— 不要拿它去改整份
 // 型录，那条文档只包含型录里的第一个产品。
 type UpdateDocumentReq {
 	ID         uint64            `path:"id"`
 	DocID      uint64            `path:"docId"`
-	Title      string            `json:"title,omitempty"`
-	Content    string            `json:"content,omitempty"`
-	Visibility string            `json:"visibility,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Title      string            `json:"title,optional"`
+	Content    string            `json:"content,optional"`
+	Visibility string            `json:"visibility,optional"`
+	Metadata   map[string]string `json:"metadata,optional"`
 }
 
 type DocumentResp {
@@ -136,11 +134,11 @@ type DocumentListResp {
 
 // ReindexResp 是整库重建索引的受理结果。
 //
-// Documents 是成功排队的文档数，Failed 是正文读不回来（文件被移走等）而被标成
-// failed 的文档数。返回时 embedding 还没开始，所以状态是 accepted 而不是 done。
+// Documents 是成功排队的文档数，Failed 是投递失败并已标记 failed 的文档数。
+// 正文解析错误由 worker 后续处理；受理状态是 accepted，不代表索引 done。
 //
 // Chunks 恒为 0，字段留着是为了不破坏已发布的响应形状：切块在 worker 内完成，
-// 受理这一刻还没有任何分块行，给不出一个真实的数字。想知道实际切了多少块，
+// 受理时无法承诺最终数量（可能尚存旧分块），不给估计数字。想知道实际数量，
 // 走 GET /dataset/:id/documents/:docId 看 chunk_count。
 type ReindexResp {
 	Status    string `json:"status"`
@@ -151,7 +149,7 @@ type ReindexResp {
 
 type DocumentUploadReq {
 	DatasetID  uint64 `path:"id"`
-	Visibility string `form:"visibility"`
+	Visibility string `form:"visibility,optional"`
 }
 
 // SearchDatasetReq 在数据集范围内做一次召回。
@@ -165,15 +163,13 @@ type DocumentUploadReq {
 type SearchDatasetReq {
 	DatasetID uint64 `path:"id"`
 	Query     string `json:"query"`
-	TopK      int    `json:"top_k,omitempty"`
+	TopK      int    `json:"top_k,optional"`
 }
 
 // SearchHitResp 是一条召回结果。
 //
-// 粒度由数据集类型决定（`knowledge.recallGrouping`）：产品型录一篇文档就是一个
-// 产品，按**文档**归并后返回（取命中的最高分块作代表）；普通文档库按**分块**
-// 返回，一篇长文可能命中几十条。调用方只看条数会误判 —— 同一个 top_k，在两种
-// 粒度下的覆盖面差得很远。
+// 粒度由数据集类型与 knowledge.recallGrouping 决定，默认按文档归并。
+// 配为 chunk 时一篇长文可返回多个分块；必须结合响应 granularity 判断条数单位。
 type SearchHitResp {
 	ChunkID     uint64  `json:"chunk_id"`
 	DocumentID  uint64  `json:"document_id"`

@@ -8,8 +8,28 @@ type AgentDatasetReq struct {
 	ID      uint64 `path:"id"`
 }
 
+type AgentListReq struct {
+	Keyword  string `form:"keyword,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type AgentSubjectListResp struct {
+	Data     []*AgentSubjectResp `json:"data"`
+	Total    int                 `json:"total"`
+	Page     int                 `json:"page"`
+	PageSize int                 `json:"page_size"`
+}
+
 type AgentSubjectReq struct {
 	Subject string `path:"subject"`
+}
+
+type AgentSubjectResp struct {
+	Subject  string `json:"subject"`
+	Username string `json:"username,omitempty"`
+	Nickname string `json:"nickname,omitempty"`
+	Role     string `json:"role,omitempty"`
 }
 
 type AnonymousTokenReq struct {
@@ -27,6 +47,19 @@ type AnonymousTokenResp struct {
 type ApprovalDecisionReq struct {
 	ID       string `path:"id"`
 	Approved bool   `json:"approved"`
+}
+
+type ApprovalListReq struct {
+	Status   string `form:"status,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type ApprovalListResp struct {
+	Data     []*ApprovalResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
 }
 
 type ApprovalPathReq struct {
@@ -96,9 +129,9 @@ type CreateDocumentReq struct {
 	ID         uint64            `path:"id"`
 	Title      string            `json:"title"`
 	Content    string            `json:"content"`
-	Source     string            `json:"source,omitempty"`
-	Visibility string            `json:"visibility,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Source     string            `json:"source,optional"`
+	Visibility string            `json:"visibility,optional"`
+	Metadata   map[string]string `json:"metadata,optional"`
 }
 
 type CreateSessionResp struct {
@@ -109,6 +142,12 @@ type CreateUserReq struct {
 	Username string `json:"username"`
 	Nickname string `json:"nickname"`
 	Password string `json:"password"`
+}
+
+type DatasetAgentsReq struct {
+	ID       uint64 `path:"id"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
 }
 
 type DatasetIDReq struct {
@@ -174,7 +213,7 @@ type DocumentResp struct {
 
 type DocumentUploadReq struct {
 	DatasetID  uint64 `path:"id"`
-	Visibility string `form:"visibility"`
+	Visibility string `form:"visibility,optional"`
 }
 
 type HealthResp struct {
@@ -211,7 +250,7 @@ type ResumeApprovalPathReq struct {
 type SearchDatasetReq struct {
 	DatasetID uint64 `path:"id"`
 	Query     string `json:"query"`
-	TopK      int    `json:"top_k,omitempty"`
+	TopK      int    `json:"top_k,optional"`
 }
 
 type SearchHitResp struct {
@@ -268,10 +307,10 @@ type StatusResp struct {
 type UpdateDocumentReq struct {
 	ID         uint64            `path:"id"`
 	DocID      uint64            `path:"docId"`
-	Title      string            `json:"title,omitempty"`
-	Content    string            `json:"content,omitempty"`
-	Visibility string            `json:"visibility,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Title      string            `json:"title,optional"`
+	Content    string            `json:"content,optional"`
+	Visibility string            `json:"visibility,optional"`
+	Metadata   map[string]string `json:"metadata,optional"`
 }
 
 type UserListReq struct {
