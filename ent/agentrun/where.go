@@ -69,6 +69,16 @@ func RequestedBy(v string) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldRequestedBy, v))
 }
 
+// AgentKey applies equality check predicate on the "agent_key" field. It's identical to AgentKeyEQ.
+func AgentKey(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldAgentKey, v))
+}
+
+// AgentVersion applies equality check predicate on the "agent_version" field. It's identical to AgentVersionEQ.
+func AgentVersion(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldAgentVersion, v))
+}
+
 // UserMessage applies equality check predicate on the "user_message" field. It's identical to UserMessageEQ.
 func UserMessage(v string) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldUserMessage, v))
@@ -87,6 +97,41 @@ func ApprovalID(v string) predicate.AgentRun {
 // ErrorCode applies equality check predicate on the "error_code" field. It's identical to ErrorCodeEQ.
 func ErrorCode(v string) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldEQ(FieldErrorCode, v))
+}
+
+// Error applies equality check predicate on the "error" field. It's identical to ErrorEQ.
+func Error(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldError, v))
+}
+
+// Steps applies equality check predicate on the "steps" field. It's identical to StepsEQ.
+func Steps(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldSteps, v))
+}
+
+// ToolCalls applies equality check predicate on the "tool_calls" field. It's identical to ToolCallsEQ.
+func ToolCalls(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldToolCalls, v))
+}
+
+// TokensIn applies equality check predicate on the "tokens_in" field. It's identical to TokensInEQ.
+func TokensIn(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldTokensIn, v))
+}
+
+// TokensOut applies equality check predicate on the "tokens_out" field. It's identical to TokensOutEQ.
+func TokensOut(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldTokensOut, v))
+}
+
+// LatencyMs applies equality check predicate on the "latency_ms" field. It's identical to LatencyMsEQ.
+func LatencyMs(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldLatencyMs, v))
+}
+
+// CostMicros applies equality check predicate on the "cost_micros" field. It's identical to CostMicrosEQ.
+func CostMicros(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCostMicros, v))
 }
 
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
@@ -302,6 +347,111 @@ func RequestedByEqualFold(v string) predicate.AgentRun {
 // RequestedByContainsFold applies the ContainsFold predicate on the "requested_by" field.
 func RequestedByContainsFold(v string) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldContainsFold(FieldRequestedBy, v))
+}
+
+// AgentKeyEQ applies the EQ predicate on the "agent_key" field.
+func AgentKeyEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldAgentKey, v))
+}
+
+// AgentKeyNEQ applies the NEQ predicate on the "agent_key" field.
+func AgentKeyNEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldAgentKey, v))
+}
+
+// AgentKeyIn applies the In predicate on the "agent_key" field.
+func AgentKeyIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldAgentKey, vs...))
+}
+
+// AgentKeyNotIn applies the NotIn predicate on the "agent_key" field.
+func AgentKeyNotIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldAgentKey, vs...))
+}
+
+// AgentKeyGT applies the GT predicate on the "agent_key" field.
+func AgentKeyGT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldAgentKey, v))
+}
+
+// AgentKeyGTE applies the GTE predicate on the "agent_key" field.
+func AgentKeyGTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldAgentKey, v))
+}
+
+// AgentKeyLT applies the LT predicate on the "agent_key" field.
+func AgentKeyLT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldAgentKey, v))
+}
+
+// AgentKeyLTE applies the LTE predicate on the "agent_key" field.
+func AgentKeyLTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldAgentKey, v))
+}
+
+// AgentKeyContains applies the Contains predicate on the "agent_key" field.
+func AgentKeyContains(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContains(FieldAgentKey, v))
+}
+
+// AgentKeyHasPrefix applies the HasPrefix predicate on the "agent_key" field.
+func AgentKeyHasPrefix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasPrefix(FieldAgentKey, v))
+}
+
+// AgentKeyHasSuffix applies the HasSuffix predicate on the "agent_key" field.
+func AgentKeyHasSuffix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasSuffix(FieldAgentKey, v))
+}
+
+// AgentKeyEqualFold applies the EqualFold predicate on the "agent_key" field.
+func AgentKeyEqualFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEqualFold(FieldAgentKey, v))
+}
+
+// AgentKeyContainsFold applies the ContainsFold predicate on the "agent_key" field.
+func AgentKeyContainsFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContainsFold(FieldAgentKey, v))
+}
+
+// AgentVersionEQ applies the EQ predicate on the "agent_version" field.
+func AgentVersionEQ(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldAgentVersion, v))
+}
+
+// AgentVersionNEQ applies the NEQ predicate on the "agent_version" field.
+func AgentVersionNEQ(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldAgentVersion, v))
+}
+
+// AgentVersionIn applies the In predicate on the "agent_version" field.
+func AgentVersionIn(vs ...int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldAgentVersion, vs...))
+}
+
+// AgentVersionNotIn applies the NotIn predicate on the "agent_version" field.
+func AgentVersionNotIn(vs ...int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldAgentVersion, vs...))
+}
+
+// AgentVersionGT applies the GT predicate on the "agent_version" field.
+func AgentVersionGT(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldAgentVersion, v))
+}
+
+// AgentVersionGTE applies the GTE predicate on the "agent_version" field.
+func AgentVersionGTE(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldAgentVersion, v))
+}
+
+// AgentVersionLT applies the LT predicate on the "agent_version" field.
+func AgentVersionLT(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldAgentVersion, v))
+}
+
+// AgentVersionLTE applies the LTE predicate on the "agent_version" field.
+func AgentVersionLTE(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldAgentVersion, v))
 }
 
 // UserMessageEQ applies the EQ predicate on the "user_message" field.
@@ -612,6 +762,321 @@ func ErrorCodeEqualFold(v string) predicate.AgentRun {
 // ErrorCodeContainsFold applies the ContainsFold predicate on the "error_code" field.
 func ErrorCodeContainsFold(v string) predicate.AgentRun {
 	return predicate.AgentRun(sql.FieldContainsFold(FieldErrorCode, v))
+}
+
+// ErrorEQ applies the EQ predicate on the "error" field.
+func ErrorEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldError, v))
+}
+
+// ErrorNEQ applies the NEQ predicate on the "error" field.
+func ErrorNEQ(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldError, v))
+}
+
+// ErrorIn applies the In predicate on the "error" field.
+func ErrorIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldError, vs...))
+}
+
+// ErrorNotIn applies the NotIn predicate on the "error" field.
+func ErrorNotIn(vs ...string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldError, vs...))
+}
+
+// ErrorGT applies the GT predicate on the "error" field.
+func ErrorGT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldError, v))
+}
+
+// ErrorGTE applies the GTE predicate on the "error" field.
+func ErrorGTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldError, v))
+}
+
+// ErrorLT applies the LT predicate on the "error" field.
+func ErrorLT(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldError, v))
+}
+
+// ErrorLTE applies the LTE predicate on the "error" field.
+func ErrorLTE(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldError, v))
+}
+
+// ErrorContains applies the Contains predicate on the "error" field.
+func ErrorContains(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContains(FieldError, v))
+}
+
+// ErrorHasPrefix applies the HasPrefix predicate on the "error" field.
+func ErrorHasPrefix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasPrefix(FieldError, v))
+}
+
+// ErrorHasSuffix applies the HasSuffix predicate on the "error" field.
+func ErrorHasSuffix(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldHasSuffix(FieldError, v))
+}
+
+// ErrorIsNil applies the IsNil predicate on the "error" field.
+func ErrorIsNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIsNull(FieldError))
+}
+
+// ErrorNotNil applies the NotNil predicate on the "error" field.
+func ErrorNotNil() predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotNull(FieldError))
+}
+
+// ErrorEqualFold applies the EqualFold predicate on the "error" field.
+func ErrorEqualFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEqualFold(FieldError, v))
+}
+
+// ErrorContainsFold applies the ContainsFold predicate on the "error" field.
+func ErrorContainsFold(v string) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldContainsFold(FieldError, v))
+}
+
+// StepsEQ applies the EQ predicate on the "steps" field.
+func StepsEQ(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldSteps, v))
+}
+
+// StepsNEQ applies the NEQ predicate on the "steps" field.
+func StepsNEQ(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldSteps, v))
+}
+
+// StepsIn applies the In predicate on the "steps" field.
+func StepsIn(vs ...int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldSteps, vs...))
+}
+
+// StepsNotIn applies the NotIn predicate on the "steps" field.
+func StepsNotIn(vs ...int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldSteps, vs...))
+}
+
+// StepsGT applies the GT predicate on the "steps" field.
+func StepsGT(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldSteps, v))
+}
+
+// StepsGTE applies the GTE predicate on the "steps" field.
+func StepsGTE(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldSteps, v))
+}
+
+// StepsLT applies the LT predicate on the "steps" field.
+func StepsLT(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldSteps, v))
+}
+
+// StepsLTE applies the LTE predicate on the "steps" field.
+func StepsLTE(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldSteps, v))
+}
+
+// ToolCallsEQ applies the EQ predicate on the "tool_calls" field.
+func ToolCallsEQ(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldToolCalls, v))
+}
+
+// ToolCallsNEQ applies the NEQ predicate on the "tool_calls" field.
+func ToolCallsNEQ(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldToolCalls, v))
+}
+
+// ToolCallsIn applies the In predicate on the "tool_calls" field.
+func ToolCallsIn(vs ...int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldToolCalls, vs...))
+}
+
+// ToolCallsNotIn applies the NotIn predicate on the "tool_calls" field.
+func ToolCallsNotIn(vs ...int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldToolCalls, vs...))
+}
+
+// ToolCallsGT applies the GT predicate on the "tool_calls" field.
+func ToolCallsGT(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldToolCalls, v))
+}
+
+// ToolCallsGTE applies the GTE predicate on the "tool_calls" field.
+func ToolCallsGTE(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldToolCalls, v))
+}
+
+// ToolCallsLT applies the LT predicate on the "tool_calls" field.
+func ToolCallsLT(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldToolCalls, v))
+}
+
+// ToolCallsLTE applies the LTE predicate on the "tool_calls" field.
+func ToolCallsLTE(v int) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldToolCalls, v))
+}
+
+// TokensInEQ applies the EQ predicate on the "tokens_in" field.
+func TokensInEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldTokensIn, v))
+}
+
+// TokensInNEQ applies the NEQ predicate on the "tokens_in" field.
+func TokensInNEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldTokensIn, v))
+}
+
+// TokensInIn applies the In predicate on the "tokens_in" field.
+func TokensInIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldTokensIn, vs...))
+}
+
+// TokensInNotIn applies the NotIn predicate on the "tokens_in" field.
+func TokensInNotIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldTokensIn, vs...))
+}
+
+// TokensInGT applies the GT predicate on the "tokens_in" field.
+func TokensInGT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldTokensIn, v))
+}
+
+// TokensInGTE applies the GTE predicate on the "tokens_in" field.
+func TokensInGTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldTokensIn, v))
+}
+
+// TokensInLT applies the LT predicate on the "tokens_in" field.
+func TokensInLT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldTokensIn, v))
+}
+
+// TokensInLTE applies the LTE predicate on the "tokens_in" field.
+func TokensInLTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldTokensIn, v))
+}
+
+// TokensOutEQ applies the EQ predicate on the "tokens_out" field.
+func TokensOutEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldTokensOut, v))
+}
+
+// TokensOutNEQ applies the NEQ predicate on the "tokens_out" field.
+func TokensOutNEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldTokensOut, v))
+}
+
+// TokensOutIn applies the In predicate on the "tokens_out" field.
+func TokensOutIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldTokensOut, vs...))
+}
+
+// TokensOutNotIn applies the NotIn predicate on the "tokens_out" field.
+func TokensOutNotIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldTokensOut, vs...))
+}
+
+// TokensOutGT applies the GT predicate on the "tokens_out" field.
+func TokensOutGT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldTokensOut, v))
+}
+
+// TokensOutGTE applies the GTE predicate on the "tokens_out" field.
+func TokensOutGTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldTokensOut, v))
+}
+
+// TokensOutLT applies the LT predicate on the "tokens_out" field.
+func TokensOutLT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldTokensOut, v))
+}
+
+// TokensOutLTE applies the LTE predicate on the "tokens_out" field.
+func TokensOutLTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldTokensOut, v))
+}
+
+// LatencyMsEQ applies the EQ predicate on the "latency_ms" field.
+func LatencyMsEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldLatencyMs, v))
+}
+
+// LatencyMsNEQ applies the NEQ predicate on the "latency_ms" field.
+func LatencyMsNEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldLatencyMs, v))
+}
+
+// LatencyMsIn applies the In predicate on the "latency_ms" field.
+func LatencyMsIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldLatencyMs, vs...))
+}
+
+// LatencyMsNotIn applies the NotIn predicate on the "latency_ms" field.
+func LatencyMsNotIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldLatencyMs, vs...))
+}
+
+// LatencyMsGT applies the GT predicate on the "latency_ms" field.
+func LatencyMsGT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldLatencyMs, v))
+}
+
+// LatencyMsGTE applies the GTE predicate on the "latency_ms" field.
+func LatencyMsGTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldLatencyMs, v))
+}
+
+// LatencyMsLT applies the LT predicate on the "latency_ms" field.
+func LatencyMsLT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldLatencyMs, v))
+}
+
+// LatencyMsLTE applies the LTE predicate on the "latency_ms" field.
+func LatencyMsLTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldLatencyMs, v))
+}
+
+// CostMicrosEQ applies the EQ predicate on the "cost_micros" field.
+func CostMicrosEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldEQ(FieldCostMicros, v))
+}
+
+// CostMicrosNEQ applies the NEQ predicate on the "cost_micros" field.
+func CostMicrosNEQ(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNEQ(FieldCostMicros, v))
+}
+
+// CostMicrosIn applies the In predicate on the "cost_micros" field.
+func CostMicrosIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldIn(FieldCostMicros, vs...))
+}
+
+// CostMicrosNotIn applies the NotIn predicate on the "cost_micros" field.
+func CostMicrosNotIn(vs ...int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldNotIn(FieldCostMicros, vs...))
+}
+
+// CostMicrosGT applies the GT predicate on the "cost_micros" field.
+func CostMicrosGT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGT(FieldCostMicros, v))
+}
+
+// CostMicrosGTE applies the GTE predicate on the "cost_micros" field.
+func CostMicrosGTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldGTE(FieldCostMicros, v))
+}
+
+// CostMicrosLT applies the LT predicate on the "cost_micros" field.
+func CostMicrosLT(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLT(FieldCostMicros, v))
+}
+
+// CostMicrosLTE applies the LTE predicate on the "cost_micros" field.
+func CostMicrosLTE(v int64) predicate.AgentRun {
+	return predicate.AgentRun(sql.FieldLTE(FieldCostMicros, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

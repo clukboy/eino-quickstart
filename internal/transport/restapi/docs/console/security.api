@@ -1,0 +1,18 @@
+syntax = "v1"
+
+// security 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/security
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler GetPasswordPolicy
+	get /password-policy returns (PasswordPolicyResp)
+
+	@handler PutPasswordPolicy
+	put /password-policy (PutPasswordPolicyReq) returns (PasswordPolicyResp)
+
+}

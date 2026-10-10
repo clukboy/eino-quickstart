@@ -72,27 +72,21 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
    保留原始 RRF 顺序），并记录 rerank 前后排名以便诊断。
 3. 增加重排生效、超时降级和私有文档不泄漏的测试。
 
-## P1：ES 未配置时，精确通道整体缺失、关键词通道搜不到元数据
+## P1：ES 未配置时的检索能力边界
 
-**状态：关键词降级已补元数据，精确通道仍待补齐**
+**状态：结构化精确和关键词均有 PostgreSQL 正确性回落；精确回落性能与真实联调仍待验证**
 
-三个召回通道里有**两个依赖 ES**，所以「没配 `es.address`」不是少一个通道，而是少两个：
+三个召回通道里，ES 提供高性能索引实现，但不再是结构化精确能力的唯一实现：
 
-- **精确通道直接消失**：`rag.Store.SearchByExact` 未配 ES 时返回空并把该通道标记为降级。
-  型号、系列这类逐字查询失去最强的那条路。
-- **关键词通道降级**：配了 ES 走 BM25，可打分字段 = **基础层**（`source`/`title`/
-  `heading_path`/`content`/`metadata_text`，代码内置）**加上** mapping 文件
-  `configs/es/chunk_mapping.yaml` 里声明的**业务层**字段（`model`、`product_id`、
-  `series_name`、`category_l1/l2`、`variants` …，值从分块 `metadata` 列按 `from` 路径提取）；
-  没配 ES 则回落 `rag.Store.searchBySubstring`，现在会在
-  `document_chunks.content`、`heading_path`、`documents.source` 与 `metadata::text`
-  上做词元子串匹配；它仍不是 BM25 等价替代。
+- **精确通道回落 PostgreSQL metadata 相等匹配**：`rag.Store.SearchByExact` 复用 mapping
+  的 `keyword` 字段声明和规范化规则，只有完整相等才命中，不把 `LIKE` 子串当成 exact。
+- **关键词通道回落 PostgreSQL 子串匹配**：配了 ES 走 BM25，字段来自基础字段和 mapping
+  声明的业务字段；没配 ES 则在 `document_chunks.content`、`heading_path`、`documents.source`
+  与 `metadata::text` 上做词元子串匹配。它仍不是 BM25 等价替代。
 
 因此没有 ES 时，「H105P」「图冠系列」这类只出现在产品块 YAML 头里的查询，关键词通道
-已经可以从 `metadata` 捞回候选；精确通道仍不可用，只剩关键词与向量通道。关键词降级
-不是 BM25 等价替代，但不再因为产品值不在正文里而静默漏召。
-
-好在降级是**显式**的：未配 ES 时响应里的 `degraded` 会带上 `exact`，不是静默返回空结果。
+可以从 `metadata` 捞回候选，结构化完整值还可以走真正 exact。关键词降级不是 BM25 等价
+替代；PG exact 是正确性回落，也不是 ES 的规模性能替代。
 
 已完成的首个切片：
 
@@ -102,11 +96,11 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 
 后续切片：
 
-1. 为没有 ES 的精确通道提供真正的结构化相等匹配，避免把子串命中误报为 exact。
+1. 在隔离环境验证真实 API/外部 PostgreSQL 的 exact 通道、重启恢复和大规模 metadata 扫描性能。
 
 ## P1：知识库文件上传与批量导入
 
-**状态：JSON 写入与 multipart 多文件上传已实现；大文件流式处理和目录导入仍待完善**
+**状态：JSON 写入与受限 multipart 多文件上传已实现；全链路大文件流式处理和目录导入仍待完善**
 
 `POST /api/v1/dataset/:id/documents` 接收非空 JSON `content`；
 `POST /api/v1/dataset/:id/documents/upload` 接收 `multipart/form-data`，文件字段名
@@ -115,9 +109,10 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 产品型录在请求内按产品拆分，返回文档列表；普通文档一次文件对应一条文档。
 切 chunk、embedding 与外部索引写入由 worker 异步完成。
 
-已实现不等于无限容量：`ParseMultipartForm` 可使用临时文件，但随后仍 `io.ReadAll`
-整篇正文；HTTP 请求体上限、`knowledge.maxDocumentBytes` 仍生效。目录批量导入、
-大文件流式/分片处理及部分成功语义未补齐，属于 P12/P15，而不是“缺少上传接口”。
+P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`knowledge.maxUploadRequestBytes`、
+`knowledge.maxDocumentBytes`、`knowledge.maxUploadFiles` 分别限制总请求、单文件和文件数；
+文件读取使用 `io.LimitReader(max+1)`，并在 `files[]` 中返回逐文件成功/失败台账，临时文件在请求结束清理。
+这仍不是任意大文件的对象存储或分片流式方案；目录批量导入、全链路流式/分片处理属于后续 P13/P15。
 
 完成标准：
 
@@ -253,66 +248,22 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
    `Document` 上没有这两个字段，接口每次从 `document_chunks` 分组统计。切块在
    worker 内完成，请求返回时给不出准确值，维护冗余列只会让它慢慢漂。
 
-## P1：产品拆分目前只认 front-matter（待替换为 LLM 拆分）
+## P1：LLM 产品拆分的真实质量与重放边界
 
-**状态：接缝已就位，实现是默认桩**
+**状态：本地契约已完成；真实模型与外部并发验收待补**
 
-摄取链路的形状是「一份正文 → N 个产品块 → 每块再切 chunk」。**拆分发生在写入请求里**
-（`POST /documents` → `knowledge.buildProductDocuments`），不是等到 worker 索引时：
-请求期拆完就能把 N 条文档一次写进 `documents`，每条都有自己的 `content` 与
-`metadata`；worker 拿到的只是「一条文档的正文」，走 `rag.Pipeline.IngestContent`
-直接切块。
+现有结构化型录路径继续由 `internal/rag/parser.SplitBlocks` 处理；它没有被 LLM 路径替换。API 侧现在可以通过 `knowledge.productSplitEnabled` 显式开启 provider-neutral HTTP 拆分器。模型响应必须先通过产品数量、正文非空、稳定键（`product_id` 或 `model`）和重复键校验，之后才转换为现有 `productDocument` 并复用同一写库/索引队列。模型请求失败或返回空/歧义结果会直接失败，不会静默降级成一条看似成功的整份文档。
 
-拆分本身在 `internal/application/knowledge/split.go`，底层调
-`internal/rag/parser.SplitBlocks`。桩实现按正文里的 `---` front-matter 分节 ——
-因为眼下上传的正文本来就是 LLM 生成好的、带分节结构的 Markdown，这个默认桩能直接
-跑通全链路。目标形态是换成 LLM 拆分：把一份混合了多个产品的资料丢给模型，由模型
-判定「这是几个产品、每个产品的边界在哪」。
+P17 的本地边界也已补齐：输入正文、模型和解析版本参与指纹；解析版本与输入摘要写入产品元数据；产品键继续走 `external_key` 唯一约束和冲突重查，重复上传与版本变化分别走 unchanged/update。
 
-**替换点只有一处**：`internal/rag/parser/product.go` 的 `SplitBlocks`（它同时是
-`ProductParser.Parse` 的实现体）。三个调用方，换一次同时生效：
+仍不能把本地契约当成模型质量保证：
 
-- `knowledge.buildProductDocuments` —— 知识库写入侧，负责建 N 条 `documents` 行；
-- `knowledge.Indexer.legacyBody` —— 存量迁移，读旧文件时要去掉 YAML 头；
-- `rag.FileLoader` 的 parser 注册表 —— 给 `cmd/ragserver` 那条「拿一个目录里的
-  Markdown 试一下检索」的演示链用（`parser.NewParser` 的 `Parsers` map，
-  `"product" → ProductParser{}`）。
+- 尚未确认实际模型、提示/结构化输出能力、费用、延迟和容量；
+- 尚未收到双产品、单产品和不可拆分资料的人工金标，不能证明模型没有捏造规格；
+- 尚未在 PostgreSQL + Redis + API + worker 环境执行并发上传、进程重启、任务重试和显式重解析；
+- 当前没有独立的持久化 LLM 结果缓存，重启后会再次调用模型，但稳定产品键和数据库唯一约束仍防止文档增生。
 
-`knowledge.Indexer` 的索引主路径与传输层都不用动。
-
-`cmd/ragserver` 那条路有个静默失效的坑：`dataset.type` 的 schema 默认值是空串，
-空串查不到注册表里任何键，于是分发落到 fallback 的 `parser.TextParser{}` 上 ——
-不报错、不告警，结果整篇文档被当成一个块切，`product_id` / `model` /
-`specs_from_doc` 全部缺失，检索侧的型号过滤随之失效。**知识库这条路已经不受它影响**
-（写入侧的拆分不看 `dataset.type` 的注册表，`indexer.ingest` 也只走 `TextParser`），
-但 `cmd/ragserver` 仍要走注册表，所以跑演示链时得显式给 `type=product`。
-排查看 `knowledge.ingest_document` span 上的 `knowledge.dataset_type` 与
-`knowledge.parsed_blocks`（退化时恒为 1）。
-
-同源的两条待收：`typ.(string)` 是无保护断言，**调用方完全不传 `type` 就会 panic**
-（`cmd/ragserver` 的 `IngestFile` 正是这种调用方式）；空串落到 `TextParser` 属于静默
-降级，与本条第 3 个约束（失败要显式报错）直接冲突 —— 查不到的键应当报错，或者至少
-要在日志里看得见。
-
-替换时要守住三条约束，否则下游会以很难查的方式坏掉：
-
-1. **输出契约不变。** 知识库侧仍要产出「每条文档一份干净的正文 + 一份业务元数据」：
-   `content` 里是**去掉 YAML 头**的 Markdown，`metadata` 里带
-   `product_id` / `model` / `specs_from_doc` / `variants` 这组键（`source` 由
-   `rag.DocumentSource` 派生），否则 chunk 元数据与检索侧的型号过滤条件会对不上。
-2. **必须可重放。** worker 的重试是「按 chunk 收敛」的，同一个任务可能被投第二次；
-   重传型录时还要靠 `spec_hash`（正文 + 元数据的指纹）判断「这个产品变了没有」。
-   拆分结果要由内容决定而不是由调用次数决定（同一份正文两次拆必须得到同样的
-   块数与边界），否则幂等会被绕过，chunk 行每轮都重新洗牌。
-3. **失败要显式报错。** 拆不出来（模型超时、返回不可解析）就返回 error，写入侧
-   在请求期报错（`buildProductDocuments` 当前就是这样：围栏不闭合、YAML 不合法、
-   型号重复都在请求期报出来），好过等到 worker 解析失败之后从文档状态里倒查。
-   不要「拆失败就退化成整篇当一个块」—— 那会静默产出一个检索质量很差但看起来
-   成功的索引。
-
-另外，`Parse` 在 worker 进程内调用，所以新增的模型调用会占用
-`asynq.shutdownTimeoutSeconds` 的排空预算；如果拆分改到请求期（当前形态），
-这段预算则转移到 HTTP 侧的 `Timeout` 上 —— 替换后这两个值都要重新评估。
+本地入口：`bash scripts/acceptance/run.sh P16 --local` 与 `bash scripts/acceptance/run.sh P17 --local`。
 
 ## P1：生产数据库迁移策略
 
@@ -366,8 +317,7 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 - **界面造不出管理员账号。** 建号接口不接受 `role` 参数（新账号恒 `agent`），后台本身
   仍靠构建期注入的静态 admin key 访问。要提权只能改库。这是「不允许注册」这条产品
   要求的直接后果，不是遗漏。
-- **`POST /api/v1/users/sync` 是占位**，恒返回 501 `not_implemented`（外部数据源未定）。
-  后端真接入时要重新定 response 形状，前端需补一次展示逻辑。
+- **`POST /api/v1/users/sync` 的本地契约已实现，但真实上游仍未接入验收。** 当前支持 provider-neutral HTTP source、`dryRun`、稳定 `external_id` 匹配和创建/更新/跳过/失败台账；未启用 source 返回 503。仍需确认真实 endpoint 协议、分页、稳定 ID、凭据与初始密码交付方案，不能把本地 fake source 验收当成真实上游完成。
 - **登录后，迁移前那枚匿名令牌仍然有效**（令牌自包含，收不回），只是它名下的
   `sessions` 已经改挂到账号下，所以它再也看不到任何会话。客户端登录后立即丢弃本地那份，
   但**已经打开的 `/chat` 标签页必须靠 `storage` 事件重新取数** —— 否则它会继续用旧的
@@ -376,8 +326,8 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
   三种情况返回**同一** 401 与同一句文案，且不存在的用户也会烧一次按当前 cost 现算的
   假哈希校验（`BurnPasswordCheck`），目的是抹平时序、避免用户名枚举。改这段代码时
   别把那次假校验优化掉。
-- **`WithDropColumn(true)` 的连带风险。** 启动迁移会自动建表，且开启删列：日后从
-  `ent/schema/user.go` 的 `Fields()` 里删掉一个字段，下次启动会**真的 DROP** 那一列。
-  本轮只新增了一张表、没动任何既有表，对存量数据零影响；但动 user schema 前要先确认
-  库里没有一张列不同的手建 `users` 表（那样 `Schema.Create` 不会改它，而代码会按新
-  形状读）。
+- **生产启动自动改表风险已从应用入口移除。** 过去 `WithDropColumn(true)`/`WithDropIndex(true)`
+  会让启动迁移在 schema 变化时具备破坏性；现在 API、worker、导入和维护入口使用
+  `entx.OpenWithoutMigration`，显式 `cmd/db-migrate` 只执行不带 drop 选项的迁移。
+  `OpenDevelopment` 仍保留给本地开发，生产发布必须先查看 dry-run、备份并执行显式迁移。
+  真实历史库升级、失败恢复和备份演练仍是 P27 的隔离环境待验收项。

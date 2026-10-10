@@ -27,6 +27,10 @@ func (User) Fields() []ent.Field {
 		// 生成两个功能重复的索引（一个来自字段的 Unique，一个来自 Indexes）。
 		field.String("username").Unique().NotEmpty(),
 
+		// external_id 是上游用户源的稳定身份键。手工创建的本地账号为 NULL；
+		// 同步账号只按它做幂等匹配，不会因上游暂时缺人而删除本地账号。
+		field.String("external_id").Optional().Nillable().Unique(),
+
 		// nickname 是**显示名**，与上面的 username（登录名）分工不同：
 		// username 是身份标识（ASCII、唯一、可用来登录），nickname 是人看的名字
 		// （可中文、可重名）。两者必须分开 —— usernamePattern 那段注释解释了
@@ -43,7 +47,7 @@ func (User) Fields() []ent.Field {
 		// `column "nickname" contains null values` —— 后端起不来，而且失败发生在
 		// 迁移阶段，看起来像「代码有问题」而不是「DDL 缺默认值」。
 		// 有了这个注解，DDL 才是 `ADD COLUMN nickname ... NOT NULL DEFAULT ''`，
-		// 存量行先落成空串，再由 entx.Open 的启动回填按 username 补上。
+		// 存量行先落成空串，再由 显式 db-migrate 的迁移步骤按 username 补上。
 		//
 		// 它不影响「接口必填」：默认值只作用于数据库层，ent 的 Create() 仍会按
 		// NotEmpty 在校验阶段拒绝空串。

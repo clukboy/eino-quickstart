@@ -100,6 +100,10 @@ func (s *Store) Delete(
 	return nil
 }
 
+func (s *Store) CountExpired(ctx context.Context, before time.Time) (int, error) {
+	return s.client.Checkpoint.Query().Where(entcheckpoint.ExpiresAtLT(before)).Count(ctx)
+}
+
 func (s *Store) DeleteExpired(ctx context.Context, before time.Time, limit int) ([]string, error) {
 	records, err := s.client.Checkpoint.
 		Query().Where(

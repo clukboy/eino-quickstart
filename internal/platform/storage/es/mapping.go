@@ -427,19 +427,23 @@ func weightedField(name string, boost float64) string {
 
 // keywordSubfield 是 text 字段上 .keyword 子字段的名字（见 propertyFor）。
 //
-// 它存的是**原样的整值**，所以 term 查询它只有在「查询串与字段值逐字相等」时
-// 才命中 —— 这正是 ExactFields 想要的性质。
+// 它存的是**规范化后的整值**，所以 term 查询它只有在「查询串按同一规则
+// 规范化后与字段值逐字相等」时才命中 —— 这正是 ExactFields 想要的性质。
 const keywordSubfield = "keyword"
 
 // ExactField 是参与逐字精确匹配的一个字段。
 type ExactField struct {
 	// Name 是完整的 ES 字段名（已带 .keyword 后缀）。
 	Name string
-	// Boost 沿用字段自身的权重。
-	//
-	// 「精确命中比词元命中更值钱」这件事不在这里表达，而是由检索策略里独立的一条
-	// 通道权重表达（配置的 retrieval.exactWeight）。两处都放大等于把同一个判断
-	// 算两遍，调的时候没人说得清最后是几倍。
+
+	// From 是同一字段在 PostgreSQL JSON metadata 中的取值路径。
+	// 精确回落和 ES 查询必须共用这份声明，不能各自维护 model/product_id 清单。
+	From string
+
+	// Multi 表示该字段可以有多个候选值（例如 variants）。
+	Multi bool
+
+	// Boost 沿用字段自身的权重，只用于同一条精确通道内的次序。
 	Boost float64
 }
 
@@ -456,6 +460,8 @@ func (m *Mapping) ExactFields() []ExactField {
 		}
 		fields = append(fields, ExactField{
 			Name:  spec.Name + "." + keywordSubfield,
+			From:  spec.From,
+			Multi: spec.Multi,
 			Boost: spec.Boost,
 		})
 	}
@@ -484,10 +490,43 @@ func (m *Mapping) Extract(metadata map[string]any) map[string]any {
 		if !ok {
 			continue
 		}
+		if spec.Keyword {
+			value = NormalizeExactValueOrValues(value, spec.Multi)
+		}
 		values[spec.Name] = value
 	}
 	if len(values) == 0 {
 		return nil
+	}
+	return values
+}
+
+// NormalizeExactValue applies the shared normalization contract for structured exact
+// matching: trim surrounding whitespace, collapse internal whitespace, and compare
+// case-insensitively. Separators such as '-' remain significant, so ACC-H105P is not
+// silently treated as ACC H105P.
+func NormalizeExactValue(value string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), " "))
+}
+
+// NormalizeExactValueOrValues normalizes a scalar or a multi-valued exact field.
+// The mapping writer and the PostgreSQL fallback both use this helper, so an ES
+// reindex and a no-ES query share the same case/space semantics.
+func NormalizeExactValueOrValues(value any, multi bool) any {
+	if !multi {
+		if text, ok := value.(string); ok {
+			return NormalizeExactValue(text)
+		}
+		return value
+	}
+	items := sliceOf(value)
+	values := make([]any, 0, len(items))
+	for _, item := range items {
+		if text, ok := item.(string); ok {
+			values = append(values, NormalizeExactValue(text))
+		} else {
+			values = append(values, item)
+		}
 	}
 	return values
 }
@@ -520,7 +559,7 @@ func (m *Mapping) MissingPaths(metadata map[string]any) []string {
 // 地方提示要重建索引。
 //
 // 改动这个字段的规则：只要 Project 的产出对同一份元数据可能不同，就 +1。
-const fallbackShapeRev = "v2-no-promoted-dupes"
+const fallbackShapeRev = "v3-no-promoted-dupes-normalized-exact"
 
 // fingerprint 是映射在索引期的形态指纹。
 //

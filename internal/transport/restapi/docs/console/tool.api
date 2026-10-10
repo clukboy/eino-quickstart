@@ -1,0 +1,33 @@
+syntax = "v1"
+
+// tool 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/tool
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListTools
+	get /tools (ToolListReq) returns (ToolListResp)
+
+	@handler CreateTool
+	post /tools (CreateToolReq) returns (ToolResp)
+
+	@handler GetTool
+	get /tools/:key (ToolKeyReq) returns (ToolResp)
+
+	@handler UpdateTool
+	put /tools/:key (UpdateToolReq) returns (ToolResp)
+
+	@handler DeleteTool
+	delete /tools/:key (ToolKeyReq) returns (StatusResp)
+
+	@handler EnableTool
+	patch /tools/:key/enabled (EnableToolReq) returns (ToolResp)
+
+	@handler TestTool
+	post /tools/:key/test (ToolKeyReq) returns (ToolTestResp)
+
+}

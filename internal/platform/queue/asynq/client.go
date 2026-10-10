@@ -5,6 +5,7 @@ import (
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/queue"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -212,6 +213,21 @@ func (a *AsynqClient) Enqueue(ctx context.Context, msg *queue.TaskMessage) error
 	}
 	span.SetAttributes(attribute.String("messaging.message.id", info.ID))
 	return nil
+}
+
+// QueueDepth returns the current number of tasks in a queue. It is deliberately
+// an observation-only helper: inspecting Redis must not mutate task state.
+func (c *AsynqConf) QueueDepth(queueName string) (int, error) {
+	if strings.TrimSpace(queueName) == "" {
+		return 0, fmt.Errorf("asynq: queue name is required")
+	}
+	inspector := asynq.NewInspector(c.NewRedisOpt())
+	defer inspector.Close()
+	info, err := inspector.GetQueueInfo(queueName)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size, nil
 }
 
 // Register implements [queue.Consumer].

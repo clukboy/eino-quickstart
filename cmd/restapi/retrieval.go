@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"strconv"
+	"strings"
+	"time"
 
 	"eino-quickstart/ent"
 	"eino-quickstart/internal/application/knowledge"
@@ -11,6 +13,7 @@ import (
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
+	"eino-quickstart/internal/rag/rerank"
 	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/rag/store/postgres"
 
@@ -27,7 +30,7 @@ import (
 // 把本来能答的问题一起拒了。
 //
 //	Milvus 连不上   只关掉向量通道（仍可按型号与关键词召回）
-//	ES 连不上       只关掉精确通道，关键词通道回落 PostgreSQL 子串匹配
+//	ES 连不上       关键词通道回落 PostgreSQL 子串匹配，精确通道回落 PostgreSQL metadata 相等匹配
 //	两者都不可用    只剩关键词通道（子串匹配），仍能答型号查询
 //
 // 返回 nil 表示这个进程完全没有召回能力，此时用例层返回 ErrSearchUnavailable，
@@ -39,6 +42,7 @@ func newRetrievalSearcher(ctx context.Context, cfg *config.Config, entClient *en
 	}
 
 	keywordSearcher := newKeywordSearcher(ctx, cfg, logger)
+	mapping := loadRetrievalMapping(cfg, logger)
 	vectorStore := newVectorStore(ctx, cfg, logger)
 
 	policy := rag.PolicyFromConfig(cfg.Retrieval)
@@ -51,6 +55,7 @@ func newRetrievalSearcher(ctx context.Context, cfg *config.Config, entClient *en
 
 	// embedder 可能是 nil（没配密钥或客户端构造失败），此时检索器会自己把向量
 	// 通道关掉 —— 那条规则只写在 NewHybridRetriever 里，不在组合根再判一次。
+	reranker := newReranker(cfg, logger)
 	hybrid, err := rag.NewHybridRetriever(rag.HybridConfig{
 		Store: &rag.Store{
 			PgStore: postgres.NewPostgres(entClient),
@@ -58,17 +63,56 @@ func newRetrievalSearcher(ctx context.Context, cfg *config.Config, entClient *en
 			// 非 nil 的接口，判空就失效了，而调用它会打到 nil 接收者上。
 			MilvusStore: vectorStore,
 			Keyword:     keywordSearcher,
+			Mapping:     mapping,
 		},
-		Embedder:  newQueryEmbedder(ctx, cfg, logger),
-		Retrieval: policy,
-		TopK:      cfg.Knowledge.DefaultTopK,
-		Logger:    logger,
+		Embedder:            newQueryEmbedder(ctx, cfg, logger),
+		Reranker:            reranker,
+		MaxRerankCandidates: cfg.Retrieval.MaxRerankCandidates,
+		RerankTimeout:       time.Duration(cfg.Retrieval.RerankTimeoutMS) * time.Millisecond,
+		Retrieval:           policy,
+		TopK:                cfg.Knowledge.DefaultTopK,
+		Logger:              logger,
 	})
 	if err != nil {
 		logger.Error("装配召回失败，检索接口将不可用", slog.String("error", err.Error()))
 		return nil
 	}
 	return hybridSearcher{retriever: hybrid}
+}
+
+// newReranker creates the provider-neutral HTTP adapter only when explicitly enabled.
+// An absent endpoint is rejected by config validation; constructor errors are still
+// fail-closed here so a malformed URL cannot silently become a fake successful rerank.
+func newReranker(cfg *config.Config, logger *slog.Logger) rag.Reranker {
+	if !cfg.Retrieval.EnableRerank {
+		return nil
+	}
+	ranker, err := rerank.NewHTTP(rerank.Config{
+		Endpoint: cfg.Retrieval.RerankEndpoint,
+		APIKey:   cfg.Retrieval.RerankAPIKey,
+		Model:    cfg.Retrieval.RerankModel,
+		Timeout:  time.Duration(cfg.Retrieval.RerankTimeoutMS) * time.Millisecond,
+	})
+	if err != nil {
+		logger.Error("重排服务配置无效，重排关闭但召回继续可用", slog.String("error", err.Error()))
+		return nil
+	}
+	return ranker
+}
+
+// loadRetrievalMapping 给 ES 与 PostgreSQL 精确回落加载同一份字段声明。
+// 即使 ES 没配，mapping 仍然决定无索引时哪些 metadata 字段可以做 exact。
+func loadRetrievalMapping(cfg *config.Config, logger *slog.Logger) *es.Mapping {
+	path := strings.TrimSpace(cfg.ES.MappingFile)
+	if path == "" {
+		return nil
+	}
+	mapping, err := es.LoadMapping(path)
+	if err != nil {
+		logger.Warn("结构化精确回落不可用，映射文件加载失败", slog.String("error", err.Error()))
+		return nil
+	}
+	return mapping
 }
 
 // newKeywordSearcher 给 HTTP 进程准备一个检索索引（ES）查询句柄。
@@ -81,7 +125,7 @@ func newRetrievalSearcher(ctx context.Context, cfg *config.Config, entClient *en
 func newKeywordSearcher(ctx context.Context, cfg *config.Config, logger *slog.Logger) es.Searcher {
 	client, err := es.New(&cfg.ES)
 	if err != nil {
-		logger.Warn("检索索引不可用，关键词通道回落到子串匹配，精确通道关闭",
+		logger.Warn("检索索引不可用，关键词通道回落到子串匹配，精确通道回落到 PostgreSQL",
 			slog.String("error", err.Error()))
 		return nil
 	}
@@ -90,7 +134,7 @@ func newKeywordSearcher(ctx context.Context, cfg *config.Config, logger *slog.Lo
 		return nil
 	}
 	if err := client.Health(ctx); err != nil {
-		logger.Warn("检索索引不可用，关键词通道回落到子串匹配，精确通道关闭",
+		logger.Warn("检索索引不可用，关键词通道回落到子串匹配，精确通道回落到 PostgreSQL",
 			slog.String("error", err.Error()))
 		return nil
 	}

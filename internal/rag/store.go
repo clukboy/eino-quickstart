@@ -97,9 +97,8 @@ func candidates(topK int, filter Filter) int {
 // 两条方法对应两条独立通道（分词 BM25 / 结构化字段逐字相等），各有各的权重与
 // 候选上限（见配置的 retrieval 段），所以是两条方法而不是一条带开关的方法。
 //
-// nil 表示 es.address 没配，此时关键词通道回落到 PostgreSQL 子串匹配 ——
-// 功能不缺，只是没有词频、IDF 与长度归一化；精确通道随之不可用（PG 那侧没有
-// 结构化字段的逐字比较口径）。
+// nil 表示 es.address 没配，此时关键词通道回落到 PostgreSQL 子串匹配。
+// 精确通道仍可使用同一份 ES mapping 在 PostgreSQL 元数据上做结构化相等匹配。
 type KeywordIndex interface {
 	SearchChunks(ctx context.Context, query string, topK int) ([]es.ChunkHit, error)
 	SearchExact(ctx context.Context, query string, topK int) ([]es.ChunkHit, error)
@@ -111,6 +110,10 @@ type Store struct {
 
 	// Keyword 是词法通道的检索索引，可为 nil（见 KeywordIndex 的说明）。
 	Keyword KeywordIndex
+
+	// Mapping 是结构化字段的唯一声明来源。ES 可用时由索引查询使用；无 ES 时，
+	// PostgreSQL 精确回落也使用它读取 metadata，禁止另维护 model/product_id 清单。
+	Mapping *es.Mapping
 }
 
 func NewStore(ctx context.Context, entClient *ent.Client, cfg *config.Config, keyword KeywordIndex) (*Store, error) {
@@ -124,10 +127,18 @@ func NewStore(ctx context.Context, entClient *ent.Client, cfg *config.Config, ke
 	if err != nil {
 		return nil, err
 	}
+	var mapping *es.Mapping
+	if strings.TrimSpace(cfg.ES.MappingFile) != "" {
+		mapping, err = es.LoadMapping(cfg.ES.MappingFile)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &Store{
 		PgStore:     pgStore,
 		MilvusStore: milvusStore,
 		Keyword:     keyword,
+		Mapping:     mapping,
 	}, nil
 }
 
@@ -308,21 +319,35 @@ func (s *Store) SearchByText(ctx context.Context, query string, limit int, filte
 // 头里、正文一次都不出现，所以两者打的是完全不同的目标 —— 混在一条通道里就
 // 只能靠调权重去挤，分开之后各有各的权重与候选上限。
 //
-// 没配 ES 时这条通道不可用（返回空而不是报错）：PostgreSQL 那侧只有子串匹配，
-// 用 `LIKE %词%` 去近似「逐字相等」会让「精确」名不副实 —— 命中集被放宽得不
-// 可预期，排序反而更乱。缺一条通道是降级，给一条名不副实的通道是误导。
+// 没配 ES 时，使用同一份 mapping 在 PostgreSQL metadata 上做逐字相等匹配；
+// mapping 缺失时才关闭精确通道。这样 LIKE 子串永远不会被误标成 exact。
 func (s *Store) SearchByExact(ctx context.Context, query string, limit int, filter Filter) ([]Hit, error) {
 	if limit <= 0 {
 		return nil, errors.New("rag: exact candidate limit must be greater than zero")
 	}
-	if s.Keyword == nil {
+	candidateK := candidates(limit, filter)
+	if s.Keyword != nil {
+		hits, err := s.Keyword.SearchExact(ctx, query, candidateK)
+		if err != nil {
+			return nil, fmt.Errorf("rag: exact search: %w", err)
+		}
+		ranked := make([]rankedID, 0, len(hits))
+		for _, hit := range hits {
+			ranked = append(ranked, rankedID{chunkID: hit.ChunkID, score: hit.Score})
+		}
+		return s.reload(ctx, ranked, filter, "exact")
+	}
+	if s.Mapping == nil {
 		return nil, nil
 	}
-	hits, err := s.Keyword.SearchExact(ctx, query, candidates(limit, filter))
+	hits, err := s.PgStore.SearchExact(ctx, query, s.Mapping.ExactFields(), postgres.ExactSearchFilter{
+		DatasetID:  filter.DatasetID,
+		Visibility: filter.Visibility,
+		Owner:      filter.Owner,
+	}, candidateK)
 	if err != nil {
-		return nil, fmt.Errorf("rag: exact search: %w", err)
+		return nil, fmt.Errorf("rag: exact fallback search: %w", err)
 	}
-
 	ranked := make([]rankedID, 0, len(hits))
 	for _, hit := range hits {
 		ranked = append(ranked, rankedID{chunkID: hit.ChunkID, score: hit.Score})

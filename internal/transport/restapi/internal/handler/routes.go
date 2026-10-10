@@ -10,6 +10,18 @@ import (
 	agent "eino-quickstart/internal/transport/restapi/internal/handler/agent"
 	approver "eino-quickstart/internal/transport/restapi/internal/handler/approver"
 	auth "eino-quickstart/internal/transport/restapi/internal/handler/auth"
+	consoleagent "eino-quickstart/internal/transport/restapi/internal/handler/console/agent"
+	consoleapproval "eino-quickstart/internal/transport/restapi/internal/handler/console/approval"
+	consoleaudit "eino-quickstart/internal/transport/restapi/internal/handler/console/audit"
+	consoleeval "eino-quickstart/internal/transport/restapi/internal/handler/console/eval"
+	consolefeedback "eino-quickstart/internal/transport/restapi/internal/handler/console/feedback"
+	consolemodel "eino-quickstart/internal/transport/restapi/internal/handler/console/model"
+	consoleorg "eino-quickstart/internal/transport/restapi/internal/handler/console/org"
+	consoleoverview "eino-quickstart/internal/transport/restapi/internal/handler/console/overview"
+	consolerun "eino-quickstart/internal/transport/restapi/internal/handler/console/run"
+	consolesecurity "eino-quickstart/internal/transport/restapi/internal/handler/console/security"
+	consoletool "eino-quickstart/internal/transport/restapi/internal/handler/console/tool"
+	consoleusage "eino-quickstart/internal/transport/restapi/internal/handler/console/usage"
 	dataset "eino-quickstart/internal/transport/restapi/internal/handler/dataset"
 	health "eino-quickstart/internal/transport/restapi/internal/handler/health"
 	stream "eino-quickstart/internal/transport/restapi/internal/handler/stream"
@@ -140,6 +152,384 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.RoleAdmin},
 			[]rest.Route{
 				{
+					Method:  http.MethodGet,
+					Path:    "/agent-defs",
+					Handler: consoleagent.ListAgentDefsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/agent-defs",
+					Handler: consoleagent.CreateAgentDefHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/agent-defs/:id",
+					Handler: consoleagent.GetAgentDefHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/agent-defs/:id",
+					Handler: consoleagent.UpdateAgentDefHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/agent-defs/:id",
+					Handler: consoleagent.DeleteAgentDefHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/agent-defs/:id/datasets",
+					Handler: consoleagent.SetAgentDefDatasetsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/agent-defs/:id/versions",
+					Handler: consoleagent.ListAgentVersionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/agent-defs/:id/versions",
+					Handler: consoleagent.CreateAgentVersionHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/agent-defs/:id/versions/:version/publish",
+					Handler: consoleagent.PublishAgentVersionHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/agent-defs/:id/versions/:version/retire",
+					Handler: consoleagent.RetireAgentVersionHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/approval-policies",
+					Handler: consoleapproval.ListApprovalPoliciesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/approval-policies",
+					Handler: consoleapproval.PutApprovalPoliciesHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/audit-logs",
+					Handler: consoleaudit.ListAuditLogsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/eval-runs/:runId",
+					Handler: consoleeval.GetEvalRunHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/eval-sets",
+					Handler: consoleeval.ListEvalSetsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/eval-sets",
+					Handler: consoleeval.CreateEvalSetHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/eval-sets/:id",
+					Handler: consoleeval.GetEvalSetHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/eval-sets/:id",
+					Handler: consoleeval.DeleteEvalSetHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/eval-sets/:id/cases",
+					Handler: consoleeval.ListEvalCasesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/eval-sets/:id/cases",
+					Handler: consoleeval.CreateEvalCaseHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/eval-sets/:id/cases/:caseId",
+					Handler: consoleeval.DeleteEvalCaseHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/eval-sets/:id/runs",
+					Handler: consoleeval.StartEvalRunHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/eval-sets/:id/runs",
+					Handler: consoleeval.ListEvalRunsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/feedback",
+					Handler: consolefeedback.ListFeedbackHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/feedback/:id",
+					Handler: consolefeedback.LabelFeedbackHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/model-providers",
+					Handler: consolemodel.ListModelProvidersHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/model-providers/:key",
+					Handler: consolemodel.UpsertModelProviderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/model-providers/:key",
+					Handler: consolemodel.DeleteModelProviderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/model-routing",
+					Handler: consolemodel.GetModelRoutingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/model-routing",
+					Handler: consolemodel.PutModelRoutingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/models",
+					Handler: consolemodel.ListModelsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/models/:key",
+					Handler: consolemodel.UpsertModelHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/models/:key",
+					Handler: consolemodel.DeleteModelHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/models/:key/enabled",
+					Handler: consolemodel.EnableModelHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/org-units",
+					Handler: consoleorg.ListOrgUnitsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/org-units",
+					Handler: consoleorg.CreateOrgUnitHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/org-units/:id",
+					Handler: consoleorg.UpdateOrgUnitHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/org-units/:id",
+					Handler: consoleorg.DeleteOrgUnitHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/org-units/:id/members",
+					Handler: consoleorg.ListOrgMembersHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/org-units/:id/members",
+					Handler: consoleorg.AddOrgMemberHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/org-units/:id/members/:subject",
+					Handler: consoleorg.RemoveOrgMemberHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/overview",
+					Handler: consoleoverview.GetOverviewHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/runs",
+					Handler: consolerun.ListRunsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/runs/:runId",
+					Handler: consolerun.GetRunHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/password-policy",
+					Handler: consolesecurity.GetPasswordPolicyHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/password-policy",
+					Handler: consolesecurity.PutPasswordPolicyHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/tools",
+					Handler: consoletool.ListToolsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/tools",
+					Handler: consoletool.CreateToolHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/tools/:key",
+					Handler: consoletool.GetToolHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/tools/:key",
+					Handler: consoletool.UpdateToolHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/tools/:key",
+					Handler: consoletool.DeleteToolHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/tools/:key/enabled",
+					Handler: consoletool.EnableToolHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/tools/:key/test",
+					Handler: consoletool.TestToolHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/usage",
+					Handler: consoleusage.GetUsageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RoleAdmin},
+			[]rest.Route{
+				{
 					// 创建数据集
 					Method:  http.MethodPost,
 					Path:    "/dataset",
@@ -212,7 +602,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: dataset.ReindexDocumentHandler(serverCtx),
 				},
 				{
-					// 上传文档
+					// 上传文档（支持多个 file；files 报告逐文件结果）
 					Method:  http.MethodPost,
 					Path:    "/dataset/:id/documents/upload",
 					Handler: dataset.UploadDocumentHandler(serverCtx),
@@ -228,6 +618,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/dataset/:id/search",
 					Handler: dataset.SearchDatasetHandler(serverCtx),
+				},
+				{
+					// 列出可用于知识库的模型
+					Method:  http.MethodGet,
+					Path:    "/dataset/models",
+					Handler: dataset.ListDatasetModelsHandler(serverCtx),
+				},
+				{
+					// 列出数据集类型
+					Method:  http.MethodGet,
+					Path:    "/dataset/types",
+					Handler: dataset.ListDatasetTypesHandler(serverCtx),
 				},
 			}...,
 		),
@@ -286,7 +688,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: user.CreateUserHandler(serverCtx),
 				},
 				{
-					// 从外部数据源同步账号（占位：当前恒返回 501 not_implemented）
+					Method:  http.MethodPatch,
+					Path:    "/users/:id",
+					Handler: user.UpdateUserHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/users/:id/password",
+					Handler: user.ResetUserPasswordHandler(serverCtx),
+				},
+				{
+					// 从已配置的外部数据源同步账号（只新增/更新，不删除；支持 dry-run）
 					Method:  http.MethodPost,
 					Path:    "/users/sync",
 					Handler: user.SyncUsersHandler(serverCtx),

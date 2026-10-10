@@ -20,6 +20,10 @@ const (
 	FieldSessionID = "session_id"
 	// FieldRequestedBy holds the string denoting the requested_by field in the database.
 	FieldRequestedBy = "requested_by"
+	// FieldAgentKey holds the string denoting the agent_key field in the database.
+	FieldAgentKey = "agent_key"
+	// FieldAgentVersion holds the string denoting the agent_version field in the database.
+	FieldAgentVersion = "agent_version"
 	// FieldUserMessage holds the string denoting the user_message field in the database.
 	FieldUserMessage = "user_message"
 	// FieldCheckpointID holds the string denoting the checkpoint_id field in the database.
@@ -30,6 +34,20 @@ const (
 	FieldApprovalID = "approval_id"
 	// FieldErrorCode holds the string denoting the error_code field in the database.
 	FieldErrorCode = "error_code"
+	// FieldError holds the string denoting the error field in the database.
+	FieldError = "error"
+	// FieldSteps holds the string denoting the steps field in the database.
+	FieldSteps = "steps"
+	// FieldToolCalls holds the string denoting the tool_calls field in the database.
+	FieldToolCalls = "tool_calls"
+	// FieldTokensIn holds the string denoting the tokens_in field in the database.
+	FieldTokensIn = "tokens_in"
+	// FieldTokensOut holds the string denoting the tokens_out field in the database.
+	FieldTokensOut = "tokens_out"
+	// FieldLatencyMs holds the string denoting the latency_ms field in the database.
+	FieldLatencyMs = "latency_ms"
+	// FieldCostMicros holds the string denoting the cost_micros field in the database.
+	FieldCostMicros = "cost_micros"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -48,11 +66,20 @@ var Columns = []string{
 	FieldRunID,
 	FieldSessionID,
 	FieldRequestedBy,
+	FieldAgentKey,
+	FieldAgentVersion,
 	FieldUserMessage,
 	FieldCheckpointID,
 	FieldStatus,
 	FieldApprovalID,
 	FieldErrorCode,
+	FieldError,
+	FieldSteps,
+	FieldToolCalls,
+	FieldTokensIn,
+	FieldTokensOut,
+	FieldLatencyMs,
+	FieldCostMicros,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldCompletedAt,
@@ -70,6 +97,22 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultAgentKey holds the default value on creation for the "agent_key" field.
+	DefaultAgentKey string
+	// DefaultAgentVersion holds the default value on creation for the "agent_version" field.
+	DefaultAgentVersion int
+	// DefaultSteps holds the default value on creation for the "steps" field.
+	DefaultSteps int
+	// DefaultToolCalls holds the default value on creation for the "tool_calls" field.
+	DefaultToolCalls int
+	// DefaultTokensIn holds the default value on creation for the "tokens_in" field.
+	DefaultTokensIn int64
+	// DefaultTokensOut holds the default value on creation for the "tokens_out" field.
+	DefaultTokensOut int64
+	// DefaultLatencyMs holds the default value on creation for the "latency_ms" field.
+	DefaultLatencyMs int64
+	// DefaultCostMicros holds the default value on creation for the "cost_micros" field.
+	DefaultCostMicros int64
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -131,6 +174,16 @@ func ByRequestedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequestedBy, opts...).ToFunc()
 }
 
+// ByAgentKey orders the results by the agent_key field.
+func ByAgentKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAgentKey, opts...).ToFunc()
+}
+
+// ByAgentVersion orders the results by the agent_version field.
+func ByAgentVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAgentVersion, opts...).ToFunc()
+}
+
 // ByUserMessage orders the results by the user_message field.
 func ByUserMessage(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUserMessage, opts...).ToFunc()
@@ -154,6 +207,41 @@ func ByApprovalID(opts ...sql.OrderTermOption) OrderOption {
 // ByErrorCode orders the results by the error_code field.
 func ByErrorCode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldErrorCode, opts...).ToFunc()
+}
+
+// ByError orders the results by the error field.
+func ByError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldError, opts...).ToFunc()
+}
+
+// BySteps orders the results by the steps field.
+func BySteps(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSteps, opts...).ToFunc()
+}
+
+// ByToolCalls orders the results by the tool_calls field.
+func ByToolCalls(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldToolCalls, opts...).ToFunc()
+}
+
+// ByTokensIn orders the results by the tokens_in field.
+func ByTokensIn(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTokensIn, opts...).ToFunc()
+}
+
+// ByTokensOut orders the results by the tokens_out field.
+func ByTokensOut(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTokensOut, opts...).ToFunc()
+}
+
+// ByLatencyMs orders the results by the latency_ms field.
+func ByLatencyMs(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLatencyMs, opts...).ToFunc()
+}
+
+// ByCostMicros orders the results by the cost_micros field.
+func ByCostMicros(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCostMicros, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

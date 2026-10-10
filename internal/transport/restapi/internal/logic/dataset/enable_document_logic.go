@@ -6,6 +6,7 @@ package dataset
 import (
 	"context"
 
+	"eino-quickstart/internal/transport/restapi/internal/httpx"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -18,7 +19,7 @@ type EnableDocumentLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 禁用启用文档
+// 明确设置文档是否参与召回；重复请求不会翻转状态。
 func NewEnableDocumentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *EnableDocumentLogic {
 	return &EnableDocumentLogic{
 		Logger: logx.WithContext(ctx),
@@ -27,16 +28,19 @@ func NewEnableDocumentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *En
 	}
 }
 
-func (l *EnableDocumentLogic) EnableDocument(req *types.DocumentIDReq) (resp *types.DocumentResp, err error) {
-	doc, err := l.svcCtx.EntClient.Document.Get(l.ctx, req.DocID)
-	if err != nil {
-		return nil, err
+func (l *EnableDocumentLogic) EnableDocument(req *types.DocumentEnabledReq) (resp *types.DocumentResp, err error) {
+	if req.Enabled == nil {
+		return nil, httpx.BadRequest("enabled is required")
 	}
 
-	doc, err = doc.Update().SetEnabled(!doc.Enabled).Save(l.ctx)
+	doc, err := l.svcCtx.Knowledge.SetEnabled(l.ctx, req.ID, req.DocID, *req.Enabled)
 	if err != nil {
-		return nil, err
+		return nil, documentFail(err)
 	}
 
-	return documentDTOOne(l.ctx, l.svcCtx.Knowledge, doc)
+	resp, err = documentDTOOne(l.ctx, l.svcCtx.Knowledge, doc)
+	if err != nil {
+		return nil, documentFail(err)
+	}
+	return resp, nil
 }

@@ -1,0 +1,15 @@
+syntax = "v1"
+
+// overview 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/overview
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler GetOverview
+	get /overview (OverviewReq) returns (OverviewResp)
+
+}

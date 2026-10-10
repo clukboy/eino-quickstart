@@ -1,6 +1,6 @@
 # Eino Harness 当前开发进度
 
-> 整理日期：2026-10-06（Asia/Shanghai）  
+> 整理日期：2026-10-07（Asia/Shanghai）
 > 阅读范围：当前后端仓库的入口程序、应用层、RAG、工具、持久化、REST API 契约及测试。  
 > 源码基线：HEAD `8887fce`，提交日期 2026-09-29，提交说明「用户列表支持昵称与关键字搜索」；**同时计入当前工作区尚未提交的源码变更与新增文件**。  
 > 本文是源码进度快照，不是上线验收报告；未对独立前端仓库或真实外部服务完成情况作背书。
@@ -19,7 +19,7 @@
 5. 知识召回：精确、关键词、向量三通道，加权 RRF 融合，HTTP 召回与对话工具共用装配链路。
 6. 管理接口：账号列表与建号、知识库主体绑定、审批列表等已具备源码实现。
 
-**不能认定已经全部完成：** Rerank、LLM 产品拆分、外部用户同步、持续评测门禁、维护任务接线、生产数据库迁移等仍有明确缺口；本次全量 Go 测试也尚未全绿。
+**不能认定已经全部完成：** LLM 产品拆分的真实模型质量、外部用户同步，以及真实 PostgreSQL/Redis/worker/模型/Milvus/ES/OTLP 联调仍有明确边界；P01-P17（其中 P16/P17 为本地契约）、P18、P20-P29 已形成不同程度的本地可复跑验收，但本地契约不能替代真实外部依赖和多实例演练。
 
 本仓库没有完整的需求总表、工作量权重或上线验收结果，因此不提供容易误导的“整体完成百分比”，以下按可核对的模块状态汇总。
 
@@ -39,15 +39,15 @@
 | SSE 对话与历史 | 已实现 | 流式消息、结束/错误/审批事件；会话、轮次和运行记录持久化 | 异常、超时及多实例场景仍需联调 |
 | 审批与检查点续跑 | 已实现 / 待验证 | 列表、分页、状态筛选、详情、决策、恢复与重复续跑保护 | 真实执行与异常恢复验收待补 |
 | 工作区工具 | 已实现 | 文件读取、目录列表、写入；执行器支持 disabled/local/docker | 默认 Skill 能力未授予专项 Agent |
-| 账号与用户管理 | 部分完成 | 匿名身份、登录、首次改密、管理员建号、昵称和关键字查询 | 用户同步占位；管理生命周期不完整 |
+| 账号与用户管理 | 部分完成 | 匿名身份、登录、首次改密、管理员建号、昵称和关键字查询；P19 已交付 provider-neutral 同步本地契约 | 真实外部用户源、管理生命周期与限流仍待验收 |
 | 数据集管理 | 已实现 | 创建、列表、详情、删除、主体绑定及绑定反查 | 没有完整的数据集编辑/状态切换接口 |
-| 文档管理与上传 | 已实现，仍需完善 | CRUD、正文读取、启停、单文档/整库重建、multipart 多文件上传 | 非全链路流式上传；目录批量导入待补 |
+| 文档管理与上传 | 已实现 / P12 本地验收通过 | CRUD、正文读取、启停、单文档/整库重建；multipart 支持 Markdown/文本多文件、总请求/单文件/文件数限制、逐文件失败台账和临时文件清理 | 仍是受限读取而非全链路流式；目录批量导入待补；真实依赖联调待补 |
 | 产品文档拆分 | 部分完成 | front-matter 解析、一产品一文档、型号查重、正文与元数据指纹 | 未实现 LLM 自动识别产品边界 |
 | 异步索引 | 已实现 / 待验证 | Redis/asynq、独立 worker、分批 embedding、状态推进与重试收敛 | 真实故障注入和恢复验收待补 |
 | 混合召回 | 已实现 | 精确 + BM25/PG 回落 + 向量；加权 RRF、通道降级信息 | 无 ES 时精确通道缺席；Rerank 未接入 |
 | 对话知识库工具 | 已实现 | 按服务端主体绑定查询数据集，跨库结果合并、来源引用 | 无授权/依赖故障有明确返回；实际回答质量待测 |
 | 检索质量评测 | 部分完成 | 17 条金标用例、指标计算、阈值配置和退出码门禁 | 未接 CI、缺跨版本留档与完整私有语料评测 |
-| 运行可观测性 | 部分完成 | 结构化日志、追踪接线、健康接口、go-zero 指标接线 | 默认 Prometheus 配置被注释；本次测试失败 |
+| 运行可观测性 | 部分完成 | 结构化日志、追踪接线、健康接口、go-zero 指标接线；P01 已显式启用独立 Prometheus 端口并通过全量回归 | 业务指标、告警与生产采集策略仍待补 |
 | 数据保留与清理 | 部分完成 | 清理过期审批、检查点和终态轮次的 Worker 已编写 | 未被入口进程启动 |
 | 生产化 | 部分完成 | 配置校验、worker 依赖校验、退出处理等已存在 | 版本化迁移、索引版本切换、发布门禁与告警待补 |
 
@@ -76,14 +76,18 @@
 
 ### 3.3 数据集、文档与产品摄取
 
+- P05 已补齐产品型录的本地增量回归：三个 front-matter 产品拆成三条文档，按 `external_key` 保持稳定 ID；原样重传返回 `unchanged`，只修改一个产品返回 `updated`，重复型号明确返回校验错误。入口为 `bash scripts/acceptance/run.sh P05`。
+
 - 数据集已有创建、列表、详情与删除；文档已有创建、读取、更新、删除、正文查询、启停、重建索引。
 - 文档正文以 PostgreSQL 的 `documents.content` 为准，`source` 是逻辑溯源信息，不应当作为当前正文文件路径使用。
-- multipart 上传**已经实现**，文件字段为 `file`，支持同一请求携带多个文件，并调用与 JSON 创建相同的知识库用例。
+- multipart 上传**已经实现**，文件字段为 `file`，支持同一请求携带多个 Markdown/纯文本文件（`.md`、`.markdown`、`.txt`、`.text`）。
+- P12 已将 `knowledge.maxUploadRequestBytes`、`knowledge.maxDocumentBytes`、`knowledge.maxUploadFiles` 注入 API；读取使用 `max+1` 限制，不会无界 `io.ReadAll`。multipart 临时文件在成功和失败路径均 `RemoveAll`。
+- 上传响应保留扁平 `data`，并增加 `files[]` 逐文件 `succeeded/failed` 台账；`partial_failure=true` 时调用方只重传失败文件。
 - 产品型数据集会在写入请求阶段按 front-matter 拆为多条产品文档；worker 对单条产品正文再切 chunk。
 - 产品以数据集内型号键查重，用正文 + 元数据指纹判断变化，返回 `created`、`updated`、`unchanged`。
 - 请求返回不等待 embedding；切块统计由数据库分块行实时聚合，不能把初次响应中的数量当成最终索引完成量。
 
-仍需注意：multipart 解析有内存阈值，但单文件随后仍使用 `io.ReadAll`，因此不是端到端流式大文件摄取；多文件/多产品处理也不是整个请求的一次原子事务。
+仍需注意：P12 是受限读取，不是把任意大文件改成无限流式导入；多文件/多产品处理不是整个请求的一次原子事务。普通文档能否在重传时识别为同一来源，仍以现有 source/业务规则为准，不能泛化声称任意重传都幂等。
 
 源码依据：[知识库用例](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/application/knowledge/service.go)、[产品拆分](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/application/knowledge/split.go)、[文件上传](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/dataset/upload_document_logic.go)、[接口契约](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/docs/dataset/dataset.api)。
 
@@ -128,20 +132,20 @@ HTTP 创建/更新/上传/重建
 - 主体矩阵支持主体列表、按数据集反查主体、按主体查询绑定数据集、增加和移除绑定。
 - `.api` 文件按功能组拆分，统一入口导入；handler、路由、类型及 Swagger 已有生成链路。
 - Makefile 提供 Ent、Go API、Swagger 和 TypeScript 生成目标；这属于契约与代码生成能力，不代表独立前端已完成验收。
-- 用户同步当前明确返回 501，不能计入已完成业务功能。
+- P19 用户同步本地契约已实现并有独立验收入口；真实上游条件未确认，不能计入真实外部联调完成。
 
-源码依据：[主体列表](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/admin/list_agent_subjects_logic.go)、[数据集主体反查](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/admin/list_dataset_agents_logic.go)、[用户列表](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/user/list_users_logic.go)、[用户同步占位](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/user/sync_users_logic.go)、[生成目标](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/Makefile)。
+源码依据：[主体列表](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/admin/list_agent_subjects_logic.go)、[数据集主体反查](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/admin/list_dataset_agents_logic.go)、[用户列表](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/user/list_users_logic.go)、[用户同步逻辑](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/internal/logic/user/sync_users_logic.go)、[生成目标](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/Makefile)。
 
 ## 4. API 交付清单
 
-当前 `.api` 契约共声明 **37 条路由**，其中包含用户同步占位；下表按功能合并展示。除健康接口外，路径前缀为 `/api/v1`。
+当前 `.api` 契约共声明 **37 条路由**，其中包含用户同步；下表按功能合并展示。除健康接口外，路径前缀为 `/api/v1`。
 
 | 功能 | 已声明并有实现的主要接口 | 补充说明 |
 | --- | --- | --- |
 | 健康状态 | `GET /health`、`GET /ready` | ready 当前仅检查主数据库，不覆盖全部检索与队列依赖 |
 | 身份与账号 | `POST /auth/anonymous`、`POST /auth/login`、`POST /auth/password`、`GET /auth/me` | 是否开放取决于部署配置 |
 | 用户管理 | `GET /users`、`POST /users` | 用户列表当前不分页 |
-| 用户同步 | `POST /users/sync` | **占位，返回 501** |
+| 用户同步 | `POST /users/sync` | 支持 dry-run、external_id 幂等同步；未启用 source 时返回 503，真实上游待条件确认 |
 | 会话 | `POST /sessions`、`GET /sessions`、`GET /sessions/:id/messages` | 会话创建和历史 |
 | 流式对话 | `POST /chat` | SSE |
 | 审批 | `GET /approvals`、`GET /approvals/:id`、`POST /approvals/:id/decision`、`POST /approvals/:id/resume` | 恢复接口为 SSE |
@@ -175,29 +179,29 @@ HTTP 创建/更新/上传/重建
 
 | 待办 | 当前证据/影响 | 建议完成标准 |
 | --- | --- | --- |
-| 修复指标配置与测试约定不一致 | Prometheus 配置被注释，当前 2 个 REST API 测试失败 | 明确默认启用还是关闭指标，调整配置/测试契约；全量测试转绿并验证抓取 |
+| 修复指标配置与测试约定不一致 | 已修复：配置显式启用独立 Prometheus agent，启用/禁用测试和抓取测试已补齐 | 真实服务启动后再执行 P01-live；代码回归已通过 |
 | 把召回评测接入 CI/发布 | 工具与阈值已有，仓库未发现持续执行它的流水线配置 | 每次关键变更跑评测，以阈值阻断发布并归档报告 |
 | 建立真实依赖基线 | 本次未执行真实 PostgreSQL、Redis、Milvus、ES、embedding 与模型联调 | 跑通上传→排队→ready→召回→对话引用；记录失败恢复结果 |
-| 生产数据库迁移 | 启动仍直接 `Schema.Create`，启用删列/删索引选项 | 采用版本化迁移和上线前审核，避免启动期破坏性结构变更 |
+| 生产数据库迁移 | 已改为显式 `cmd/db-migrate`，应用使用 `OpenWithoutMigration`；真实空库/历史副本/恢复仍待验收 | 在隔离数据库完成版本升级、重跑和恢复演练，避免启动期破坏性结构变更 |
 
 ### P1：补齐关键业务能力
 
 | 待办 | 当前状态 | 建议完成标准 |
 | --- | --- | --- |
-| Rerank | 有接口和融合后的调用点，无具体实现；入口未注入，候选上限未消费 | 实现并注入；限制候选数；补超时/降级与排序效果测试 |
-| LLM 产品拆分 | 当前仅按 front-matter 拆分 | 接入自动识别产品边界，保持正文/元数据契约及稳定指纹 |
-| 无 ES 的精确通道 | 当前标记降级，不执行结构化精确匹配 | 补型号等字段的相等匹配，区分 exact 与 substring |
-| 上传与批量导入完善 | multipart 已有，但文件完整读取；未见目录导入入口 | 明确文件格式/大小边界、失败语义，补目录批量导入和上传测试 |
-| Skill 默认接入 | 注册存在，专项 Agent 工具集合未包含 | 明确可用 Agent，补工具授予与路由验证 |
-| 外部用户同步 | 当前恒返回 501 | 明确数据源、匹配键和结果契约后实现真实同步 |
-| 文档启停接口完善 | 当前翻转状态；实现仅按 docId 取记录，未使用路径 datasetId 校验归属 | 校验父子路径一致性，考虑显式目标状态与重试语义，补边界测试 |
+| Rerank | 已有 HTTP 适配器、入口注入、候选上限、超时/降级和本地报告；真实 provider/质量仍待验收 | 在隔离环境接入 provider，比较排序前后质量和成本/P95 |
+| LLM 产品拆分 | 当前仍以结构化 front-matter 为主；P16/P17 尚未确认模型、费用和标注样例 | 先确认模型与标注，再实现无头信息拆分和可重放幂等 |
+| 无 ES 的精确通道 | 已补结构化相等匹配、映射复用、过滤/融合和本地报告 | 真实 API/PG/规模性能复测 |
+| 上传与批量导入完善 | P12/P13 已补多文件、大小/数量边界、部分失败台账、目录导入、dry-run 和重试 | 在真实 PostgreSQL/Redis/worker/embedding 环境复测 |
+| Skill 默认接入 | 已完成指定 Agent 的 list/load 接线和只读边界；真实模型工具记录待验收 | 在隔离模型环境核对实际工具调用顺序 |
+| 外部用户同步 | provider-neutral source、dry-run、external_id 幂等和 no-delete 已完成本地契约 | 用户确认真实上游 endpoint、稳定 ID、凭据和密码交付后做真实验收 |
+| 文档启停接口完善 | 已改为显式 enabled、父子路径校验、幂等重试和搜索过滤 | 真实 API/PG/worker 联调 |
 
 ### P2：运行与质量闭环
 
-- 将维护 Worker 接入独立入口或周期调度，真正执行过期审批、检查点和轮次清理。
-- 增加索引队列积压、失败/重试、检索各通道命中、降级和耗时的业务指标及告警。
-- 设计 embedding 模型/维度变化时的影子索引、版本切换与回滚，避免原地重建混用版本。
-- 补跨 HTTP→Redis→worker 的实际追踪验证，统一多个配置源中的服务命名。
+- 维护 Worker 已有独立入口和 dry-run/计数报告；真实数据库保留期和周期调度仍待隔离环境。
+- 队列积压、失败/重试、检索各通道命中、降级和耗时业务指标已接线；真实 Prometheus 抓取和故障告警仍待验收。
+- embedding 模型/维度变化的影子索引、版本切换与回滚控制平面已交付；真实 ES/Milvus 重建和多实例一致性仍待演练。
+- HTTP→Redis→worker trace envelope 和 collector 配置已交付；真实 collector UI、重试及不可达演练仍待隔离环境。
 - 补私有语料和拒答/无答案场景；检索单测通过不等于生成式回答不会编造。
 - 统一开发说明，修正 `cmd/ragserver` 调试路径的解析器类型缺失/回落问题。
 
@@ -208,27 +212,25 @@ HTTP 创建/更新/上传/重建
 ### 7.1 已执行
 
 - 本地工具链：Go `1.27.0`，darwin/arm64；与当前 go.mod 的 Go 声明一致。
-- 命令：`GOCACHE=/private/tmp/eino-progress-gocache go test ./...`。
-- 初次在沙箱内执行，部分测试因本机临时端口监听受限失败；随后获准在沙箱外重跑。
-- 以下统计以**沙箱外重跑**为准，不把首次环境限制误报为项目缺陷。
+- 全量回归：`go test -count=1 ./...`；第一次在沙箱内因临时回环端口限制失败，随后在获准的受控环境重跑通过。
+- API 契约：`bash scripts/check-api.sh` 通过。
+- 第一批本地入口：P01、P03、P04、P05、P06、P07、P08、P09、P12 均已有 runner；P05-P09 报告位于 `logs/acceptance/<编号>/`，每次执行会生成新的本地报告目录。
 
 | 项目 | 结果 |
 | --- | --- |
-| 测试文件 | cmd/internal 下共 37 个 `*_test.go` 文件 |
-| 通过的带测试包 | 18 个（包含缓存命中） |
-| 失败的带测试包 | 1 个：`eino-quickstart/internal/transport/restapi` |
-| 未含测试的包 | 65 个 |
-| 失败测试 | 2 个，均在 REST API 指标配置/抓取测试中 |
-| 全量测试退出码 | 1，**当前不是全绿状态** |
+| 全量 Go 测试 | 通过，退出码 0（受控环境重跑） |
+| API 生成物/手写代码检查 | 通过 |
+| P05 产品拆分与增量更新 | 本地契约通过 |
+| P06 检索通道/归并/降级 | 本地契约通过 |
+| P07 SSE 协议 | 本地协议通过；真实模型未测 |
+| P08 审批状态机 | 本地状态机通过；真实 HTTP/Agent 未测 |
+| P09 动态绑定 | 本地即时生效通过；真实主体矩阵未测 |
 
-### 7.2 确认的失败点
+### 7.2 已确认并处理的环境/代码问题
 
-1. `TestShippedConfigKeepsAgentsConfigurable`：`Prometheus.Host` 和 `Prometheus.Path` 为空。
-2. `TestPrometheusAgentServesGoZeroMetrics`：抓取本机指标地址时连接被拒绝。
-
-当前随仓库提供的 REST 配置将整个 `Prometheus` 段注释，配置自身的注释也说明会导致相关测试失败。测试初始化只覆盖 host/port，未补 path，因此指标抓取闭环没有建立。这里是**配置与测试预期不一致**，本次只记录，没有顺手修改业务配置。
-
-此外，输出有 Sonic 对当前 Go 版本不适配并回落到 `encoding/json` 的提示，以及 go-m1cpu 的 C 编译警告；本次未因此产生额外失败包，应作为工具链兼容性事项跟踪，而不是当作所有测试失败的原因。
+1. 旧的 Prometheus 配置问题已于 2026-10-07 修复：REST 配置显式启用独立 agent，测试初始化使用随机临时指标端口，并补充启用/禁用行为。
+2. 沙箱默认禁止部分临时回环端口监听；这会让 `httptest`、REST 链路和 ES HTTP mock 在沙箱内误报 `operation not permitted`。本次全量回归已在获准的受控环境重跑通过，因此不计为项目失败。
+3. Sonic 对当前 Go 版本不适配并回落到 `encoding/json` 的提示，以及 go-m1cpu 的 C 编译警告，未造成测试失败，继续作为工具链兼容性事项跟踪。
 
 源码依据：[随仓库提供的 REST 配置](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/etc/restapi.yaml)、[链路与指标测试](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/transport/restapi/chain_test.go)。
 
@@ -243,7 +245,7 @@ HTTP 创建/更新/上传/重建
 
 ## 8. 文档与源码不一致之处
 
-**2026-10-06 P03 更新：** 下表保留原始核查清单；前五项相关文档已纠正，详见第 11 节与 P03/P04 验收指南。Rerank、前端与真实联调仍不能据此计为完成。
+**2026-10-07 更新：** P01-P09、P12、P20 已补充本地契约验收入口；本表继续保留真实依赖、Rerank、前端与生产化能力的未完成边界，不能把本地回归直接计为真实联调完成。
 
 | 旧描述 | 当前源码事实 | 本文采用的口径 |
 | --- | --- | --- |
@@ -283,10 +285,10 @@ HTTP 创建/更新/上传/重建
 
 ---
 
-**一句话进度：主要业务代码和接口链路已经形成；当前最需要的是测试收敛、真实依赖联调，以及将已有接缝补成可上线、可持续验证的运行闭环。**
+**一句话进度：第一批 P01-P09、P12、P20、P21、P22、P23 的本地代码与契约验收已经形成可复跑闭环；当前剩余关键工作是用隔离 PostgreSQL/Redis/worker/模型/Milvus/ES 复测真实链路，并完成 P20 真实召回基线。**
 
 
-## 10. P02 配置交付补充（2026-10-06）
+## 10. P02 配置与预检交付补充（2026-10-07）
 
 本节补充上述源码快照之后的配置改动，不将其等同于真实服务验收。
 
@@ -295,7 +297,7 @@ HTTP 创建/更新/上传/重建
 - API 使用纯队列投递客户端；消费并发、队列权重、消费重试间隔和退出超时只放在 worker 配置。
 - 已交付 `configs/acceptance/api.yaml`、`worker.yaml` 和 `restapi.yaml`，采用独立验收库 / Redis DB / collection，分别落盘 API 和 worker 日志。
 - 已提供两个入口的 `-check-config`；配置及队列回归测试、入口相关包测试、两个离线配置检查均通过。
-- 全量测试仍有 P01 指标相关的两项失败；未部署依赖、未跑真实端到端联调，P02 的编号执行器、实际依赖预检和安全清理仍待交付。
+- P01 指标配置与全量回归已于 2026-10-07 完成并通过；P02 的预检、报告、fixture 和显式清理入口已交付，但真实依赖通过仍需用户环境复测。
 
 详细修改、迁移和用户直接验证步骤见 [P02 独立配置指南](p02-configuration.md)；逐项计划见 [用户验收计划](user-acceptance-plan.md)。
 
@@ -313,9 +315,213 @@ HTTP 创建/更新/上传/重建
   handler 契约测试；覆盖创建、更新、读取、搜索、单篇/整库重建、删除、故障恢复和任务幂等。
 - 修复分块事务等非 embedding 阶段在重试耗尽后不落 failed 的问题；正文读取统一错误映射。
   multipart 解析产生的临时文件在请求结束时清理，未实现大文件流式读取。
-- 已新增编号执行器 `scripts/acceptance/run.sh`：P03、P04 本地/真实模式、暂停消费和投递故障模式、
-  有界等待、HTTP 报告及本轮资源台账/清理。其他编号仍明确阻塞；P02 真实依赖预检未完成。
-- 本地回归和生成检查已通过；真实端到端及 PostgreSQL/Milvus/ES 实际条目核对未执行。
-  P01 两项指标失败仍独立待处理，不将局部测试通过写成全仓库全绿。
+- 已新增编号执行器 `scripts/acceptance/run.sh`：P02、P03、P04 本地/真实模式、暂停消费和投递故障模式；并补充 P05-P09、P12、P20、P21、P22、P23 的本地契约入口。P02 输出脱敏预检报告和唯一 fixture，P03/P04 提供有界等待、HTTP 报告及本轮资源台账/清理。
+- 本地回归和生成检查已通过；真实端到端及 PostgreSQL/Milvus/ES/模型实际条目核对未执行。
+  P01-P09、P12、P20、P21、P22、P23 的本地结果不等同于真实外部依赖端到端验收；P02 的真实服务通过结果仍待用户环境复测。
 
 用户直接操作与准确的验证边界见 [P03/P04 验收指南](p03-p04-acceptance.md)。
+
+
+## 12. P12 上传限制与部分失败交付补充（2026-10-07）
+
+P12 已完成代码和本地契约验收，入口为 `bash scripts/acceptance/run.sh P12`。本地测试直接调用真实上传 handler，覆盖：
+
+- 两个 `file` 字段正常上传，并保持 `data` 兼容字段；
+- 空文件、`.pdf` 等不支持格式、单文件超限、请求总大小超限、文件数量超限；
+- 一个成功文件和一个失败文件同时提交，响应中的 `files[]` 明确给出失败文件的 `code/message`；
+- 成功文件继续入库，失败文件不把整批伪装成成功；
+- `ParseMultipartForm` 产生的临时文件在请求结束时清理。
+
+API 配置中的默认边界是：单文件 5 MiB、multipart 请求总量 50 MiB、每批最多 10 个文件；实际值以 `configs/api/config.yaml` 或 `configs/acceptance/api.yaml` 为准。P12 本地通过不等于 PostgreSQL/Redis/worker/embedding/Milvus/ES 的真实联调已通过，后者仍按 P04/P05/P06 的环境验收执行。
+
+
+## 13. 第一批 P05-P09 本地契约补充（2026-10-07）
+
+本轮按照第一批顺序补齐了 P05、P06、P07、P08、P09、P20 的可直接执行入口。这里的“完成”指本地确定性契约/状态机回归通过，不把受控桩、Ent SQLite 或协议测试冒充真实外部依赖端到端。
+
+| 项目 | 本地已覆盖 | 用户直接验证 | 当前边界 |
+|---|---|---|---|
+| P05 | 产品拆分、稳定 `external_key`/ID、原样重传 `unchanged`、单产品正文/元数据更新、失败后重试、坏 YAML/重复型号拒绝 | `bash scripts/acceptance/run.sh P05` | 真实 PostgreSQL/Redis/worker/embedding 待复测 |
+| P06 | exact/keyword/vector 成功与降级、归并、粒度、预算、截断元数据 | `bash scripts/acceptance/run.sh P06` | 真实 PostgreSQL/Milvus/ES 和固定语料待复测 |
+| P07 | HTTP 路由、请求校验、生成格式 SSE 帧 | `bash scripts/acceptance/run.sh P07` | 真实模型、历史、引用、断流待复测 |
+| P08 | 审批状态、检查点、批准、Claim/Consume 单次保护、审计脱敏 | `bash scripts/acceptance/run.sh P08` | 真实 HTTP/Agent/workspace 与重启恢复待复测 |
+| P09 | 每次知识工具调用重新解析主体绑定，绑定变更即时生效 | `bash scripts/acceptance/run.sh P09` | 真实主体矩阵 API 与双身份对话待复测 |
+| P20 | JSONL 金标校验、阈值门禁、指标计算、失败记录和逐用例报告渲染 | `bash scripts/acceptance/run.sh P20` | 真实 PostgreSQL/Milvus/ES/embedding 召回基线和 P95 待复测 |
+
+统一回归命令：
+
+```bash
+bash scripts/acceptance/run.sh --list
+bash scripts/acceptance/run.sh P05
+bash scripts/acceptance/run.sh P06
+bash scripts/acceptance/run.sh P07
+bash scripts/acceptance/run.sh P08
+bash scripts/acceptance/run.sh P09
+bash scripts/acceptance/run.sh P20
+go test -count=1 ./...
+bash scripts/check-api.sh
+```
+
+本轮报告目录示例：P05 为 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P05/20261007-103825-43717-local`；P06/P07/P08/P09/P20 的报告目录由脚本每次执行打印并写入 `logs/acceptance/<编号>/`。P20 本地报告不包含真实 Recall/MRR/P95；真实联调前仍需先执行 P02 预检，并保持 API 与 worker 配置隔离。
+
+
+## 14. 第二批 P21-P23 本地质量门禁补充（2026-10-07）
+
+本轮开始推进第二批“质量可持续”目标，先把不依赖真实模型和外部服务的确定性门禁落地；真实主体矩阵、真实回答和 CI 平台接入仍单独标记。
+
+| 项目 | 本地已覆盖 | 用户直接验证 | 当前边界 |
+|---|---|---|---|
+| P21 | 两份非空合成私有 corpus、正向/forbidden 金标、注入跨主体泄漏时失败、动态绑定刷新 | `bash scripts/acceptance/run.sh P21` | 真实 API/对话/多通道主体矩阵待复测 |
+| P22 | 必需事实、禁止事实、明确无答案、引用格式和授权 source 校验 | `bash scripts/acceptance/run.sh P22` | 真实模型、冲突资料和人工问答判定待复测 |
+| P23 | 全量 Go 回归、API 契约、P20-P22 本地门禁、分项日志和脱敏 `summary.json` | `bash scripts/acceptance/run.sh P23` 或 `make quality-gate` | CI 平台、真实评测依赖、报告归档和跨版本指纹待确认 |
+
+P23 最近一次本地报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P23/20261007-110435-50508-local`。本地门禁通过不等于真实质量门禁已接入 CI；下一步应先确认 CI 平台和隔离依赖，再接入真实 P20/P21/P22。
+
+## 15. P10 文档启停幂等状态交付（2026-10-07）
+
+P10 已完成本地代码和确定性契约验收，入口为 `bash scripts/acceptance/run.sh P10`。本轮将文档启停从“每次请求翻转”改为“设置明确目标值”：
+
+- `PATCH /api/v1/dataset/{id}/documents/{docId}/enabled` 必须携带 `{"enabled":true}` 或 `{"enabled":false}`；缺失字段会被拒绝，不会静默当成 `false`。
+- 应用服务按数据集 ID + 文档 ID 联合定位，跨数据集父子路径不匹配时不会修改文档。
+- 重复发送相同目标值是幂等的；停用不删除正文、分块或索引内容，搜索不再召回；重新启用后恢复召回。
+- 本地回归覆盖连续 `false`、连续 `true`、缺失字段语义、跨数据集保护、正文保留和搜索可见性。
+
+最近一次本地报告会写入 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P10/`。真实 API 进程重启后的状态持久化，以及 PostgreSQL/Redis/worker/检索服务联调仍需在隔离环境复测。
+
+## 16. P11 无 ES 结构化精确检索交付（2026-10-07）
+
+P11 已完成本地契约实现与验收，入口为 `bash scripts/acceptance/run.sh P11`，最近一次报告：
+
+`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P11/20261007-120219-66316-local`
+
+本轮完成：
+
+- `configs/es/chunk_mapping.yaml` 继续作为唯一业务字段声明；`ExactField` 同时携带 ES 字段名、metadata 路径和多值声明，PG 不再另写 model/product_id 清单。
+- exact 值统一做大小写归一、首尾空格裁剪和连续空格折叠；保留规范化整串，因此 `ACC-H105P` 不会被连字符拆成只能命中片段。
+- ES 不可用时，PostgreSQL 在 metadata 上执行真正的结构化相等匹配；`ACC-H105P` 与 `ACC-H105PE` 不会因前缀关系互相冒充 exact。
+- 回落路径保留 enabled、dataset、visibility、owner 过滤，支持 `variants` 多值字段，并经过既有 `reload` 再次读取 PostgreSQL 现值。
+- exact 回落可进入 HybridRetriever 融合，并在通道报告中标记为 `exact`；无 mapping 时才关闭该通道，数据库错误不会静默改走 substring。
+- 增加了独立的无 ES、近似型号、过滤、融合和规范化测试，以及用户手工验收文档 `docs/p11-exact-search-acceptance.md`。
+
+当前边界：本地契约不等于真实 HTTP/外部 PostgreSQL 联调；PG 回落是正确性优先的 metadata 扫描，规模性能需在隔离依赖环境单独压测。完整 ES HTTP 测试在受限沙箱中因 `httptest` 监听权限未完成，需要在允许本地监听的环境复跑。
+
+## 17. P13 目录批量导入与增量重跑交付（2026-10-07）
+
+- 已新增 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/cmd/knowledge-import/` 独立 CLI，API 与 worker 配置/进程职责不混用；正式导入复用现有 `knowledge.Service` 和索引队列。
+- 已新增 `internal/application/knowledge/directory_import.go`：递归扫描 Markdown/纯文本、可排除相对路径、根目录边界和软链接目标校验、单文件大小限制、空文件失败。
+- 已实现稳定 `source`（dataset + 相对路径主干 + 路径哈希）、正文 SHA-256 增量判定、dry-run、逐文件报告、失败清单、`--retry-report` 只重试失败项，以及源文件消失不删库。
+- 已新增 `directory_import_test.go` 覆盖首次导入、原样重跑、单文件更新、失败重试、外部软链接和根目录边界。
+- 本地验收：`bash scripts/acceptance/run.sh P13` 已通过，报告：`logs/acceptance/P13/20261007-121947-70022-local/`。
+- 真实 PostgreSQL/Redis/worker/embedding/Milvus 联调仍需按 `docs/p13-directory-import-acceptance.md` 在目标环境执行；未把本地契约测试冒充成真实依赖通过。
+
+## 18. P14/P15 Rerank 适配、预算与降级交付（2026-10-07）
+
+本轮继续推进第三批的 `P14 → P15`：
+
+- 新增 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/rag/rerank/http.go`，提供供应商中立的 HTTP Rerank 适配器；请求携带 model/query/documents，响应按 index + relevance_score 返回排序，非法/重复/越界结果拒绝。
+- `RetrievalConfig` 新增 `rerankEndpoint`、`rerankApiKeyEnv`、`rerankModel`、`rerankTimeoutMS`；密钥只从环境变量读取。API 组合根在 `enableRerank=true` 时才注入适配器，未配置 endpoint 会在配置校验阶段明确失败。
+- `HybridRetriever` 对重排候选数、超时、取消和返回子集做约束；重排故障不会丢弃已完成的融合召回，`Report.Rerank` 记录 enabled/candidates/applied/error，`Degraded()` 暴露 `rerank`。
+- 本地验收已通过：
+  - `bash scripts/acceptance/run.sh P14` → `logs/acceptance/P14/20261007-123739-73238-local/`
+  - `bash scripts/acceptance/run.sh P15` → `logs/acceptance/P15/20261007-123743-73225-local/`
+- 当前边界：P14/P15 的本地契约和 API 配置接线已完成；真实供应商、模型质量、调用成本/P95 以及故障演练仍需在隔离环境提供 endpoint 后，按 `docs/p14-rerank-acceptance.md` 与 `docs/p15-rerank-acceptance.md` 复测。
+
+## 19. P18 默认 Agent Skill 接线交付（2026-10-07）
+
+- `workspace_agent` 现在显式取得 `list_skills`、`load_skill`，并在指令中要求“先列出，再按需加载”；Skill 只提供指导，不改变已有的写入、执行、审批和工作区边界。
+- 新增 `docs/p18-skill-acceptance.md`，说明唯一标题 Skill、工具调用顺序、Skill 缺失和越权文字的直接验证方式。
+- 本地验收：`bash scripts/acceptance/run.sh P18` 已通过，报告：`logs/acceptance/P18/20261007-124020-73719-local/`。
+- 当前边界：真实模型调用记录、指定 Agent 的实际 list/load 顺序，以及 Skill 移除后的对话行为，仍需在有模型密钥的隔离环境复测。
+
+## 20. P24 维护清理 dry-run 与报告交付（2026-10-07）
+
+- 新增 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/cmd/maintenance/` 独立入口，支持 `-dry-run`、JSON 报告和真实执行计数；不会与 API/worker 配置混用。
+- `internal/maintenance/worker.go` 增加只读预览和按审批、checkpoint、turn 分类的 mutation report；终态边界和重跑幂等仍由原有清理端口负责。
+- 本地验收：`bash scripts/acceptance/run.sh P24` 已通过，报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P24/20261007-124849-77312-local/`。
+- 真实数据库保留期、备份恢复和周期调度仍需在隔离数据库验证；不得为了验收缩短生产保留期。
+
+## 21. P25/P26 业务可观测性与跨进程 trace 交付（2026-10-07）
+
+- `internal/platform/observability/metrics.go` 新增队列积压、索引 success/failure/retry、检索通道 hit/empty/error/degraded、检索耗时和 component health 指标；标签只使用固定状态/通道/队列名，不包含正文、用户 ID 或请求凭证。
+- worker 每 10 秒通过 Asynq Inspector 采样队列深度；knowledge Service/Indexer 在真实操作路径记录检索与索引业务结果。HTTP 继续使用 go-zero 独立 Prometheus 端口，不把 `/metrics` 混进业务路由。
+- `configs/observability/otel-collector.yaml` 提供受内存上限和 batch 约束的本地 OTLP collector 样例；`internal/platform/queue/asynq/trace_test.go` 验证 HTTP→publish envelope→worker process 共用一个 trace ID。
+- 本地验收已通过：
+  - `bash scripts/acceptance/run.sh P25 --local` → `logs/acceptance/P25/20261007-130515-81829-local/`
+  - `bash scripts/acceptance/run.sh P26 --local` → `logs/acceptance/P26/20261007-130521-81826-local/`
+- 当前边界：真实 Prometheus 抓取、暂停 worker/中断 ES、OTLP collector UI 展示、任务重试和 collector 不可达演练仍需隔离环境；本地通过不等于四批次全部完成。
+
+## 22. P27/P28/P29 生产化边界与索引版本控制平面交付（2026-10-07）
+
+- P27 新增 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/cmd/db-migrate/` 显式迁移入口和 `internal/platform/storage/entx/migrations/` 版本化 SQL；支持 `-dry-run`、`-apply`、`-status`，以 `schema_migrations` 记录幂等执行状态，并用 advisory lock 串行化显式迁移。
+- API、worker、导入和维护等应用入口已改用 `entx.OpenWithoutMigration`，不会在启动时隐式执行 DDL；开发便利迁移单独命名为 `OpenDevelopment`。生产连接路径不再启用 `WithDropColumn`/`WithDropIndex`。
+- P27 本地验收已通过：`bash scripts/acceptance/run.sh P27 --local`，报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P27/20261007-131819-83716-local/`。
+- P28/P29 已新增 `internal/indexversion` 控制平面与 `cmd/index-version`：版本元数据、building/ready/failed 状态、进度、显式切换/回滚和失败门禁均可持久化并单独验证。
+- P28 本地验收已通过：`bash scripts/acceptance/run.sh P28 --local`，报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P28/20261007-132256-84343-local/`；P29 本地验收已通过：`bash scripts/acceptance/run.sh P29 --local`，报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P29/20261007-132259-84341-local/`。
+- 当前边界：P27 仍需真实 PostgreSQL 空库/历史副本/备份恢复；P28/P29 仍需真实 ES/Milvus 独立索引、逐版本评测、多实例切换和故障恢复演练。本轮没有把控制平面测试冒充成真实外部依赖完成。
+
+## 23. P16/P17 LLM 产品拆分与重放边界交付（2026-10-07）
+
+- P16 新增 `internal/rag/parser/llmsplit/` provider-neutral HTTP 适配器：请求带模型/解析版本/原文，响应必须是有稳定产品键的结构化产品数组；数量、空正文、缺键和重复键在写库前拒绝。API 配置增加 `productSplitEnabled` 等字段，默认关闭；worker 配置明确禁止这些 API 专属字段。
+- 产品数据集在无 front-matter 时才调用可选拆分器；结构化 front-matter 路径保持原样。LLM 失败不会静默退回整份成功文档。转换后复用现有产品文档 upsert、索引队列和可见性规则。
+- P17 将输入摘要、模型、解析版本纳入重放指纹，并把解析版本/输入摘要写入 metadata；`external_key` 唯一约束与冲突重查继续保护并发同型号上传，版本变化触发明确 update。
+- 本地验收已通过：P16 报告 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P16/20261007-134920-91122-local`；P17 报告 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P17/20261007-135003-91121-local`。
+- 当前边界：真实模型质量、费用/时延、人工金标，以及 PostgreSQL/Redis/API/worker 并发、重启、任务重试和显式重解析仍待隔离环境；本轮没有把本地模型契约冒充成真实 LLM 质量完成。
+
+
+## 24. P19 外部用户同步本地契约交付（2026-10-07）
+
+- P19 已去掉原先恒定 501 的占位：新增 provider-neutral HTTP 用户源、`external_id` 稳定匹配键、API-only `auth.userSync` 配置，以及管理员同步请求的 `dryRun` 与结果台账。
+- 同步只新增/更新/跳过，不因上游缺人删除本地账号；同名手工账号不会被自动认领。新账号随机生成一次性初始密码，保持 `must_change_password=true`，上游不能覆盖本地角色、状态或密码。
+- 用户表新增可空唯一 `external_id`，配套显式迁移 `0003_user_external_id`；worker 不读取用户同步配置。
+- 本地验收入口：`bash scripts/acceptance/run.sh P19 --local`。真实上游仍待 source endpoint、协议/分页、稳定 ID、验收凭据和密码下发方案确认，本轮没有把 fake source 冒充真实上游完成。
+## 25. 四批次本地验收汇总（2026-10-07）
+
+- 第一批已逐项复跑：P01、P03、P04、P05、P06、P07、P08、P09、P12、P20；P01 全量 Go 回归通过，P03 API 生成物检查通过，其余编号的本地验收报告均已生成。
+- 第二批已逐项复跑：P21、P22、P23、P27；质量门禁、私有语料隔离、回答证据、显式迁移边界均通过本地契约验收。
+- 第三批已逐项复跑：P10、P11、P13、P14、P15、P16、P17、P18、P19；文档启停、无 ES 精确检索、目录导入、Rerank、LLM 拆分/重放、Skill 和用户同步本地契约均通过。
+- 第四批已逐项复跑：P24、P25、P26、P28、P29；维护清理、业务指标、跨进程 trace、影子索引和切换回滚控制平面均通过本地契约验收。
+- P02 已验证配置、健康接口和报告脱敏；本地 acceptance compose 不是前置条件。真实预检应改用现有部署配置（`configs/api/config.yaml`、`configs/worker/config.yaml`、`configs/api/restapi.yaml`）并执行 `bash scripts/acceptance/run.sh P02 --existing --degraded`。
+- 本轮总门禁：`GOCACHE=/tmp/eino-go-cache go test ./... -count=1`、`bash scripts/check-api.sh`、`git diff --check` 均通过。
+
+报告根目录：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/`。这些是本地确定性/契约验收；真实 PostgreSQL、Redis、worker、模型、Milvus、ES、Prometheus/OTLP 和多实例故障演练仍需隔离环境。
+## 26. P24 周期维护入口补齐（2026-10-07）
+
+- worker 配置现在显式包含 `maintenance` 段；`LoadWorker` 会校验周期、保留期和批大小，避免维护命令以零值运行并误删数据。
+- `cmd/maintenance` 新增 `-periodic`，启动后立即清理一次，再按配置周期执行；每次成功运行通过 `OnReport` 覆盖/输出最新 JSON 报告。
+- 维护 Worker 增加无效周期/批大小保护、空 logger 兜底和取消信号优雅退出测试。
+- 本地验证：`GOCACHE=/tmp/eino-go-cache go test ./internal/maintenance ./internal/platform/config -count=1` 已通过；真实数据库清理仍需在隔离数据库执行。
+
+## 27. P01 最终复验记录（2026-10-07）
+
+- 已重新执行 `bash scripts/acceptance/run.sh P01`，全量 Go 回归、Prometheus 启用/禁用子进程测试、HTTP middleware 到独立指标端口抓取测试均通过。
+- 本次原始日志：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P01/20261007-150111-9117/full-go-test.log`。
+- 本次验收报告目录：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P01/20261007-150111-9117`。
+- 用户可直接复验：`cd /Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2 && bash scripts/acceptance/run.sh P01`。
+
+
+## 28. P25 业务指标接入 Prometheus agent（2026-10-07）
+
+- API 与 worker 创建业务指标后，现通过 `RegisterDefault()` 注册到 go-zero Prometheus agent 使用的默认 registry；`eino_harness_queue_depth`、`eino_harness_index_tasks_total`、`eino_harness_retrievals_total` 等指标可与 Go-Zero HTTP 指标一起被抓取。
+- 新增 `TestBusinessMetricsCanBeRegisteredForPrometheusAgent`，验证注册到独立 Prometheus registry 后仍能抓取指标，避免只验证私有测试 registry。
+- 本地验证：`bash scripts/acceptance/run.sh P25 --local` 已通过；报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P25/20261007-151620-12893-local`。
+- `component_health` 状态切换会把上一个状态置为 0，保证同一组件始终只有一个 active 状态。
+- 真实 Prometheus 抓取、队列积压变化和 ES 故障演练仍需 P02 隔离依赖环境。
+
+
+## 29. P02 本地依赖启动脚本补齐（2026-10-07）
+
+- 新增可选的 `configs/acceptance/compose.yaml`，只为本地验收启动 PostgreSQL、Redis、Milvus 及 etcd / MinIO 支撑服务；容器端口仅绑定 `127.0.0.1`，API、worker、embedding、ES 和 OTLP collector 仍需单独启动或提供。
+- 新增 `scripts/acceptance/dependencies.sh`，提供 `up`、`status`、`logs`、`down` 四个受控操作；`scripts/acceptance/run.sh P02-deps ...` 可作为统一入口，仅使用 compose 项目 `eino-acceptance`，`down` 默认保留 named volume，不执行全库清理。
+- 新增 `configs/acceptance/.env.example`，密码只通过 `EINO_STORAGE_PASSWORD` 环境变量提供，不把本地凭据写入配置。
+- 已验证：`bash -n scripts/acceptance/dependencies.sh`、`bash scripts/check-api.sh`、`git diff --check`。compose 模板只保留为可选隔离环境，本项目默认不要求本地 Docker。
+- 本地 Docker 依赖栈为可选项，本轮不启动容器；已有数据库和服务时直接使用现有配置执行 `bash scripts/acceptance/run.sh P02 --existing --degraded`，并将 API/worker 的真实运行证据归档到对应报告。
+
+
+## 30. 四个交付批次聚合验收完成（2026-10-07）
+
+- 新增 `scripts/acceptance/run-batch.sh`，并接入 `scripts/acceptance/run.sh batch <1|2|3|4> --local`；每个批次输出 `summary.json` 和各计划原始日志。
+- 第一批本地报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/batch-1/20261007-154134-18619-local`，状态 passed。
+- 第二批本地报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/batch-2/20261007-154427-21682-local`，状态 passed。
+- 第三批本地报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/batch-3/20261007-154646-22850-local`，状态 passed。
+- 第四批本地报告：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/batch-4/20261007-154956-23761-local`，状态 passed。
+- 四批次聚合只证明本地确定性契约、配置和状态机；真实依赖、真实模型、CI 平台、多实例和故障演练仍按 `docs/delivery-batches.md` 的真实出口执行。

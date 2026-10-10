@@ -1,0 +1,79 @@
+# Optional local dependency stack for P02. It is intentionally separate from
+# the application's compose/deployment manifests and only binds loopback ports.
+# Do not use this stack as a production deployment.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eino_acceptance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${EINO_STORAGE_PASSWORD:?set EINO_STORAGE_PASSWORD before starting the acceptance stack}
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eino_acceptance"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - eino-acceptance-postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - eino-acceptance-redis:/data
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    command:
+      - etcd
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --data-dir=/etcd
+    volumes:
+      - eino-acceptance-etcd:/etcd
+
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: ["minio", "server", "/minio_data"]
+    volumes:
+      - eino-acceptance-minio:/minio_data
+
+  milvus:
+    image: milvusdb/milvus:v2.4.15
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    depends_on:
+      etcd:
+        condition: service_started
+      minio:
+        condition: service_started
+    ports:
+      - "127.0.0.1:19530:19530"
+    volumes:
+      - eino-acceptance-milvus:/var/lib/milvus
+
+volumes:
+  eino-acceptance-postgres:
+  eino-acceptance-redis:
+  eino-acceptance-etcd:
+  eino-acceptance-minio:
+  eino-acceptance-milvus:

@@ -8,7 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +31,41 @@ import (
 // These tests run the real Service, Indexer, Ent schema/transactions and Markdown
 // pipeline. Queue, vector/keyword storage and model responses are controlled
 // adapters: this is NOT proof that Redis/Milvus/PostgreSQL are reachable.
+
+// deterministicEmbeddingTransport returns OpenAI-compatible embeddings in-process.
+// It deliberately avoids httptest.NewServer because restricted CI sandboxes may
+// forbid binding a local socket even when the test does not need real networking.
+type deterministicEmbeddingTransport struct{}
+
+func (deterministicEmbeddingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	var request struct {
+		Input []string `json:"input"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		return nil, err
+	}
+	data := make([]map[string]any, len(request.Input))
+	for n := range data {
+		data[n] = map[string]any{"object": "embedding", "index": n, "embedding": []float64{1, 0}}
+	}
+	body, err := json.Marshal(map[string]any{
+		"object": "list",
+		"data":   data,
+		"model":  "test",
+		"usage":  map[string]int{"prompt_tokens": 1, "total_tokens": 1},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Status:     "200 OK",
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(string(body))),
+		Request:    r,
+	}, nil
+}
+
 type lifecycleQueue struct {
 	payloads    [][]byte
 	unavailable bool
@@ -135,26 +170,16 @@ func newLifecycleFixture(t *testing.T) *lifecycleFixture {
 	ctx := context.Background()
 	client := enttest.Open(t, dialect.SQLite, fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", t.Name()))
 	t.Cleanup(func() { _ = client.Close() })
-	// A local deterministic embedding endpoint exercises the real batching/client
-	// adapter without paid requests or provider credentials.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var request struct {
-			Input []string `json:"input"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-		data := make([]map[string]any, len(request.Input))
-		for n := range data {
-			data[n] = map[string]any{"object": "embedding", "index": n, "embedding": []float64{1, 0}}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": data, "model": "test", "usage": map[string]int{"prompt_tokens": 1, "total_tokens": 1}})
-	}))
-	t.Cleanup(server.Close)
+	// A deterministic RoundTripper exercises the real OpenAI-compatible batching/client
+	// adapter without opening a listening socket, paid requests, or provider credentials.
 	dim := 2
-	embedder, err := rag.NewEmbedder(ctx, &openai.EmbeddingConfig{BaseURL: server.URL + "/v1", APIKey: "local-test-only", Model: "test", Dimensions: &dim})
+	embedder, err := rag.NewEmbedder(ctx, &openai.EmbeddingConfig{
+		BaseURL:    "http://local-embedding.test/v1",
+		HTTPClient: &http.Client{Transport: deterministicEmbeddingTransport{}},
+		APIKey:     "local-test-only",
+		Model:      "test",
+		Dimensions: &dim,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -532,4 +557,209 @@ func TestDocumentLifecycleVectorFailureRecovery(t *testing.T) {
 		t.Fatal("vector failure retry duplicated chunks")
 	}
 	assertLifecycleStores(t, f)
+}
+
+func TestProductCatalogIncrementalUpsert(t *testing.T) {
+	f := newLifecycleFixture(t)
+	productDataset, err := f.client.Dataset.Create().SetName(t.Name() + "-products").SetType("product").Save(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.datasetID = productDataset.ID
+
+	readFixture := func(name string) string {
+		t.Helper()
+		content, err := os.ReadFile("../../../tests/acceptance/p05/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(content)
+	}
+	catalog := readFixture("catalog-v1.md")
+
+	first, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "P05 型录", Content: catalog, OwnerSubject: "acceptance"})
+	if err != nil || len(first) != 3 {
+		t.Fatalf("首次上传应创建 3 条产品文档: results=%v err=%v", first, err)
+	}
+	firstIDs := map[string]uint64{}
+	for _, result := range first {
+		if result.Operation != OperationCreated {
+			t.Fatalf("首次上传 operation=%q, want created", result.Operation)
+		}
+		if result.Document.ExternalKey == nil {
+			t.Fatalf("首次上传缺少 external_key: %#v", result.Document)
+		}
+		firstIDs[*result.Document.ExternalKey] = result.Document.ID
+	}
+	if len(firstIDs) != 3 {
+		t.Fatalf("首次上传型号数=%d, want 3: %#v", len(firstIDs), firstIDs)
+	}
+	f.drain(t)
+	for _, id := range firstIDs {
+		f.assertState(t, id, document.StatusReady)
+	}
+
+	unchanged, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "P05 型录", Content: catalog, OwnerSubject: "acceptance"})
+	if err != nil || len(unchanged) != 3 {
+		t.Fatalf("原样重传应返回 3 条: results=%v err=%v", unchanged, err)
+	}
+	for _, result := range unchanged {
+		key := *result.Document.ExternalKey
+		if result.Operation != OperationUnchanged {
+			t.Fatalf("原样重传 %s operation=%q, want unchanged", key, result.Operation)
+		}
+		if result.Document.ID != firstIDs[key] {
+			t.Fatalf("原样重传 %s 更换了 ID: %d -> %d", key, firstIDs[key], result.Document.ID)
+		}
+	}
+	if len(f.queue.payloads) != 0 {
+		t.Fatalf("ready 文档原样重传不应重复投递，队列=%d", len(f.queue.payloads))
+	}
+
+	updatedCatalog := readFixture("catalog-body-v2.md")
+	updated, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "P05 型录", Content: updatedCatalog, OwnerSubject: "acceptance"})
+	if err != nil || len(updated) != 3 {
+		t.Fatalf("只修改 B 后应返回 3 条: results=%v err=%v", updated, err)
+	}
+	for _, result := range updated {
+		key := *result.Document.ExternalKey
+		want := OperationUnchanged
+		if key == "ACC-P05-B" {
+			want = OperationUpdated
+		}
+		if result.Operation != want {
+			t.Fatalf("修改 B 后 %s operation=%q, want %q", key, result.Operation, want)
+		}
+		if result.Document.ID != firstIDs[key] {
+			t.Fatalf("增量更新 %s 更换了 ID", key)
+		}
+	}
+	f.drain(t)
+	b, err := f.client.Document.Query().Where(document.DatasetIDEQ(f.datasetID), document.ExternalKeyEQ("ACC-P05-B")).Only(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.Content, "已更新") || b.Status != document.StatusReady {
+		t.Fatalf("B 未完成增量更新: status=%s content=%q", b.Status, b.Content)
+	}
+
+	metadataCatalog := readFixture("catalog-metadata-v3.md")
+	metadataResults, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "P05 型录", Content: metadataCatalog, OwnerSubject: "acceptance"})
+	if err != nil || len(metadataResults) != 3 {
+		t.Fatalf("元数据单独更新: results=%v err=%v", metadataResults, err)
+	}
+	for _, result := range metadataResults {
+		key := *result.Document.ExternalKey
+		want := OperationUnchanged
+		if key == "ACC-P05-B" {
+			want = OperationUpdated
+			if result.Document.Content != b.Content || result.Document.Metadata["series_name"] != "P05 新系列" {
+				t.Fatalf("仅元数据更新未保留正文/写入新系列: %#v", result.Document)
+			}
+		}
+		if result.Operation != want || result.Document.ID != firstIDs[key] {
+			t.Fatalf("元数据更新 %s: operation=%s ID=%d", key, result.Operation, result.Document.ID)
+		}
+	}
+	if len(f.queue.payloads) != 1 {
+		t.Fatalf("元数据只改 B 时只能重建一条: tasks=%d", len(f.queue.payloads))
+	}
+	f.drain(t)
+	// An unchanged body must not make a failed index permanently unrepairable.
+	if err := f.client.Document.UpdateOneID(firstIDs["ACC-P05-B"]).SetStatus(document.StatusFailed).Exec(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	f.queue.unavailable = true
+	if _, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "P05 型录", Content: metadataCatalog}); !errors.Is(err, ErrQueueUnavailable) {
+		t.Fatalf("投递故障不能误报成功: %v", err)
+	}
+	f.queue.unavailable = false
+	repaired, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "P05 型录", Content: metadataCatalog})
+	if err != nil || len(repaired) != 3 {
+		t.Fatalf("失败后原样重传: results=%v err=%v", repaired, err)
+	}
+	for _, result := range repaired {
+		key := *result.Document.ExternalKey
+		want := OperationUnchanged
+		if key == "ACC-P05-B" {
+			want = OperationUpdated
+		}
+		if result.Operation != want || result.Document.ID != firstIDs[key] {
+			t.Fatalf("失败后重传 %s: operation=%s ID=%d", key, result.Operation, result.Document.ID)
+		}
+	}
+	f.drain(t)
+	for key, id := range firstIDs {
+		doc, err := f.service.Get(f.ctx, f.datasetID, id)
+		if err != nil || doc.Status != document.StatusReady || strings.Contains(doc.Content, "```yaml") {
+			t.Fatalf("最终产品 %s: doc=%v err=%v", key, doc, err)
+		}
+	}
+	for _, name := range []string{"duplicate-model.md", "invalid-yaml.md", "unclosed-yaml.md"} {
+		_, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: name, Content: readFixture(name)})
+		var validation *ValidationError
+		if !errors.As(err, &validation) {
+			t.Fatalf("%s 应返回 ValidationError: %v", name, err)
+		}
+		if count, err := f.client.Document.Query().Where(document.DatasetIDEQ(f.datasetID)).Count(f.ctx); err != nil || count != 3 {
+			t.Fatalf("非法型录不应新增/覆盖文档: count=%d err=%v", count, err)
+		}
+	}
+	plain, err := f.service.Create(f.ctx, CreateInput{DatasetID: f.datasetID, Title: "普通文件", Content: readFixture("plain-document.md")})
+	if err != nil || len(plain) != 1 || plain[0].Document.ExternalKey != nil {
+		t.Fatalf("无产品头应按普通文档回落: results=%v err=%v", plain, err)
+	}
+	f.drain(t)
+	assertLifecycleStores(t, f)
+}
+
+func TestDocumentEnableIsIdempotentAndScoped(t *testing.T) {
+	f := newLifecycleFixture(t)
+	id := f.create(t, "# P10\n\n停用后仍保留正文的验收词。")
+	f.drain(t)
+	f.assertState(t, id, document.StatusReady)
+	f.assertSearch(t, id, "停用后仍保留正文", true)
+
+	doc, err := f.service.SetEnabled(f.ctx, f.datasetID, id, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Enabled {
+		t.Fatal("explicit disable did not change enabled=false")
+	}
+	if _, err := f.service.SetEnabled(f.ctx, f.datasetID, id, false); err != nil {
+		t.Fatalf("repeating the same disable should be idempotent: %v", err)
+	}
+	f.assertSearch(t, id, "停用后仍保留正文", false)
+
+	stored, err := f.client.Document.Get(f.ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Content != "# P10\n\n停用后仍保留正文的验收词。" {
+		t.Fatalf("disable changed the stored content: %q", stored.Content)
+	}
+
+	other, err := f.client.Dataset.Create().SetName(t.Name() + "-other").Save(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.SetEnabled(f.ctx, other.ID, id, true); !errors.Is(err, ErrDocumentNotFound) {
+		t.Fatalf("mismatched dataset path should reject the update: %v", err)
+	}
+	stored, err = f.client.Document.Get(f.ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Enabled {
+		t.Fatal("mismatched dataset path changed the document")
+	}
+
+	if _, err := f.service.SetEnabled(f.ctx, f.datasetID, id, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.SetEnabled(f.ctx, f.datasetID, id, true); err != nil {
+		t.Fatalf("repeating the same enable should be idempotent: %v", err)
+	}
+	f.assertSearch(t, id, "停用后仍保留正文", true)
 }

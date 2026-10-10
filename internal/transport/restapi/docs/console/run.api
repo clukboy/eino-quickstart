@@ -1,0 +1,18 @@
+syntax = "v1"
+
+// run 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/run
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListRuns
+	get /runs (RunListReq) returns (RunListResp)
+
+	@handler GetRun
+	get /runs/:runId (RunPathReq) returns (RunDetailResp)
+
+}

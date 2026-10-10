@@ -15,9 +15,11 @@ import (
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/knowledge"
 	appmiddleware "eino-quickstart/internal/application/middleware"
+	"eino-quickstart/internal/application/usersync"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/config"
 	"eino-quickstart/internal/platform/execution"
+	"eino-quickstart/internal/platform/im/wechat"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/platform/persistence/approval"
@@ -29,6 +31,7 @@ import (
 	"eino-quickstart/internal/platform/queue/asynq"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/platform/storage/es"
+	"eino-quickstart/internal/platform/usersource/work"
 	"eino-quickstart/internal/rag/grouping"
 	"eino-quickstart/internal/rag/store/milvus"
 	"eino-quickstart/internal/skill"
@@ -37,6 +40,7 @@ import (
 	"eino-quickstart/internal/tool/registry"
 	"eino-quickstart/internal/transport/restapi"
 
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/kernel"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
@@ -120,7 +124,8 @@ func runServer() error {
 		}
 	}
 
-	entClient, err := entx.Open(ctx, cfg.Storage)
+	// entClient, err := entx.OpenWithoutMigration(ctx, cfg.Storage)
+	entClient, err := entx.OpenDevelopment(ctx, cfg.Storage) 
 	if err != nil {
 		return err
 	}
@@ -143,30 +148,24 @@ func runServer() error {
 		return err
 	}
 
+	metrics := observability.NewMetrics()
+	if err := metrics.RegisterDefault(); err != nil {
+		return fmt.Errorf("register business metrics: %w", err)
+	}
+
 	searcher := newRetrievalSearcher(ctx, cfg, entClient, logger)
 	if searcher == nil {
 		return fmt.Errorf("knowledge retrieval is unavailable")
 	}
 
 	asynqQueue := asynq.NewProducer(newAsynqConf(cfg))
-	// 本进程只当 Producer：不创建 asynq.Server，消费端在
-	// cmd/worker 进程里。两者通过共享 Redis 连接，任务契约见
-	// internal/platform/queue/tasks。asynq.enabled=false 时 Enqueue 会返回
-	// 明确的错误，调用方必须把它当作请求失败浮出来。
 
-	// 知识库用例是 HTTP 侧唯一的索引入口：它把正文写进 documents.content、
-	// 建行、投递任务。transport 只调它，不认识队列。
-	//
-	// 召回也在这里装配：这个进程既要能写（上传、重建索引）也要能读
-	// （POST /dataset/:id/search）。装配是分级的 —— 向量库或 embedding 没配
-	// 只会关掉对应通道，关键词与精确通道照常工作，见 newRetrievalSearcher。
-	// 召回结果的归并粒度按数据集类型配（knowledge.recallGrouping）。在这里解析
-	// 一次并注入：粒度名写错要在启动时就报出来，而不是等某个数据集被搜到时静默
-	// 回落成默认粒度 —— 后者只会表现为「条数不太对」，没人会联想到配置。
+
 	recallGrouping, err := grouping.NewPolicy(cfg.Knowledge.RecallGrouping)
 	if err != nil {
 		return fmt.Errorf("解析 knowledge.recallGrouping: %w", err)
 	}
+
 
 	knowledgeService, err := knowledge.NewService(knowledge.ServiceDeps{
 		Client: entClient,
@@ -181,12 +180,11 @@ func runServer() error {
 			DefaultTopK:        cfg.Knowledge.DefaultTopK,
 			MaxTopK:            cfg.Knowledge.MaxTopK,
 			MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
-			// 单条结果正文的上限在 document 粒度下就是整篇文档的长度上限：
-			// 一篇长型录几万字，不设上限时一次 top_k=20 就能带出几百 KB。
 			MaxContentBytes: cfg.Knowledge.MaxResultBytes,
 		},
-		MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
-		Logger:           logger,
+		MaxDocumentBytes:       cfg.Knowledge.MaxDocumentBytes,
+		Logger:                 logger,
+		Metrics:                metrics,
 	})
 	if err != nil {
 		return fmt.Errorf("init knowledge service: %w", err)
@@ -284,6 +282,18 @@ func runServer() error {
 		accountStore = account.NewStore(entClient)
 	}
 
+	// 初始化微信服务 / 用户同步服务
+	wechatClient := wechat.NewClient(cfg.Auth.UserSync.WechatConfig,(*kernel.UniversalOptions)(&cfg.Redis))
+
+	var userSyncService *usersync.Service
+	if cfg.Auth.UserSync.Enabled {
+		source := work.NewUserSync(wechatClient)
+		userSyncService, err = usersync.NewService(accountStore, source, cfg.Auth.Accounts.BcryptCost)
+		if err != nil {
+			return fmt.Errorf("init user sync service: %w", err)
+		}
+	}
+
 	authenticator, err := auth.New(
 		apiKeys,
 		auth.WithAnonymous(anonymousIssuer),
@@ -294,20 +304,25 @@ func runServer() error {
 	}
 
 	server, err := restapi.New(restapi.Options{
-		ConfigFile:       transportConfigPath,
-		Agent:            harness,
-		Knowledge:        knowledgeService,
-		Sessions:         session.NewStore(entClient),
-		Approvals:        approvals,
-		Runs:             run.NewStore(entClient),
-		Turns:            turn.NewStore(entClient),
-		Auth:             authenticator,
-		Anonymous:        anonymousIssuer,
-		Accounts:         accountIssuer,
-		AccountStore:     accountStore,
-		PasswordHashCost: cfg.Auth.Accounts.BcryptCost,
-		Logger:           logger,
-		EntClient:        entClient,
+		ConfigFile:                transportConfigPath,
+		Agent:                     harness,
+		Knowledge:                 knowledgeService,
+		Sessions:                  session.NewStore(entClient),
+		Approvals:                 approvals,
+		Runs:                      run.NewStore(entClient),
+		Turns:                     turn.NewStore(entClient),
+		Auth:                      authenticator,
+		Anonymous:                 anonymousIssuer,
+		Accounts:                  accountIssuer,
+		AccountStore:              accountStore,
+		UserSync:                  userSyncService,
+		PasswordHashCost:          cfg.Auth.Accounts.BcryptCost,
+		UploadMaxRequestBodyBytes: int64(cfg.Knowledge.MaxUploadRequestBytes),
+		UploadMaxDocumentBytes:    int64(cfg.Knowledge.MaxDocumentBytes),
+		UploadMaxFiles:            cfg.Knowledge.MaxUploadFiles,
+		Logger:                    logger,
+		EntClient:                 entClient,
+		Metrics:                   metrics,
 	})
 	if err != nil {
 		return err

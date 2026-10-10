@@ -94,6 +94,102 @@ func (_c *AuditEventCreate) SetNillableActorSubject(v *string) *AuditEventCreate
 	return _c
 }
 
+// SetAction sets the "action" field.
+func (_c *AuditEventCreate) SetAction(v string) *AuditEventCreate {
+	_c.mutation.SetAction(v)
+	return _c
+}
+
+// SetNillableAction sets the "action" field if the given value is not nil.
+func (_c *AuditEventCreate) SetNillableAction(v *string) *AuditEventCreate {
+	if v != nil {
+		_c.SetAction(*v)
+	}
+	return _c
+}
+
+// SetResourceType sets the "resource_type" field.
+func (_c *AuditEventCreate) SetResourceType(v string) *AuditEventCreate {
+	_c.mutation.SetResourceType(v)
+	return _c
+}
+
+// SetNillableResourceType sets the "resource_type" field if the given value is not nil.
+func (_c *AuditEventCreate) SetNillableResourceType(v *string) *AuditEventCreate {
+	if v != nil {
+		_c.SetResourceType(*v)
+	}
+	return _c
+}
+
+// SetResourceID sets the "resource_id" field.
+func (_c *AuditEventCreate) SetResourceID(v string) *AuditEventCreate {
+	_c.mutation.SetResourceID(v)
+	return _c
+}
+
+// SetNillableResourceID sets the "resource_id" field if the given value is not nil.
+func (_c *AuditEventCreate) SetNillableResourceID(v *string) *AuditEventCreate {
+	if v != nil {
+		_c.SetResourceID(*v)
+	}
+	return _c
+}
+
+// SetResourceName sets the "resource_name" field.
+func (_c *AuditEventCreate) SetResourceName(v string) *AuditEventCreate {
+	_c.mutation.SetResourceName(v)
+	return _c
+}
+
+// SetNillableResourceName sets the "resource_name" field if the given value is not nil.
+func (_c *AuditEventCreate) SetNillableResourceName(v *string) *AuditEventCreate {
+	if v != nil {
+		_c.SetResourceName(*v)
+	}
+	return _c
+}
+
+// SetSummary sets the "summary" field.
+func (_c *AuditEventCreate) SetSummary(v string) *AuditEventCreate {
+	_c.mutation.SetSummary(v)
+	return _c
+}
+
+// SetNillableSummary sets the "summary" field if the given value is not nil.
+func (_c *AuditEventCreate) SetNillableSummary(v *string) *AuditEventCreate {
+	if v != nil {
+		_c.SetSummary(*v)
+	}
+	return _c
+}
+
+// SetBefore sets the "before" field.
+func (_c *AuditEventCreate) SetBefore(v map[string]interface{}) *AuditEventCreate {
+	_c.mutation.SetBefore(v)
+	return _c
+}
+
+// SetAfter sets the "after" field.
+func (_c *AuditEventCreate) SetAfter(v map[string]interface{}) *AuditEventCreate {
+	_c.mutation.SetAfter(v)
+	return _c
+}
+
+// SetIP sets the "ip" field.
+func (_c *AuditEventCreate) SetIP(v string) *AuditEventCreate {
+	_c.mutation.SetIP(v)
+	return _c
+}
+
+// SetNillableIP sets the "ip" field if the given value is not nil.
+func (_c *AuditEventCreate) SetNillableIP(v *string) *AuditEventCreate {
+	if v != nil {
+		_c.SetIP(*v)
+	}
+	return _c
+}
+
 // Mutation returns the AuditEventMutation object of the builder.
 func (_c *AuditEventCreate) Mutation() *AuditEventMutation {
 	return _c.mutation
@@ -202,6 +298,38 @@ func (_c *AuditEventCreate) createSpec() (*AuditEvent, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ActorSubject(); ok {
 		_spec.SetField(auditevent.FieldActorSubject, field.TypeString, value)
 		_node.ActorSubject = &value
+	}
+	if value, ok := _c.mutation.Action(); ok {
+		_spec.SetField(auditevent.FieldAction, field.TypeString, value)
+		_node.Action = &value
+	}
+	if value, ok := _c.mutation.ResourceType(); ok {
+		_spec.SetField(auditevent.FieldResourceType, field.TypeString, value)
+		_node.ResourceType = &value
+	}
+	if value, ok := _c.mutation.ResourceID(); ok {
+		_spec.SetField(auditevent.FieldResourceID, field.TypeString, value)
+		_node.ResourceID = &value
+	}
+	if value, ok := _c.mutation.ResourceName(); ok {
+		_spec.SetField(auditevent.FieldResourceName, field.TypeString, value)
+		_node.ResourceName = &value
+	}
+	if value, ok := _c.mutation.Summary(); ok {
+		_spec.SetField(auditevent.FieldSummary, field.TypeString, value)
+		_node.Summary = &value
+	}
+	if value, ok := _c.mutation.Before(); ok {
+		_spec.SetField(auditevent.FieldBefore, field.TypeJSON, value)
+		_node.Before = value
+	}
+	if value, ok := _c.mutation.After(); ok {
+		_spec.SetField(auditevent.FieldAfter, field.TypeJSON, value)
+		_node.After = value
+	}
+	if value, ok := _c.mutation.IP(); ok {
+		_spec.SetField(auditevent.FieldIP, field.TypeString, value)
+		_node.IP = &value
 	}
 	return _node, _spec
 }

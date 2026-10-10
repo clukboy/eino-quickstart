@@ -19,11 +19,20 @@ func (AgentRun) Fields() []ent.Field {
 		field.String("run_id").Unique().Immutable(),
 		field.String("session_id").Immutable(),
 		field.String("requested_by").Immutable(),
+		field.String("agent_key").Default(""),
+		field.Int("agent_version").Default(0),
 		field.Text("user_message").Immutable(),
 		field.String("checkpoint_id").Optional().Nillable().Immutable(),
 		field.Enum("status").Values("RUNNING", "INTERRUPTED", "RESUMING", "COMPLETED", "FAILED", "EXPIRED").Default("RUNNING"),
 		field.String("approval_id").Optional().Nillable(),
 		field.String("error_code").Optional().Nillable(),
+		field.Text("error").Optional().Nillable(),
+		field.Int("steps").Default(0),
+		field.Int("tool_calls").Default(0),
+		field.Int64("tokens_in").Default(0),
+		field.Int64("tokens_out").Default(0),
+		field.Int64("latency_ms").Default(0),
+		field.Int64("cost_micros").Default(0),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 		field.Time("completed_at").Optional().Nillable(),
@@ -32,13 +41,13 @@ func (AgentRun) Fields() []ent.Field {
 }
 
 // Edges of the AgentRun.
-func (AgentRun) Edges() []ent.Edge {
-	return nil
-}
+func (AgentRun) Edges() []ent.Edge { return nil }
 
 func (AgentRun) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("session_id", "status"),
+		index.Fields("requested_by", "created_at"),
+		index.Fields("agent_key", "created_at"),
 		index.Fields("checkpoint_id"),
 		index.Fields("expires_at"),
 	}

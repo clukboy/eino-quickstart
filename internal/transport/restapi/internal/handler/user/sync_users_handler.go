@@ -1,5 +1,4 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
+// Code scaffolded by goctl. DO NOT EDIT.
 
 package user
 
@@ -8,14 +7,20 @@ import (
 
 	"eino-quickstart/internal/transport/restapi/internal/logic/user"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
+	"eino-quickstart/internal/transport/restapi/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 从外部数据源同步账号（占位：当前恒返回 501 not_implemented）
+// 从已配置的外部数据源同步账号（只新增/更新，不删除；支持 dry-run）
 func SyncUsersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.SyncUsersReq
+		if err := httpx.Parse(r, &req); err != nil {
+			httpx.ErrorCtx(r.Context(), w, err)
+			return
+		}
 		l := user.NewSyncUsersLogic(r.Context(), svcCtx)
-		resp, err := l.SyncUsers()
+		resp, err := l.SyncUsers(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

@@ -80,3 +80,11 @@ asynq:
   retryDelaySeconds: 30
   maxRetryDelaySeconds: 900
   shutdownTimeoutSeconds: 300
+
+maintenance:
+  # 维护入口复用 worker 配置；周期任务首次启动会先执行一次清理。
+  cleanupIntervalSeconds: 300
+  approvalRetentionHours: 168
+  checkpointRetentionHours: 168
+  turnRetentionHours: 168
+  cleanupBatchSize: 100

@@ -20,10 +20,15 @@ import (
 	"eino-quickstart/internal/rag/constant"
 	"eino-quickstart/internal/rag/grouping"
 	ragparser "eino-quickstart/internal/rag/parser"
+	"eino-quickstart/internal/rag/parser/llmsplit"
 
 	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
+
+type ProductSplitter interface {
+	Split(ctx context.Context, input string) ([]llmsplit.Product, error)
+}
 
 type IndexTaskQueue interface {
 	EnqueueIndex(ctx context.Context, datasetID, documentID uint64, mode tasks.IndexMode) error
@@ -54,6 +59,7 @@ type Service struct {
 	grouping grouping.Policy
 	limits   Limits
 	logger   *slog.Logger
+	metrics  *observability.Metrics
 
 	// contents 是召回时取正文的端口（documents.content）。
 	contents DocumentContent
@@ -63,7 +69,10 @@ type Service struct {
 	// 限在写入这一层而不是数据库层：Postgres 的 text 收得下 1GB，而「一次上传
 	// 能塞多大」是服务的约束。越限的正文一律拒绝，不做截断 —— 截断一份正文
 	// 等于把索引建在一份不完整的原文上，而调用方看不出少了什么。
-	maxDocumentBytes int
+	maxDocumentBytes       int
+	productSplitter        ProductSplitter
+	productSplitterVersion string
+	productSplitterModel   string
 }
 
 // DocumentContent 是「按文档 id 批量取正文」的窄端口。
@@ -105,8 +114,15 @@ type ServiceDeps struct {
 	// MaxDocumentBytes 是单篇正文的字节上限，零值取 defaultDocumentMaxBytes。
 	MaxDocumentBytes int
 
+	// ProductSplitter 是可选的 API 侧无 front-matter 产品拆分器。worker 不注入它；
+	// 未配置时保留原有行为（无产品块就整份建一条文档）。
+	ProductSplitter        ProductSplitter
+	ProductSplitterVersion string
+	ProductSplitterModel   string
+
 	// Logger 可选。
-	Logger *slog.Logger
+	Logger  *slog.Logger
+	Metrics *observability.Metrics
 }
 
 // NewService 组装用例层。
@@ -134,9 +150,13 @@ func NewService(deps ServiceDeps) (*Service, error) {
 		grouping: deps.Grouping,
 		limits:   deps.Limits.withDefaults(),
 		logger:   logger,
+		metrics:  deps.Metrics,
 
-		contents:         &entDocumentContent{client: deps.Client},
-		maxDocumentBytes: maxDocumentBytes,
+		contents:               &entDocumentContent{client: deps.Client},
+		maxDocumentBytes:       maxDocumentBytes,
+		productSplitter:        deps.ProductSplitter,
+		productSplitterVersion: strings.TrimSpace(deps.ProductSplitterVersion),
+		productSplitterModel:   strings.TrimSpace(deps.ProductSplitterModel),
 	}, nil
 }
 
@@ -315,6 +335,19 @@ func (s *Service) createProductDocuments(ctx context.Context, in CreateInput, vi
 	specs, err := buildProductDocuments(in.Content, in.Title)
 	if err != nil {
 		return nil, err
+	}
+	if len(specs) == 0 && s.productSplitter != nil {
+		products, splitErr := s.productSplitter.Split(ctx, in.Content)
+		if splitErr != nil {
+			return nil, fmt.Errorf("knowledge: llm product split failed: %w", splitErr)
+		}
+		if len(products) == 0 {
+			return nil, errors.New("knowledge: llm product split returned no products")
+		}
+		specs, err = buildLLMProductDocuments(products, in.Content, in.Title, s.productSplitterVersion, s.productSplitterModel)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(specs) == 0 {
 		observability.LogWithTrace(ctx, s.logger).Info(
@@ -566,6 +599,27 @@ func (s *Service) Update(ctx context.Context, in UpdateInput) (_ *ent.Document, 
 // 这里**不检查正文有没有**：正文的解析与补齐（含存量数据的导入）是 worker 的
 // 职责，它比这一层更清楚「这篇文档的正文还能不能找回来」——在请求期凭一个空串
 // 就判死，会把一批本来能靠导入救回来的文档直接挡在门外。
+// SetEnabled changes the document's visibility to retrieval without changing
+// its正文、chunks or index entries. The target is explicit and idempotent: a
+// retried request with the same value cannot flip the document back.
+//
+// datasetID participates in the lookup so a document ID from another dataset
+// cannot be modified through a mismatched parent path.
+func (s *Service) SetEnabled(ctx context.Context, datasetID, documentID uint64, enabled bool) (*ent.Document, error) {
+	doc, err := s.document(ctx, datasetID, documentID)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Enabled == enabled {
+		return doc, nil
+	}
+	updated, err := doc.Update().SetEnabled(enabled).Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("knowledge: set document %d enabled=%t: %w", documentID, enabled, err)
+	}
+	return updated, nil
+}
+
 func (s *Service) Reindex(ctx context.Context, datasetID, documentID uint64) (_ *ent.Document, err error) {
 	ctx, span := observability.StartSpan(ctx, "knowledge.reindex_document",
 		oteltrace.WithAttributes(

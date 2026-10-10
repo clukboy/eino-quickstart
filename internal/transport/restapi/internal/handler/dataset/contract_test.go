@@ -18,6 +18,7 @@ import (
 	"eino-quickstart/internal/platform/queue/tasks"
 	apphttp "eino-quickstart/internal/transport/restapi/internal/httpx"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
+	transporttypes "eino-quickstart/internal/transport/restapi/internal/types"
 
 	"entgo.io/ent/dialect"
 	_ "github.com/mattn/go-sqlite3"
@@ -52,7 +53,13 @@ func TestDocumentHTTPContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svcCtx := &svc.ServiceContext{EntClient: client, Knowledge: service}
+	svcCtx := &svc.ServiceContext{
+		EntClient:                 client,
+		Knowledge:                 service,
+		UploadMaxRequestBodyBytes: 1 << 20,
+		UploadMaxDocumentBytes:    16,
+		UploadMaxFiles:            3,
+	}
 	call := func(handler http.HandlerFunc, method, contentType string, body []byte, docID uint64) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "/", bytes.NewReader(body))
 		r.Header.Set("Content-Type", contentType)
@@ -109,6 +116,17 @@ func TestDocumentHTTPContract(t *testing.T) {
 	if err := json.Unmarshal(read.Body.Bytes(), &content); err != nil || read.Code != 200 || content["content"] != "验收蓝鲸词B" {
 		t.Fatalf("updated body contract: %d %s %v", read.Code, read.Body.String(), err)
 	}
+	checkError(call(EnableDocumentHandler(svcCtx), "PATCH", "application/json", []byte(`{}`), doc.ID), 400, "bad_request")
+	disabled := call(EnableDocumentHandler(svcCtx), "PATCH", "application/json", []byte(`{"enabled":false}`), doc.ID)
+	var disabledResp transporttypes.DocumentResp
+	if err := json.Unmarshal(disabled.Body.Bytes(), &disabledResp); err != nil || disabled.Code != 200 || disabledResp.Enabled {
+		t.Fatalf("explicit disable contract: %d %s %v", disabled.Code, disabled.Body.String(), err)
+	}
+	repeatedDisable := call(EnableDocumentHandler(svcCtx), "PATCH", "application/json", []byte(`{"enabled":false}`), doc.ID)
+	var repeatedDisableResp transporttypes.DocumentResp
+	if err := json.Unmarshal(repeatedDisable.Body.Bytes(), &repeatedDisableResp); err != nil || repeatedDisable.Code != 200 || repeatedDisableResp.Enabled {
+		t.Fatalf("idempotent disable contract: %d %s %v", repeatedDisable.Code, repeatedDisable.Body.String(), err)
+	}
 	// A missing top_k is valid; this fixture deliberately has no retrieval service.
 	checkError(call(SearchDatasetHandler(svcCtx), "POST", "application/json", []byte(`{"query":"验收蓝鲸词B"}`), 0), 503, "service_unavailable")
 	// Actual multipart parsing, canonical file field, and multiple uploaded files.
@@ -119,13 +137,72 @@ func TestDocumentHTTPContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, _ = file.Write([]byte(fmt.Sprintf("验收上传%d", n)))
+		_, _ = fmt.Fprintf(file, "验收上传%d", n)
 	}
 	_ = writer.Close()
 	uploaded := call(UploadDocumentHandler(svcCtx), "POST", writer.FormDataContentType(), upload.Bytes(), 0)
-	if err := json.Unmarshal(uploaded.Body.Bytes(), &list); err != nil || uploaded.Code != 200 || len(list.Data) != 2 {
+	var uploadResp transporttypes.DocumentUploadResp
+	if err := json.Unmarshal(uploaded.Body.Bytes(), &uploadResp); err != nil || uploaded.Code != 200 || len(uploadResp.Data) != 2 || len(uploadResp.Files) != 2 {
 		t.Fatalf("multipart contract: %d %s %v", uploaded.Code, uploaded.Body.String(), err)
 	}
+	if uploadResp.PartialFailure || uploadResp.Files[0].Status != "succeeded" || uploadResp.Files[1].Status != "succeeded" {
+		t.Fatalf("multipart success ledger: %+v", uploadResp)
+	}
+
+	makeUpload := func(files ...struct{ name, content string }) (*httptest.ResponseRecorder, string) {
+		var body bytes.Buffer
+		w := multipart.NewWriter(&body)
+		for _, item := range files {
+			file, err := w.CreateFormFile("file", item.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = file.Write([]byte(item.content))
+		}
+		contentType := w.FormDataContentType()
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return call(UploadDocumentHandler(svcCtx), "POST", contentType, body.Bytes(), 0), contentType
+	}
+
+	// A malformed/empty request remains a request-level 400. Per-file errors
+	// are returned in the ledger so a mixed batch can be repaired selectively.
+	emptyRequest, _ := makeUpload()
+	checkError(emptyRequest, 400, "bad_request")
+	emptyFile, _ := makeUpload(struct{ name, content string }{"empty.md", ""})
+	var emptyResp transporttypes.DocumentUploadResp
+	if err := json.Unmarshal(emptyFile.Body.Bytes(), &emptyResp); err != nil || emptyFile.Code != 200 || !emptyResp.PartialFailure || emptyResp.Files[0].Error == nil || emptyResp.Files[0].Error.Code != "empty_file" {
+		t.Fatalf("empty-file contract: %d %s %v", emptyFile.Code, emptyFile.Body.String(), err)
+	}
+	tooLarge, _ := makeUpload(struct{ name, content string }{"large.md", "12345678901234567"})
+	var largeResp transporttypes.DocumentUploadResp
+	if err := json.Unmarshal(tooLarge.Body.Bytes(), &largeResp); err != nil || tooLarge.Code != 200 || largeResp.Files[0].Error == nil || largeResp.Files[0].Error.Code != apphttp.CodeTooLarge {
+		t.Fatalf("per-file size contract: %d %s %v", tooLarge.Code, tooLarge.Body.String(), err)
+	}
+	mixed, _ := makeUpload(
+		struct{ name, content string }{"good.txt", "good content"},
+		struct{ name, content string }{"bad.pdf", "not supported"},
+	)
+	var mixedResp transporttypes.DocumentUploadResp
+	if err := json.Unmarshal(mixed.Body.Bytes(), &mixedResp); err != nil || mixed.Code != 200 || !mixedResp.PartialFailure || len(mixedResp.Data) != 1 || len(mixedResp.Files) != 2 || mixedResp.Files[1].Error == nil || mixedResp.Files[1].Error.Code != apphttp.CodeUnsupportedFormat {
+		t.Fatalf("partial upload contract: %d %s %v", mixed.Code, mixed.Body.String(), err)
+	}
+
+	tooMany, _ := makeUpload(
+		struct{ name, content string }{"one.txt", "1"},
+		struct{ name, content string }{"two.txt", "2"},
+		struct{ name, content string }{"three.txt", "3"},
+		struct{ name, content string }{"four.txt", "4"},
+	)
+	checkError(tooMany, 400, "bad_request")
+
+	previousRequestLimit := svcCtx.UploadMaxRequestBodyBytes
+	svcCtx.UploadMaxRequestBodyBytes = 64
+	requestTooLarge, _ := makeUpload(struct{ name, content string }{"request.txt", "request is larger than the request cap"})
+	checkError(requestTooLarge, 413, apphttp.CodeTooLarge)
+	svcCtx.UploadMaxRequestBodyBytes = previousRequestLimit
+
 	q.unavailable = true
 	checkError(call(CreateDocumentHandler(svcCtx), "POST", "application/json", []byte(`{"title":"queue-outage","content":"正文"}`), 0), 503, "service_unavailable")
 	deleted := call(DeleteDocumentHandler(svcCtx), "DELETE", "", nil, doc.ID)
@@ -134,7 +211,7 @@ func TestDocumentHTTPContract(t *testing.T) {
 	}
 	checkError(call(GetDocumentHandler(svcCtx), "GET", "", nil, doc.ID), 404, "not_found")
 	checkError(call(GetDocumentContentHandler(svcCtx), "GET", "", nil, doc.ID), 404, "not_found")
-	if q.calls != 4 {
+	if q.calls != 5 {
 		t.Fatalf("invalid requests published work: calls=%d", q.calls)
 	}
 }

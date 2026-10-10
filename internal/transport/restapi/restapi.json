@@ -15,6 +15,818 @@
   },
   "basePath": "/",
   "paths": {
+    "/api/v1/agent-defs": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListAgentDefs",
+        "operationId": "console/AgentListAgentDefs",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "keyword",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "description",
+                      "owner",
+                      "owner_name",
+                      "status",
+                      "current_version",
+                      "published_version",
+                      "model",
+                      "risk_tier",
+                      "runs",
+                      "created_at",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "current_version": {
+                        "type": "integer"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "owner": {
+                        "type": "string"
+                      },
+                      "owner_name": {
+                        "type": "string"
+                      },
+                      "published_version": {
+                        "type": "integer"
+                      },
+                      "risk_tier": {
+                        "type": "string"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "CreateAgentDef",
+        "operationId": "console/AgentCreateAgentDef",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "name",
+                "model"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "current_version": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "owner_name": {
+                  "type": "string"
+                },
+                "published_version": {
+                  "type": "integer"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-defs/{id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetAgentDef",
+        "operationId": "console/AgentGetAgentDef",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "current_version": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "owner_name": {
+                  "type": "string"
+                },
+                "published_version": {
+                  "type": "integer"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "UpdateAgentDef",
+        "operationId": "console/AgentUpdateAgentDef",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "current_version": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "owner_name": {
+                  "type": "string"
+                },
+                "published_version": {
+                  "type": "integer"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteAgentDef",
+        "operationId": "console/AgentDeleteAgentDef",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-defs/{id}/datasets": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "SetAgentDefDatasets",
+        "operationId": "console/AgentSetAgentDefDatasets",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "dataset_ids"
+              ],
+              "properties": {
+                "dataset_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-defs/{id}/versions": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListAgentVersions",
+        "operationId": "console/AgentListAgentVersions",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "version",
+                      "system_prompt",
+                      "model",
+                      "temperature",
+                      "max_iterations",
+                      "tool_keys",
+                      "dataset_ids",
+                      "status",
+                      "created_by",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "change_note": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "created_by": {
+                        "type": "string"
+                      },
+                      "dataset_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer"
+                        }
+                      },
+                      "max_iterations": {
+                        "type": "integer"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "system_prompt": {
+                        "type": "string"
+                      },
+                      "temperature": {
+                        "type": "number"
+                      },
+                      "tool_keys": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "version": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "CreateAgentVersion",
+        "operationId": "console/AgentCreateAgentVersion",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "change_note": {
+                  "type": "string"
+                },
+                "dataset_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "system_prompt": {
+                  "type": "string"
+                },
+                "tool_keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "change_note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "created_by": {
+                  "type": "string"
+                },
+                "dataset_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "max_iterations": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "system_prompt": {
+                  "type": "string"
+                },
+                "temperature": {
+                  "type": "number"
+                },
+                "tool_keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-defs/{id}/versions/{version}/publish": {
+      "post": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "PublishAgentVersion",
+        "operationId": "console/AgentPublishAgentVersion",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "name": "version",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "change_note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "created_by": {
+                  "type": "string"
+                },
+                "dataset_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "max_iterations": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "system_prompt": {
+                  "type": "string"
+                },
+                "temperature": {
+                  "type": "number"
+                },
+                "tool_keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-defs/{id}/versions/{version}/retire": {
+      "post": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "RetireAgentVersion",
+        "operationId": "console/AgentRetireAgentVersion",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "name": "version",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "change_note": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "created_by": {
+                  "type": "string"
+                },
+                "dataset_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "max_iterations": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "system_prompt": {
+                  "type": "string"
+                },
+                "temperature": {
+                  "type": "number"
+                },
+                "tool_keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents/{subject}/dataset": {
       "get": {
         "produces": [
@@ -165,6 +977,215 @@
               "properties": {
                 "status": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approval-policies": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListApprovalPolicies",
+        "operationId": "console/ApprovalListApprovalPolicies",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "tool_key",
+                      "risk_tier",
+                      "mode",
+                      "approver_roles",
+                      "quorum",
+                      "timeout_seconds",
+                      "on_timeout",
+                      "enabled",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "approver_roles": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "mode": {
+                        "type": "string"
+                      },
+                      "on_timeout": {
+                        "type": "string"
+                      },
+                      "quorum": {
+                        "type": "integer"
+                      },
+                      "risk_tier": {
+                        "type": "string"
+                      },
+                      "timeout_seconds": {
+                        "type": "integer"
+                      },
+                      "tool_key": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "PutApprovalPolicies",
+        "operationId": "console/ApprovalPutApprovalPolicies",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "tool_key",
+                      "risk_tier",
+                      "mode",
+                      "approver_roles",
+                      "quorum",
+                      "timeout_seconds",
+                      "on_timeout",
+                      "enabled",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "approver_roles": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "mode": {
+                        "type": "string"
+                      },
+                      "on_timeout": {
+                        "type": "string"
+                      },
+                      "quorum": {
+                        "type": "integer"
+                      },
+                      "risk_tier": {
+                        "type": "string"
+                      },
+                      "timeout_seconds": {
+                        "type": "integer"
+                      },
+                      "tool_key": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "tool_key",
+                      "risk_tier",
+                      "mode",
+                      "approver_roles",
+                      "quorum",
+                      "timeout_seconds",
+                      "on_timeout",
+                      "enabled",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "approver_roles": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "mode": {
+                        "type": "string"
+                      },
+                      "on_timeout": {
+                        "type": "string"
+                      },
+                      "quorum": {
+                        "type": "integer"
+                      },
+                      "risk_tier": {
+                        "type": "string"
+                      },
+                      "timeout_seconds": {
+                        "type": "integer"
+                      },
+                      "tool_key": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -435,6 +1456,150 @@
                 },
                 "type": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit-logs": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListAuditLogs",
+        "operationId": "console/AuditListAuditLogs",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "actor",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "action",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "resource_type",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "resource_id",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "from_ms",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "to_ms",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "actor",
+                      "actor_name",
+                      "action",
+                      "resource_type",
+                      "resource_id",
+                      "resource_name",
+                      "summary",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "action": {
+                        "type": "string"
+                      },
+                      "actor": {
+                        "type": "string"
+                      },
+                      "actor_name": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "diff": {
+                        "type": "object",
+                        "properties": {
+                          "after": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "before": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "ip": {
+                        "type": "string"
+                      },
+                      "resource_id": {
+                        "type": "string"
+                      },
+                      "resource_name": {
+                        "type": "string"
+                      },
+                      "resource_type": {
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
                 }
               }
             }
@@ -1003,6 +2168,91 @@
                 },
                 "request_id": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dataset/models": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "列出可用于知识库的模型",
+        "operationId": "datasetListDatasetModels",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "label"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dataset/types": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "列出数据集类型",
+        "operationId": "datasetListDatasetTypes",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "label"
+                    ],
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1644,7 +2894,7 @@
           "http",
           "https"
         ],
-        "summary": "上传文档",
+        "summary": "上传文档（支持多个 file；files 报告逐文件结果）",
         "operationId": "datasetUploadDocument",
         "parameters": [
           {
@@ -1664,7 +2914,7 @@
             "name": "file",
             "type": "file",
             "required": true,
-            "description": "Required multipart file field. Repeat file to upload multiple documents; response is a document list. Product documents may split into more than one item."
+            "description": "Required multipart file field. Repeat file to upload multiple Markdown/text documents. The response keeps data for compatibility and adds files with per-file success/failure details; when partial_failure is true, retry only failed files."
           }
         ],
         "responses": {
@@ -1733,6 +2983,103 @@
                       }
                     }
                   }
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "filename",
+                      "status"
+                    ],
+                    "properties": {
+                      "documents": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "dataset_id",
+                            "source",
+                            "title",
+                            "status",
+                            "visibility",
+                            "owner_subject",
+                            "chunk_count",
+                            "indexed_chunk_count",
+                            "createdAt",
+                            "updatedAt",
+                            "enabled"
+                          ],
+                          "properties": {
+                            "chunk_count": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "integer"
+                            },
+                            "dataset_id": {
+                              "type": "integer"
+                            },
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "id": {
+                              "type": "integer"
+                            },
+                            "indexed_chunk_count": {
+                              "type": "integer"
+                            },
+                            "operation": {
+                              "type": "string"
+                            },
+                            "owner_subject": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "integer"
+                            },
+                            "visibility": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "error": {
+                        "type": "object",
+                        "required": [
+                          "code",
+                          "message"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "filename": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "partial_failure": {
+                  "type": "boolean"
                 }
               }
             }
@@ -2483,7 +3830,7 @@
     "/api/v1/dataset/{id}/documents/{docId}/enabled": {
       "patch": {
         "consumes": [
-          "application/x-www-form-urlencoded"
+          "application/json"
         ],
         "produces": [
           "application/json"
@@ -2506,6 +3853,22 @@
             "name": "docId",
             "in": "path",
             "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "enabled"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -3171,6 +4534,2624 @@
         }
       }
     },
+    "/api/v1/eval-runs/{runId}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetEvalRun",
+        "operationId": "console/EvalGetEvalRun",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "runId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "case_id",
+                      "question",
+                      "answer",
+                      "score",
+                      "passed",
+                      "latency_ms"
+                    ],
+                    "properties": {
+                      "answer": {
+                        "type": "string"
+                      },
+                      "case_id": {
+                        "type": "integer"
+                      },
+                      "latency_ms": {
+                        "type": "integer"
+                      },
+                      "passed": {
+                        "type": "boolean"
+                      },
+                      "question": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                "run": {
+                  "type": "object",
+                  "required": [
+                    "run_id",
+                    "status",
+                    "total",
+                    "completed",
+                    "passed",
+                    "score",
+                    "started_at"
+                  ],
+                  "properties": {
+                    "completed": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "finished_at": {
+                      "type": "integer"
+                    },
+                    "passed": {
+                      "type": "integer"
+                    },
+                    "run_id": {
+                      "type": "string"
+                    },
+                    "score": {
+                      "type": "number"
+                    },
+                    "started_at": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eval-sets": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListEvalSets",
+        "operationId": "console/EvalListEvalSets",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "keyword",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "description",
+                      "agent_key",
+                      "case_count",
+                      "last_score",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "agent_key": {
+                        "type": "string"
+                      },
+                      "case_count": {
+                        "type": "integer"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "last_run_at": {
+                        "type": "integer"
+                      },
+                      "last_score": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "CreateEvalSet",
+        "operationId": "console/EvalCreateEvalSet",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "agent_key": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "agent_key": {
+                  "type": "string"
+                },
+                "case_count": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "last_run_at": {
+                  "type": "integer"
+                },
+                "last_score": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eval-sets/{id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetEvalSet",
+        "operationId": "console/EvalGetEvalSet",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "agent_key": {
+                  "type": "string"
+                },
+                "case_count": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "last_run_at": {
+                  "type": "integer"
+                },
+                "last_score": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteEvalSet",
+        "operationId": "console/EvalDeleteEvalSet",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eval-sets/{id}/cases": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListEvalCases",
+        "operationId": "console/EvalListEvalCases",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "question",
+                      "expected_answer",
+                      "tags",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "expected_answer": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "question": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "CreateEvalCase",
+        "operationId": "console/EvalCreateEvalCase",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "question",
+                "expected_answer"
+              ],
+              "properties": {
+                "expected_answer": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "expected_answer": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eval-sets/{id}/cases/{caseId}": {
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteEvalCase",
+        "operationId": "console/EvalDeleteEvalCase",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "name": "caseId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/eval-sets/{id}/runs": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListEvalRuns",
+        "operationId": "console/EvalListEvalRuns",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "run_id",
+                      "status",
+                      "total",
+                      "completed",
+                      "passed",
+                      "score",
+                      "started_at"
+                    ],
+                    "properties": {
+                      "completed": {
+                        "type": "integer"
+                      },
+                      "error": {
+                        "type": "string"
+                      },
+                      "finished_at": {
+                        "type": "integer"
+                      },
+                      "passed": {
+                        "type": "integer"
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "number"
+                      },
+                      "started_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "total": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "StartEvalRun",
+        "operationId": "console/EvalStartEvalRun",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "run_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feedback": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListFeedback",
+        "operationId": "console/FeedbackListFeedback",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "run_id",
+                      "session_id",
+                      "subject",
+                      "rating",
+                      "comment",
+                      "label",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "comment": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "rating": {
+                        "type": "string"
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "session_id": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feedback/{id}": {
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "LabelFeedback",
+        "operationId": "console/FeedbackLabelFeedback",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "label"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "comment": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "rating": {
+                  "type": "string"
+                },
+                "run_id": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/model-providers": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListModelProviders",
+        "operationId": "console/ModelListModelProviders",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name",
+                      "base_url",
+                      "auth_type",
+                      "has_secret",
+                      "enabled",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "auth_type": {
+                        "type": "string"
+                      },
+                      "base_url": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "has_secret": {
+                        "type": "boolean"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/model-providers/{key}": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "UpsertModelProvider",
+        "operationId": "console/ModelUpsertModelProvider",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "name",
+                "base_url",
+                "auth_type"
+              ],
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "base_url": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "base_url": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "has_secret": {
+                  "type": "boolean"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteModelProvider",
+        "operationId": "console/ModelDeleteModelProvider",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/model-routing": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetModelRouting",
+        "operationId": "console/ModelGetModelRouting",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "default_chat_model": {
+                  "type": "string"
+                },
+                "default_embedding_model": {
+                  "type": "string"
+                },
+                "fallback_chain": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "PutModelRouting",
+        "operationId": "console/ModelPutModelRouting",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "default_chat_model",
+                "default_embedding_model"
+              ],
+              "properties": {
+                "default_chat_model": {
+                  "type": "string"
+                },
+                "default_embedding_model": {
+                  "type": "string"
+                },
+                "fallback_chain": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "default_chat_model": {
+                  "type": "string"
+                },
+                "default_embedding_model": {
+                  "type": "string"
+                },
+                "fallback_chain": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListModels",
+        "operationId": "console/ModelListModels",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "kind",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "provider_key",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "provider_key",
+                      "kind",
+                      "context_window",
+                      "max_output_tokens",
+                      "input_price_micros_per_k",
+                      "output_price_micros_per_k",
+                      "enabled",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "context_window": {
+                        "type": "integer"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "input_price_micros_per_k": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "max_output_tokens": {
+                        "type": "integer"
+                      },
+                      "output_price_micros_per_k": {
+                        "type": "integer"
+                      },
+                      "provider_key": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/models/{key}": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "UpsertModel",
+        "operationId": "console/ModelUpsertModel",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "provider_key",
+                "kind"
+              ],
+              "properties": {
+                "context_window": {
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "input_price_micros_per_k": {
+                  "type": "integer"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "max_output_tokens": {
+                  "type": "integer"
+                },
+                "output_price_micros_per_k": {
+                  "type": "integer"
+                },
+                "provider_key": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "context_window": {
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "input_price_micros_per_k": {
+                  "type": "integer"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "max_output_tokens": {
+                  "type": "integer"
+                },
+                "output_price_micros_per_k": {
+                  "type": "integer"
+                },
+                "provider_key": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteModel",
+        "operationId": "console/ModelDeleteModel",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/models/{key}/enabled": {
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "EnableModel",
+        "operationId": "console/ModelEnableModel",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "enabled"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "context_window": {
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "input_price_micros_per_k": {
+                  "type": "integer"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "max_output_tokens": {
+                  "type": "integer"
+                },
+                "output_price_micros_per_k": {
+                  "type": "integer"
+                },
+                "provider_key": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/org-units": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListOrgUnits",
+        "operationId": "console/OrgListOrgUnits",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "parent_id",
+                      "path",
+                      "member_count",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "member_count": {
+                        "type": "integer"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "parent_id": {
+                        "type": "integer"
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "CreateOrgUnit",
+        "operationId": "console/OrgCreateOrgUnit",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "parent_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "member_count": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "parent_id": {
+                  "type": "integer"
+                },
+                "path": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/org-units/{id}": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "UpdateOrgUnit",
+        "operationId": "console/OrgUpdateOrgUnit",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "parent_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "member_count": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "parent_id": {
+                  "type": "integer"
+                },
+                "path": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteOrgUnit",
+        "operationId": "console/OrgDeleteOrgUnit",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/org-units/{id}/members": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListOrgMembers",
+        "operationId": "console/OrgListOrgMembers",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "subject",
+                      "username",
+                      "nickname",
+                      "role",
+                      "joined_at"
+                    ],
+                    "properties": {
+                      "joined_at": {
+                        "type": "integer"
+                      },
+                      "nickname": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "username": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "AddOrgMember",
+        "operationId": "console/OrgAddOrgMember",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "subject"
+              ],
+              "properties": {
+                "subject": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "joined_at": {
+                  "type": "integer"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/org-units/{id}/members/{subject}": {
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "RemoveOrgMember",
+        "operationId": "console/OrgRemoveOrgMember",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "subject",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/overview": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetOverview",
+        "operationId": "console/OverviewGetOverview",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "days",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "kpi": {
+                  "type": "object",
+                  "required": [
+                    "sessions",
+                    "messages",
+                    "runs",
+                    "tokens_in",
+                    "tokens_out",
+                    "cost_micros",
+                    "pending_approvals",
+                    "failed_runs"
+                  ],
+                  "properties": {
+                    "cost_micros": {
+                      "type": "integer"
+                    },
+                    "failed_runs": {
+                      "type": "integer"
+                    },
+                    "messages": {
+                      "type": "integer"
+                    },
+                    "pending_approvals": {
+                      "type": "integer"
+                    },
+                    "runs": {
+                      "type": "integer"
+                    },
+                    "sessions": {
+                      "type": "integer"
+                    },
+                    "tokens_in": {
+                      "type": "integer"
+                    },
+                    "tokens_out": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "recent_fails": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "run_id",
+                      "session_id",
+                      "agent_key",
+                      "agent_version",
+                      "subject",
+                      "subject_name",
+                      "status",
+                      "steps",
+                      "tool_calls",
+                      "tokens_in",
+                      "tokens_out",
+                      "latency_ms",
+                      "cost_micros",
+                      "started_at"
+                    ],
+                    "properties": {
+                      "agent_key": {
+                        "type": "string"
+                      },
+                      "agent_version": {
+                        "type": "integer"
+                      },
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "error": {
+                        "type": "string"
+                      },
+                      "finished_at": {
+                        "type": "integer"
+                      },
+                      "latency_ms": {
+                        "type": "integer"
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "session_id": {
+                        "type": "string"
+                      },
+                      "started_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "steps": {
+                        "type": "integer"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "subject_name": {
+                        "type": "string"
+                      },
+                      "tokens_in": {
+                        "type": "integer"
+                      },
+                      "tokens_out": {
+                        "type": "integer"
+                      },
+                      "tool_calls": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "top_agents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name",
+                      "runs",
+                      "cost_micros"
+                    ],
+                    "properties": {
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "top_datasets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name",
+                      "runs",
+                      "cost_micros"
+                    ],
+                    "properties": {
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "trend": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "bucket",
+                      "runs",
+                      "tokens",
+                      "cost_micros"
+                    ],
+                    "properties": {
+                      "bucket": {
+                        "type": "string"
+                      },
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      },
+                      "tokens": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/password-policy": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetPasswordPolicy",
+        "operationId": "console/SecurityGetPasswordPolicy",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "history_count": {
+                  "type": "integer"
+                },
+                "lockout_seconds": {
+                  "type": "integer"
+                },
+                "max_age_days": {
+                  "type": "integer"
+                },
+                "max_failed_attempts": {
+                  "type": "integer"
+                },
+                "min_length": {
+                  "type": "integer"
+                },
+                "require_digit": {
+                  "type": "boolean"
+                },
+                "require_lower": {
+                  "type": "boolean"
+                },
+                "require_symbol": {
+                  "type": "boolean"
+                },
+                "require_upper": {
+                  "type": "boolean"
+                },
+                "session_ttl_hours": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "PutPasswordPolicy",
+        "operationId": "console/SecurityPutPasswordPolicy",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "min_length",
+                "require_upper",
+                "require_lower",
+                "require_digit",
+                "require_symbol",
+                "max_age_days",
+                "history_count",
+                "max_failed_attempts",
+                "lockout_seconds",
+                "session_ttl_hours"
+              ],
+              "properties": {
+                "history_count": {
+                  "type": "integer"
+                },
+                "lockout_seconds": {
+                  "type": "integer"
+                },
+                "max_age_days": {
+                  "type": "integer"
+                },
+                "max_failed_attempts": {
+                  "type": "integer"
+                },
+                "min_length": {
+                  "type": "integer"
+                },
+                "require_digit": {
+                  "type": "boolean"
+                },
+                "require_lower": {
+                  "type": "boolean"
+                },
+                "require_symbol": {
+                  "type": "boolean"
+                },
+                "require_upper": {
+                  "type": "boolean"
+                },
+                "session_ttl_hours": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "history_count": {
+                  "type": "integer"
+                },
+                "lockout_seconds": {
+                  "type": "integer"
+                },
+                "max_age_days": {
+                  "type": "integer"
+                },
+                "max_failed_attempts": {
+                  "type": "integer"
+                },
+                "min_length": {
+                  "type": "integer"
+                },
+                "require_digit": {
+                  "type": "boolean"
+                },
+                "require_lower": {
+                  "type": "boolean"
+                },
+                "require_symbol": {
+                  "type": "boolean"
+                },
+                "require_upper": {
+                  "type": "boolean"
+                },
+                "session_ttl_hours": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListRuns",
+        "operationId": "console/RunListRuns",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "subject",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "agent_key",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "from_ms",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "to_ms",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "run_id",
+                      "session_id",
+                      "agent_key",
+                      "agent_version",
+                      "subject",
+                      "subject_name",
+                      "status",
+                      "steps",
+                      "tool_calls",
+                      "tokens_in",
+                      "tokens_out",
+                      "latency_ms",
+                      "cost_micros",
+                      "started_at"
+                    ],
+                    "properties": {
+                      "agent_key": {
+                        "type": "string"
+                      },
+                      "agent_version": {
+                        "type": "integer"
+                      },
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "error": {
+                        "type": "string"
+                      },
+                      "finished_at": {
+                        "type": "integer"
+                      },
+                      "latency_ms": {
+                        "type": "integer"
+                      },
+                      "run_id": {
+                        "type": "string"
+                      },
+                      "session_id": {
+                        "type": "string"
+                      },
+                      "started_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "steps": {
+                        "type": "integer"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "subject_name": {
+                        "type": "string"
+                      },
+                      "tokens_in": {
+                        "type": "integer"
+                      },
+                      "tokens_out": {
+                        "type": "integer"
+                      },
+                      "tool_calls": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{runId}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetRun",
+        "operationId": "console/RunGetRun",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "runId",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "hits": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "chunk_id",
+                      "document_id",
+                      "source",
+                      "title",
+                      "heading_path",
+                      "content",
+                      "score"
+                    ],
+                    "properties": {
+                      "chunk_id": {
+                        "type": "integer"
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "content_truncated": {
+                        "type": "boolean"
+                      },
+                      "document_id": {
+                        "type": "integer"
+                      },
+                      "heading_path": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "number"
+                      },
+                      "source": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "role",
+                      "content",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "content": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "role": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "run": {
+                  "type": "object",
+                  "required": [
+                    "run_id",
+                    "session_id",
+                    "agent_key",
+                    "agent_version",
+                    "subject",
+                    "subject_name",
+                    "status",
+                    "steps",
+                    "tool_calls",
+                    "tokens_in",
+                    "tokens_out",
+                    "latency_ms",
+                    "cost_micros",
+                    "started_at"
+                  ],
+                  "properties": {
+                    "agent_key": {
+                      "type": "string"
+                    },
+                    "agent_version": {
+                      "type": "integer"
+                    },
+                    "cost_micros": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "finished_at": {
+                      "type": "integer"
+                    },
+                    "latency_ms": {
+                      "type": "integer"
+                    },
+                    "run_id": {
+                      "type": "string"
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "started_at": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "steps": {
+                      "type": "integer"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "subject_name": {
+                      "type": "string"
+                    },
+                    "tokens_in": {
+                      "type": "integer"
+                    },
+                    "tokens_out": {
+                      "type": "integer"
+                    },
+                    "tool_calls": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "spans": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "span_id",
+                      "kind",
+                      "name",
+                      "status",
+                      "latency_ms",
+                      "tokens_in",
+                      "tokens_out",
+                      "started_at"
+                    ],
+                    "properties": {
+                      "error": {
+                        "type": "string"
+                      },
+                      "input": {
+                        "type": "string"
+                      },
+                      "input_truncated": {
+                        "type": "boolean"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "latency_ms": {
+                        "type": "integer"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "output": {
+                        "type": "string"
+                      },
+                      "output_truncated": {
+                        "type": "boolean"
+                      },
+                      "parent_id": {
+                        "type": "string"
+                      },
+                      "span_id": {
+                        "type": "string"
+                      },
+                      "started_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "tokens_in": {
+                        "type": "integer"
+                      },
+                      "tokens_out": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions": {
       "get": {
         "produces": [
@@ -3376,6 +7357,697 @@
         }
       }
     },
+    "/api/v1/tools": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ListTools",
+        "operationId": "console/ToolListTools",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "keyword",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "kind",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "risk_tier",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "enabled",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name",
+                      "kind",
+                      "description",
+                      "risk_tier",
+                      "enabled",
+                      "auth_type",
+                      "has_secret",
+                      "timeout_ms",
+                      "runs",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "auth_type": {
+                        "type": "string"
+                      },
+                      "config_schema": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "has_secret": {
+                        "type": "boolean"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "risk_tier": {
+                        "type": "string"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      },
+                      "timeout_ms": {
+                        "type": "integer"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "CreateTool",
+        "operationId": "console/ToolCreateTool",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "key",
+                "name",
+                "kind"
+              ],
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "string"
+                },
+                "timeout_ms": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "config_schema": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "has_secret": {
+                  "type": "boolean"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "timeout_ms": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/{key}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetTool",
+        "operationId": "console/ToolGetTool",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "config_schema": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "has_secret": {
+                  "type": "boolean"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "timeout_ms": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "UpdateTool",
+        "operationId": "console/ToolUpdateTool",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "string"
+                },
+                "timeout_ms": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "config_schema": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "has_secret": {
+                  "type": "boolean"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "timeout_ms": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "DeleteTool",
+        "operationId": "console/ToolDeleteTool",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/{key}/enabled": {
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "EnableTool",
+        "operationId": "console/ToolEnableTool",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "enabled"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_type": {
+                  "type": "string"
+                },
+                "config_schema": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "has_secret": {
+                  "type": "boolean"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "risk_tier": {
+                  "type": "string"
+                },
+                "runs": {
+                  "type": "integer"
+                },
+                "timeout_ms": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/{key}/test": {
+      "post": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "TestTool",
+        "operationId": "console/ToolTestTool",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "key",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "latency_ms": {
+                  "type": "integer"
+                },
+                "ok": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usage": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "GetUsage",
+        "operationId": "console/UsageGetUsage",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "from_ms",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "to_ms",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "interval",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "group_by",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "key",
+                      "name",
+                      "runs",
+                      "tokens_in",
+                      "tokens_out",
+                      "cost_micros"
+                    ],
+                    "properties": {
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      },
+                      "tokens_in": {
+                        "type": "integer"
+                      },
+                      "tokens_out": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "totals": {
+                  "type": "object",
+                  "required": [
+                    "runs",
+                    "tokens_in",
+                    "tokens_out",
+                    "cost_micros"
+                  ],
+                  "properties": {
+                    "cost_micros": {
+                      "type": "integer"
+                    },
+                    "runs": {
+                      "type": "integer"
+                    },
+                    "tokens_in": {
+                      "type": "integer"
+                    },
+                    "tokens_out": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "trend": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "bucket",
+                      "bucket_start_ms",
+                      "runs",
+                      "tokens",
+                      "cost_micros"
+                    ],
+                    "properties": {
+                      "bucket": {
+                        "type": "string"
+                      },
+                      "bucket_start_ms": {
+                        "type": "integer"
+                      },
+                      "cost_micros": {
+                        "type": "integer"
+                      },
+                      "runs": {
+                        "type": "integer"
+                      },
+                      "tokens": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
         "produces": [
@@ -3528,6 +8200,9 @@
     },
     "/api/v1/users/sync": {
       "post": {
+        "consumes": [
+          "application/json"
+        ],
         "produces": [
           "application/json"
         ],
@@ -3535,8 +8210,210 @@
           "http",
           "https"
         ],
-        "summary": "从外部数据源同步账号（占位：当前恒返回 501 not_implemented）",
+        "summary": "从已配置的外部数据源同步账号（只新增/更新，不删除；支持 dry-run）",
         "operationId": "userSyncUsers",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "dryRun": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created": {
+                  "type": "integer"
+                },
+                "createdUsers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "externalId",
+                      "username",
+                      "initialPassword"
+                    ],
+                    "properties": {
+                      "externalId": {
+                        "type": "string"
+                      },
+                      "initialPassword": {
+                        "type": "string"
+                      },
+                      "username": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "dryRun": {
+                  "type": "boolean"
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "reason"
+                    ],
+                    "properties": {
+                      "externalId": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "username": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "failed": {
+                  "type": "integer"
+                },
+                "skipped": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                },
+                "updated": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "UpdateUser",
+        "operationId": "userUpdateUser",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "nickname": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "must_change_password": {
+                  "type": "boolean"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/password": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "ResetUserPassword",
+        "operationId": "userResetUserPassword",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "password"
+              ],
+              "properties": {
+                "password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -3608,7 +8485,7 @@
       }
     }
   },
-  "x-date": "2026-10-06 16:26:00",
+  "x-date": "2026-10-09 10:12:06",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

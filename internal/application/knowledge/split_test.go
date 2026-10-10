@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"eino-quickstart/internal/rag/constant"
+	"eino-quickstart/internal/rag/parser/llmsplit"
 )
 
 // 一份典型的多产品型录：两块之间只靠 ```` ```yaml ```` 围栏分隔。
@@ -179,5 +180,35 @@ func TestSpecFingerprintCoversBodyAndMetadata(t *testing.T) {
 	}
 	if specFingerprint(body, metadata) == specFingerprint(body, map[string]any{"model": "H105G"}) {
 		t.Fatal("元数据变了指纹必须跟着变")
+	}
+}
+
+func TestBuildLLMProductDocumentsCarriesReplayBoundary(t *testing.T) {
+	products := []llmsplit.Product{
+		{ProductID: "P-1", Name: "铰链", Content: "规格 A"},
+		{Model: "M-2", Content: "规格 B", Metadata: map[string]any{"series_name": "系列 2"}},
+	}
+	specs, err := buildLLMProductDocuments(products, "无头信息原文", "型录", "p16-v1", "split-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(specs) != 2 || specs[0].Key != "P-1" || specs[1].Key != "M-2" {
+		t.Fatalf("unexpected specs: %#v", specs)
+	}
+	if specs[0].Metadata["_product_splitter_version"] != "p16-v1" || specs[0].Metadata["_product_splitter_input_sha256"] == "" {
+		t.Fatalf("replay metadata missing: %#v", specs[0].Metadata)
+	}
+	if specs[0].Fingerprint == specs[1].Fingerprint {
+		t.Fatal("different products must not share fingerprint")
+	}
+}
+
+func TestBuildLLMProductDocumentsRejectsDuplicateKeys(t *testing.T) {
+	_, err := buildLLMProductDocuments([]llmsplit.Product{
+		{ProductID: "P-1", Content: "a"},
+		{Model: "P-1", Content: "b"},
+	}, "input", "title", "v1", "model")
+	if err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("expected duplicate key error, got %v", err)
 	}
 }

@@ -7,11 +7,13 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"eino-quickstart/ent"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag/store/milvus"
+	"eino-quickstart/internal/rag/store/postgres"
 
 	"github.com/cloudwego/eino-ext/components/embedding/openai"
 	"github.com/cloudwego/eino/components/embedding"
@@ -57,6 +59,10 @@ func (f *fakeChunkStore) ChunksByIDs(_ context.Context, ids []int64) ([]*ent.Doc
 }
 
 func (f *fakeChunkStore) SearchChunks(context.Context, []string, int) ([]*ent.DocumentChunk, error) {
+	return nil, nil
+}
+
+func (f *fakeChunkStore) SearchExact(context.Context, string, []es.ExactField, postgres.ExactSearchFilter, int) ([]es.ChunkHit, error) {
 	return nil, nil
 }
 
@@ -575,4 +581,106 @@ func docIDs(docs []*schema.Document) []string {
 		ids = append(ids, doc.ID)
 	}
 	return ids
+}
+
+type fakeReranker struct {
+	calls   int
+	seen    int
+	err     error
+	block   <-chan struct{}
+	reverse bool
+}
+
+func (f *fakeReranker) Rerank(ctx context.Context, _ string, docs []*schema.Document) ([]*schema.Document, error) {
+	f.calls++
+	f.seen = len(docs)
+	if f.block != nil {
+		select {
+		case <-f.block:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := append([]*schema.Document(nil), docs...)
+	if f.reverse {
+		for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+			out[i], out[j] = out[j], out[i]
+		}
+	}
+	return out, nil
+}
+
+func TestRerankIsBoundedAndReportShowsApplied(t *testing.T) {
+	store := &Store{
+		PgStore: &fakeChunkStore{byID: map[uint64]*ent.DocumentChunk{
+			1: chunkIn(1, 7, true), 2: chunkIn(2, 7, true), 3: chunkIn(3, 7, true),
+		}},
+		MilvusStore: &fakeVectorStore{},
+		Keyword: &fakeKeyword{bm25Hits: []es.ChunkHit{
+			{ChunkID: 1, Score: 9}, {ChunkID: 2, Score: 8}, {ChunkID: 3, Score: 7},
+		}},
+	}
+	ranker := &fakeReranker{reverse: true}
+	hybrid := newRetriever(t, store, &fakeEmbedding{err: errors.New("不参与本用例")}, HybridConfig{
+		TopK: 3, Reranker: ranker, MaxRerankCandidates: 2, RerankTimeout: time.Second,
+	})
+	docs, report, err := hybrid.RetrieveDetailed(context.Background(), "query")
+	if err != nil {
+		t.Fatalf("检索失败: %v", err)
+	}
+	if ranker.seen != 2 || report.Rerank.Candidates != 2 {
+		t.Fatalf("候选上限未生效: seen=%d report=%+v", ranker.seen, report.Rerank)
+	}
+	if !report.Rerank.Applied || report.Rerank.Err != "" {
+		t.Fatalf("重排台账不对: %+v", report.Rerank)
+	}
+	if len(docs) != 3 || docs[0].ID != "2" || docs[1].ID != "1" || docs[2].ID != "3" {
+		t.Fatalf("只应重排前两条，实际 %v", docIDs(docs))
+	}
+}
+
+func TestRerankFailureAndTimeoutKeepFusedResults(t *testing.T) {
+	makeRetriever := func(r Reranker, timeout time.Duration) *HybridRetriever {
+		store := &Store{
+			PgStore:     &fakeChunkStore{byID: map[uint64]*ent.DocumentChunk{1: chunkIn(1, 7, true)}},
+			MilvusStore: &fakeVectorStore{},
+			Keyword:     &fakeKeyword{bm25Hits: []es.ChunkHit{{ChunkID: 1, Score: 9}}},
+		}
+		return newRetriever(t, store, &fakeEmbedding{err: errors.New("不参与本用例")}, HybridConfig{TopK: 5, Reranker: r, RerankTimeout: timeout})
+	}
+	failed := &fakeReranker{err: errors.New("upstream unavailable")}
+	docs, report, err := makeRetriever(failed, time.Second).RetrieveDetailed(context.Background(), "query")
+	if err != nil || len(docs) != 1 || report.Rerank.Applied || report.Rerank.Err == "" {
+		t.Fatalf("失败重排不应吞掉召回: docs=%v report=%+v err=%v", docIDs(docs), report.Rerank, err)
+	}
+
+	block := make(chan struct{})
+	timed := &fakeReranker{block: block}
+	docs, report, err = makeRetriever(timed, 5*time.Millisecond).RetrieveDetailed(context.Background(), "query")
+	if err != nil || len(docs) != 1 || report.Rerank.Applied || report.Rerank.Err == "" {
+		t.Fatalf("超时重排不应返回空: docs=%v report=%+v err=%v", docIDs(docs), report.Rerank, err)
+	}
+}
+
+func TestRerankInvalidSubsetIsRejected(t *testing.T) {
+	store := &Store{
+		PgStore:     &fakeChunkStore{byID: map[uint64]*ent.DocumentChunk{1: chunkIn(1, 7, true)}},
+		MilvusStore: &fakeVectorStore{},
+		Keyword:     &fakeKeyword{bm25Hits: []es.ChunkHit{{ChunkID: 1, Score: 9}}},
+	}
+	invalid := &invalidReranker{}
+	hybrid := newRetriever(t, store, &fakeEmbedding{err: errors.New("不参与本用例")}, HybridConfig{TopK: 5, Reranker: invalid})
+	docs, report, err := hybrid.RetrieveDetailed(context.Background(), "query")
+	if err != nil || len(docs) != 1 || report.Rerank.Applied || report.Rerank.Err == "" {
+		t.Fatalf("非法排序必须降级: docs=%v report=%+v err=%v", docIDs(docs), report.Rerank, err)
+	}
+}
+
+type invalidReranker struct{}
+
+func (*invalidReranker) Rerank(context.Context, string, []*schema.Document) ([]*schema.Document, error) {
+	return []*schema.Document{{ID: "outside"}}, nil
 }

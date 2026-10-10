@@ -13,6 +13,7 @@ import (
 	"eino-quickstart/internal/rag"
 	"eino-quickstart/internal/rag/constant"
 	ragparser "eino-quickstart/internal/rag/parser"
+	"eino-quickstart/internal/rag/parser/llmsplit"
 )
 
 // productStemSuffixLen 是文件名主干里补在可读前缀之后的哈希长度。
@@ -93,6 +94,44 @@ func buildProductDocuments(content, fallbackTitle string) ([]productDocument, er
 			Content:     block.Content,
 			Metadata:    block.Metadata,
 			Fingerprint: specFingerprint(block.Content, block.Metadata),
+		})
+	}
+	return specs, nil
+}
+
+// buildLLMProductDocuments 把无 front-matter 的模型输出变成与结构化产品块
+// 完全相同的落库规格。输入、解析器版本和模型摘要会进入元数据/指纹，使重放
+// 可判断、版本升级可显式触发重切。
+func buildLLMProductDocuments(products []llmsplit.Product, input, fallbackTitle, parserVersion, model string) ([]productDocument, error) {
+	normalized, err := llmsplit.Normalize(products, llmsplit.DefaultMaxProducts)
+	if err != nil {
+		return nil, invalid("LLM 产品拆分结果无效：%v", err)
+	}
+	inputHash := llmsplit.InputFingerprint(input, parserVersion, model)
+	specs := make([]productDocument, 0, len(normalized))
+	seen := make(map[string]int, len(normalized))
+	for index, product := range normalized {
+		metadata := make(map[string]any, len(product.Metadata)+2)
+		for key, value := range product.Metadata {
+			metadata[key] = value
+		}
+		metadata["_product_splitter_version"] = strings.TrimSpace(parserVersion)
+		metadata["_product_splitter_input_sha256"] = inputHash
+		key := productKey(metadata)
+		if key == "" {
+			return nil, invalid("LLM 产品拆分结果第 %d 项缺少 product_id/model", index+1)
+		}
+		if first, duplicated := seen[key]; duplicated {
+			return nil, invalid("LLM 产品拆分结果出现重复产品型号 %q（第 %d 个与第 %d 个）", key, first+1, index+1)
+		}
+		seen[key] = index
+		specs = append(specs, productDocument{
+			Key:         key,
+			Title:       productTitle(metadata, fallbackTitle, index),
+			Stem:        productStem(key),
+			Content:     product.Content,
+			Metadata:    metadata,
+			Fingerprint: specFingerprint(product.Content, metadata),
 		})
 	}
 	return specs, nil

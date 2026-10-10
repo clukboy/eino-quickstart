@@ -16,10 +16,18 @@ type Tx struct {
 	config
 	// AgentDataset is the client for interacting with the AgentDataset builders.
 	AgentDataset *AgentDatasetClient
+	// AgentDef is the client for interacting with the AgentDef builders.
+	AgentDef *AgentDefClient
+	// AgentDefDataset is the client for interacting with the AgentDefDataset builders.
+	AgentDefDataset *AgentDefDatasetClient
 	// AgentRun is the client for interacting with the AgentRun builders.
 	AgentRun *AgentRunClient
+	// AgentVersion is the client for interacting with the AgentVersion builders.
+	AgentVersion *AgentVersionClient
 	// Approval is the client for interacting with the Approval builders.
 	Approval *ApprovalClient
+	// ApprovalPolicy is the client for interacting with the ApprovalPolicy builders.
+	ApprovalPolicy *ApprovalPolicyClient
 	// AuditEvent is the client for interacting with the AuditEvent builders.
 	AuditEvent *AuditEventClient
 	// ChatTurn is the client for interacting with the ChatTurn builders.
@@ -32,14 +40,38 @@ type Tx struct {
 	Document *DocumentClient
 	// DocumentChunk is the client for interacting with the DocumentChunk builders.
 	DocumentChunk *DocumentChunkClient
-	// KnowledgeFolder is the client for interacting with the KnowledgeFolder builders.
-	KnowledgeFolder *KnowledgeFolderClient
-	// KnowledgeIndex is the client for interacting with the KnowledgeIndex builders.
-	KnowledgeIndex *KnowledgeIndexClient
+	// EvalCase is the client for interacting with the EvalCase builders.
+	EvalCase *EvalCaseClient
+	// EvalCaseResult is the client for interacting with the EvalCaseResult builders.
+	EvalCaseResult *EvalCaseResultClient
+	// EvalRun is the client for interacting with the EvalRun builders.
+	EvalRun *EvalRunClient
+	// EvalSet is the client for interacting with the EvalSet builders.
+	EvalSet *EvalSetClient
+	// Feedback is the client for interacting with the Feedback builders.
+	Feedback *FeedbackClient
+	// Model is the client for interacting with the Model builders.
+	Model *ModelClient
+	// ModelProvider is the client for interacting with the ModelProvider builders.
+	ModelProvider *ModelProviderClient
+	// ModelRouting is the client for interacting with the ModelRouting builders.
+	ModelRouting *ModelRoutingClient
+	// OrgMember is the client for interacting with the OrgMember builders.
+	OrgMember *OrgMemberClient
+	// OrgUnit is the client for interacting with the OrgUnit builders.
+	OrgUnit *OrgUnitClient
+	// PasswordPolicy is the client for interacting with the PasswordPolicy builders.
+	PasswordPolicy *PasswordPolicyClient
+	// RunRetrievalHit is the client for interacting with the RunRetrievalHit builders.
+	RunRetrievalHit *RunRetrievalHitClient
+	// RunSpan is the client for interacting with the RunSpan builders.
+	RunSpan *RunSpanClient
 	// Session is the client for interacting with the Session builders.
 	Session *SessionClient
 	// SessionMessage is the client for interacting with the SessionMessage builders.
 	SessionMessage *SessionMessageClient
+	// Tool is the client for interacting with the Tool builders.
+	Tool *ToolClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 
@@ -174,18 +206,34 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.AgentDataset = NewAgentDatasetClient(tx.config)
+	tx.AgentDef = NewAgentDefClient(tx.config)
+	tx.AgentDefDataset = NewAgentDefDatasetClient(tx.config)
 	tx.AgentRun = NewAgentRunClient(tx.config)
+	tx.AgentVersion = NewAgentVersionClient(tx.config)
 	tx.Approval = NewApprovalClient(tx.config)
+	tx.ApprovalPolicy = NewApprovalPolicyClient(tx.config)
 	tx.AuditEvent = NewAuditEventClient(tx.config)
 	tx.ChatTurn = NewChatTurnClient(tx.config)
 	tx.Checkpoint = NewCheckpointClient(tx.config)
 	tx.Dataset = NewDatasetClient(tx.config)
 	tx.Document = NewDocumentClient(tx.config)
 	tx.DocumentChunk = NewDocumentChunkClient(tx.config)
-	tx.KnowledgeFolder = NewKnowledgeFolderClient(tx.config)
-	tx.KnowledgeIndex = NewKnowledgeIndexClient(tx.config)
+	tx.EvalCase = NewEvalCaseClient(tx.config)
+	tx.EvalCaseResult = NewEvalCaseResultClient(tx.config)
+	tx.EvalRun = NewEvalRunClient(tx.config)
+	tx.EvalSet = NewEvalSetClient(tx.config)
+	tx.Feedback = NewFeedbackClient(tx.config)
+	tx.Model = NewModelClient(tx.config)
+	tx.ModelProvider = NewModelProviderClient(tx.config)
+	tx.ModelRouting = NewModelRoutingClient(tx.config)
+	tx.OrgMember = NewOrgMemberClient(tx.config)
+	tx.OrgUnit = NewOrgUnitClient(tx.config)
+	tx.PasswordPolicy = NewPasswordPolicyClient(tx.config)
+	tx.RunRetrievalHit = NewRunRetrievalHitClient(tx.config)
+	tx.RunSpan = NewRunSpanClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.SessionMessage = NewSessionMessageClient(tx.config)
+	tx.Tool = NewToolClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 }
 

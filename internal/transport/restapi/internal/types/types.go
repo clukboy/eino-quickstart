@@ -3,9 +3,48 @@
 
 package types
 
+type AddOrgMemberReq struct {
+	ID      uint64 `path:"id"`
+	Subject string `json:"subject"`
+}
+
 type AgentDatasetReq struct {
 	Subject string `path:"subject"`
 	ID      uint64 `path:"id"`
+}
+
+type AgentDefIDReq struct {
+	ID uint64 `path:"id"`
+}
+
+type AgentDefListReq struct {
+	Keyword  string `form:"keyword,optional"`
+	Status   string `form:"status,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type AgentDefListResp struct {
+	Data     []*AgentDefResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
+type AgentDefResp struct {
+	ID               uint64 `json:"id"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	Owner            string `json:"owner"`
+	OwnerName        string `json:"owner_name"`
+	Status           string `json:"status"`
+	CurrentVersion   int    `json:"current_version"`
+	PublishedVersion int    `json:"published_version"`
+	Model            string `json:"model"`
+	RiskTier         string `json:"risk_tier"`
+	Runs             int    `json:"runs"`
+	CreatedAt        int64  `json:"created_at"`
+	UpdatedAt        int64  `json:"updated_at"`
 }
 
 type AgentListReq struct {
@@ -30,6 +69,29 @@ type AgentSubjectResp struct {
 	Username string `json:"username,omitempty"`
 	Nickname string `json:"nickname,omitempty"`
 	Role     string `json:"role,omitempty"`
+}
+
+type AgentVersionListResp struct {
+	Data []*AgentVersionResp `json:"data"`
+}
+
+type AgentVersionPathReq struct {
+	ID      uint64 `path:"id"`
+	Version int    `path:"version"`
+}
+
+type AgentVersionResp struct {
+	Version       int      `json:"version"`
+	SystemPrompt  string   `json:"system_prompt"`
+	Model         string   `json:"model"`
+	Temperature   float64  `json:"temperature"`
+	MaxIterations int      `json:"max_iterations"`
+	ToolKeys      []string `json:"tool_keys"`
+	DatasetIDs    []uint64 `json:"dataset_ids"`
+	Status        string   `json:"status"`
+	ChangeNote    string   `json:"change_note,optional"`
+	CreatedBy     string   `json:"created_by"`
+	CreatedAt     int64    `json:"created_at"`
 }
 
 type AnonymousTokenReq struct {
@@ -66,6 +128,22 @@ type ApprovalPathReq struct {
 	ID string `path:"id"`
 }
 
+type ApprovalPolicyListResp struct {
+	Data []*ApprovalPolicyResp `json:"data"`
+}
+
+type ApprovalPolicyResp struct {
+	ToolKey        string   `json:"tool_key"`
+	RiskTier       string   `json:"risk_tier"`
+	Mode           string   `json:"mode"`
+	ApproverRoles  []string `json:"approver_roles"`
+	Quorum         int      `json:"quorum"`
+	TimeoutSeconds int      `json:"timeout_seconds"`
+	OnTimeout      string   `json:"on_timeout"`
+	Enabled        bool     `json:"enabled"`
+	UpdatedAt      int64    `json:"updated_at"`
+}
+
 type ApprovalResp struct {
 	ID               string `json:"id"`
 	SessionID        string `json:"sessionId"`
@@ -78,6 +156,43 @@ type ApprovalResp struct {
 	InterruptID      string `json:"interruptId,omitempty"`
 	CreatedAt        string `json:"createdAt"`
 	ExpiresAt        string `json:"expiresAt,omitempty"`
+}
+
+type AuditDiffResp struct {
+	Before map[string]interface{} `json:"before,optional"`
+	After  map[string]interface{} `json:"after,optional"`
+}
+
+type AuditLogListResp struct {
+	Data     []*AuditLogResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
+type AuditLogReq struct {
+	Actor        string `form:"actor,optional"`
+	Action       string `form:"action,optional"`
+	ResourceType string `form:"resource_type,optional"`
+	ResourceID   string `form:"resource_id,optional"`
+	FromMS       int64  `form:"from_ms,optional"`
+	ToMS         int64  `form:"to_ms,optional"`
+	Page         int    `form:"page,optional"`
+	PageSize     int    `form:"page_size,optional"`
+}
+
+type AuditLogResp struct {
+	ID           uint64         `json:"id"`
+	Actor        string         `json:"actor"`
+	ActorName    string         `json:"actor_name"`
+	Action       string         `json:"action"`
+	ResourceType string         `json:"resource_type"`
+	ResourceID   string         `json:"resource_id"`
+	ResourceName string         `json:"resource_name"`
+	Summary      string         `json:"summary"`
+	Diff         *AuditDiffResp `json:"diff,optional"`
+	IP           string         `json:"ip,optional"`
+	CreatedAt    int64          `json:"created_at"`
 }
 
 type AuthMeResp struct {
@@ -118,6 +233,21 @@ type ChatReq struct {
 	Message   string `json:"message"`
 }
 
+type CreateAgentDefReq struct {
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	Model       string `json:"model"`
+	RiskTier    string `json:"risk_tier,optional"`
+}
+
+type CreateAgentVersionReq struct {
+	ID           uint64   `path:"id"`
+	SystemPrompt string   `json:"system_prompt,optional"`
+	ToolKeys     []string `json:"tool_keys,optional"`
+	DatasetIDs   []uint64 `json:"dataset_ids,optional"`
+	ChangeNote   string   `json:"change_note,optional"`
+}
+
 type CreateDatasetReq struct {
 	Name        string `json:"name"`
 	Description string `json:"description,optional"`
@@ -134,8 +264,37 @@ type CreateDocumentReq struct {
 	Metadata   map[string]string `json:"metadata,optional"`
 }
 
+type CreateEvalCaseReq struct {
+	ID             uint64   `path:"id"`
+	Question       string   `json:"question"`
+	ExpectedAnswer string   `json:"expected_answer"`
+	Tags           []string `json:"tags,optional"`
+}
+
+type CreateEvalSetReq struct {
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	AgentKey    string `json:"agent_key,optional"`
+}
+
+type CreateOrgUnitReq struct {
+	Name     string `json:"name"`
+	ParentID uint64 `json:"parent_id,optional"`
+}
+
 type CreateSessionResp struct {
 	SessionID string `json:"session_id"`
+}
+
+type CreateToolReq struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind"`
+	Description string `json:"description,optional"`
+	RiskTier    string `json:"risk_tier,optional"`
+	AuthType    string `json:"auth_type,optional"`
+	Secret      string `json:"secret,optional"`
+	TimeoutMS   int64  `json:"timeout_ms,optional"`
 }
 
 type CreateUserReq struct {
@@ -158,6 +317,16 @@ type DatasetListResp struct {
 	Data []*DatasetResp `json:"data"`
 }
 
+type DatasetModelListResp struct {
+	Data []*DatasetModelOption `json:"data"`
+}
+
+type DatasetModelOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+	Kind  string `json:"kind,optional"`
+}
+
 type DatasetResp struct {
 	ID           uint64 `json:"id"`
 	Name         string `json:"name"`
@@ -167,6 +336,15 @@ type DatasetResp struct {
 	Status       string `json:"status"`
 	CreatedAt    int64  `json:"createdAt"`
 	Type         string `json:"type"`
+}
+
+type DatasetTypeListResp struct {
+	Data []*DatasetTypeOption `json:"data"`
+}
+
+type DatasetTypeOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 type DocumentContentResp struct {
@@ -184,6 +362,12 @@ type DocumentContentResp struct {
 	UpdatedAt         int64                  `json:"updatedAt"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 	Content           string                 `json:"content"`
+}
+
+type DocumentEnabledReq struct {
+	ID      uint64 `path:"id"`
+	DocID   uint64 `path:"docId"`
+	Enabled *bool  `json:"enabled"`
 }
 
 type DocumentIDReq struct {
@@ -211,13 +395,160 @@ type DocumentResp struct {
 	Enabled           bool   `json:"enabled"`
 }
 
+type DocumentUploadError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type DocumentUploadFileResp struct {
+	Filename  string               `json:"filename"`
+	Status    string               `json:"status"`
+	Documents []*DocumentResp      `json:"documents,optional"`
+	Error     *DocumentUploadError `json:"error,optional"`
+}
+
 type DocumentUploadReq struct {
 	DatasetID  uint64 `path:"id"`
 	Visibility string `form:"visibility,optional"`
 }
 
+type DocumentUploadResp struct {
+	Data           []*DocumentResp           `json:"data"`
+	Files          []*DocumentUploadFileResp `json:"files"`
+	PartialFailure bool                      `json:"partial_failure"`
+}
+
+type EnableModelReq struct {
+	Key     string `path:"key"`
+	Enabled bool   `json:"enabled"`
+}
+
+type EnableToolReq struct {
+	Key     string `path:"key"`
+	Enabled bool   `json:"enabled"`
+}
+
+type EvalCaseListResp struct {
+	Data     []*EvalCaseResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
+type EvalCasePathReq struct {
+	ID     uint64 `path:"id"`
+	CaseID uint64 `path:"caseId"`
+}
+
+type EvalCaseResp struct {
+	ID             uint64   `json:"id"`
+	Question       string   `json:"question"`
+	ExpectedAnswer string   `json:"expected_answer"`
+	Tags           []string `json:"tags"`
+	CreatedAt      int64    `json:"created_at"`
+}
+
+type EvalCaseResultResp struct {
+	CaseID    uint64  `json:"case_id"`
+	Question  string  `json:"question"`
+	Answer    string  `json:"answer"`
+	Score     float64 `json:"score"`
+	Passed    bool    `json:"passed"`
+	Reason    string  `json:"reason,optional"`
+	LatencyMS int64   `json:"latency_ms"`
+}
+
+type EvalRunDetailResp struct {
+	Run     *EvalRunResp          `json:"run"`
+	Results []*EvalCaseResultResp `json:"results"`
+}
+
+type EvalRunIDReq struct {
+	RunID string `path:"runId"`
+}
+
+type EvalRunListResp struct {
+	Data  []*EvalRunResp `json:"data"`
+	Total int            `json:"total"`
+}
+
+type EvalRunResp struct {
+	RunID      string  `json:"run_id"`
+	Status     string  `json:"status"`
+	Total      int     `json:"total"`
+	Completed  int     `json:"completed"`
+	Passed     int     `json:"passed"`
+	Score      float64 `json:"score"`
+	StartedAt  int64   `json:"started_at"`
+	FinishedAt int64   `json:"finished_at,optional"`
+	Error      string  `json:"error,optional"`
+}
+
+type EvalRunStartReq struct {
+	ID uint64 `path:"id"`
+}
+
+type EvalSetIDReq struct {
+	ID uint64 `path:"id"`
+}
+
+type EvalSetListReq struct {
+	Keyword  string `form:"keyword,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type EvalSetListResp struct {
+	Data     []*EvalSetResp `json:"data"`
+	Total    int            `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
+}
+
+type EvalSetResp struct {
+	ID          uint64  `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	AgentKey    string  `json:"agent_key"`
+	CaseCount   int     `json:"case_count"`
+	LastRunAt   int64   `json:"last_run_at,optional"`
+	LastScore   float64 `json:"last_score"`
+	CreatedAt   int64   `json:"created_at"`
+}
+
+type FeedbackListReq struct {
+	Status   string `form:"status,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type FeedbackListResp struct {
+	Data     []*FeedbackResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
+type FeedbackResp struct {
+	ID        uint64 `json:"id"`
+	RunID     string `json:"run_id"`
+	SessionID string `json:"session_id"`
+	Subject   string `json:"subject"`
+	Rating    string `json:"rating"`
+	Comment   string `json:"comment"`
+	Label     string `json:"label"`
+	Note      string `json:"note,optional"`
+	CreatedAt int64  `json:"created_at"`
+}
+
 type HealthResp struct {
 	Status string `json:"status"`
+}
+
+type LabelFeedbackReq struct {
+	ID    uint64 `path:"id"`
+	Label string `json:"label"`
+	Note  string `json:"note,optional"`
 }
 
 type ListDatasetsReq struct {
@@ -229,6 +560,169 @@ type LoginReq struct {
 	Username       string `json:"username"`
 	Password       string `json:"password"`
 	AnonymousToken string `json:"anonymous_token,optional"`
+}
+
+type ModelListReq struct {
+	Kind        string `form:"kind,optional"`
+	ProviderKey string `form:"provider_key,optional"`
+	Page        int    `form:"page,optional"`
+	PageSize    int    `form:"page_size,optional"`
+}
+
+type ModelListResp struct {
+	Data     []*ModelResp `json:"data"`
+	Total    int          `json:"total"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"page_size"`
+}
+
+type ModelProviderKeyReq struct {
+	Key string `path:"key"`
+}
+
+type ModelProviderListReq struct {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type ModelProviderListResp struct {
+	Data     []*ModelProviderResp `json:"data"`
+	Total    int                  `json:"total"`
+	Page     int                  `json:"page"`
+	PageSize int                  `json:"page_size"`
+}
+
+type ModelProviderResp struct {
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	BaseURL   string `json:"base_url"`
+	AuthType  string `json:"auth_type"`
+	HasSecret bool   `json:"has_secret"`
+	Enabled   bool   `json:"enabled"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+type ModelResp struct {
+	Key                   string `json:"key"`
+	ProviderKey           string `json:"provider_key"`
+	Kind                  string `json:"kind"`
+	ContextWindow         int64  `json:"context_window"`
+	MaxOutputTokens       int64  `json:"max_output_tokens"`
+	InputPriceMicrosPerK  int64  `json:"input_price_micros_per_k"`
+	OutputPriceMicrosPerK int64  `json:"output_price_micros_per_k"`
+	Enabled               bool   `json:"enabled"`
+	UpdatedAt             int64  `json:"updated_at"`
+}
+
+type ModelRoutingResp struct {
+	DefaultChatModel      string   `json:"default_chat_model"`
+	DefaultEmbeddingModel string   `json:"default_embedding_model"`
+	FallbackChain         []string `json:"fallback_chain"`
+	UpdatedAt             int64    `json:"updated_at"`
+}
+
+type OrgMemberListResp struct {
+	Data  []*OrgMemberResp `json:"data"`
+	Total int              `json:"total"`
+}
+
+type OrgMemberResp struct {
+	Subject  string `json:"subject"`
+	Username string `json:"username"`
+	Nickname string `json:"nickname"`
+	Role     string `json:"role"`
+	JoinedAt int64  `json:"joined_at"`
+}
+
+type OrgUnitIDReq struct {
+	ID uint64 `path:"id"`
+}
+
+type OrgUnitListResp struct {
+	Data []*OrgUnitResp `json:"data"`
+}
+
+type OrgUnitResp struct {
+	ID          uint64 `json:"id"`
+	Name        string `json:"name"`
+	ParentID    uint64 `json:"parent_id"`
+	Path        string `json:"path"`
+	MemberCount int    `json:"member_count"`
+	CreatedAt   int64  `json:"created_at"`
+}
+
+type OverviewKpiResp struct {
+	Sessions         int   `json:"sessions"`
+	Messages         int   `json:"messages"`
+	Runs             int   `json:"runs"`
+	TokensIn         int64 `json:"tokens_in"`
+	TokensOut        int64 `json:"tokens_out"`
+	CostMicros       int64 `json:"cost_micros"`
+	PendingApprovals int   `json:"pending_approvals"`
+	FailedRuns       int   `json:"failed_runs"`
+}
+
+type OverviewPointResp struct {
+	Bucket     string `json:"bucket"`
+	Runs       int    `json:"runs"`
+	Tokens     int64  `json:"tokens"`
+	CostMicros int64  `json:"cost_micros"`
+}
+
+type OverviewReq struct {
+	Days int `form:"days,optional"`
+}
+
+type OverviewResp struct {
+	Kpi         *OverviewKpiResp     `json:"kpi"`
+	Trend       []*OverviewPointResp `json:"trend"`
+	TopAgents   []*OverviewTopResp   `json:"top_agents"`
+	TopDatasets []*OverviewTopResp   `json:"top_datasets"`
+	RecentFails []*RunResp           `json:"recent_fails"`
+}
+
+type OverviewTopResp struct {
+	Key        string `json:"key"`
+	Name       string `json:"name"`
+	Runs       int    `json:"runs"`
+	CostMicros int64  `json:"cost_micros"`
+}
+
+type PasswordPolicyResp struct {
+	MinLength         int   `json:"min_length"`
+	RequireUpper      bool  `json:"require_upper"`
+	RequireLower      bool  `json:"require_lower"`
+	RequireDigit      bool  `json:"require_digit"`
+	RequireSymbol     bool  `json:"require_symbol"`
+	MaxAgeDays        int   `json:"max_age_days"`
+	HistoryCount      int   `json:"history_count"`
+	MaxFailedAttempts int   `json:"max_failed_attempts"`
+	LockoutSeconds    int   `json:"lockout_seconds"`
+	SessionTTLHours   int   `json:"session_ttl_hours"`
+	UpdatedAt         int64 `json:"updated_at"`
+}
+
+type PutApprovalPoliciesReq struct {
+	Data []*ApprovalPolicyResp `json:"data"`
+}
+
+type PutModelRoutingReq struct {
+	DefaultChatModel      string   `json:"default_chat_model"`
+	DefaultEmbeddingModel string   `json:"default_embedding_model"`
+	FallbackChain         []string `json:"fallback_chain,optional"`
+}
+
+type PutPasswordPolicyReq struct {
+	MinLength         int  `json:"min_length"`
+	RequireUpper      bool `json:"require_upper"`
+	RequireLower      bool `json:"require_lower"`
+	RequireDigit      bool `json:"require_digit"`
+	RequireSymbol     bool `json:"require_symbol"`
+	MaxAgeDays        int  `json:"max_age_days"`
+	HistoryCount      int  `json:"history_count"`
+	MaxFailedAttempts int  `json:"max_failed_attempts"`
+	LockoutSeconds    int  `json:"lockout_seconds"`
+	SessionTTLHours   int  `json:"session_ttl_hours"`
 }
 
 type ReadyResp struct {
@@ -243,8 +737,88 @@ type ReindexResp struct {
 	Failed    int    `json:"failed"`
 }
 
+type RemoveOrgMemberReq struct {
+	ID      uint64 `path:"id"`
+	Subject string `path:"subject"`
+}
+
+type ResetUserPasswordReq struct {
+	ID       uint64 `path:"id"`
+	Password string `json:"password"`
+}
+
 type ResumeApprovalPathReq struct {
 	ID string `path:"id"`
+}
+
+type RunDetailResp struct {
+	Run      *RunResp          `json:"run"`
+	Spans    []*RunSpanResp    `json:"spans"`
+	Hits     []*SearchHitResp  `json:"hits"`
+	Messages []*RunMessageResp `json:"messages"`
+}
+
+type RunListReq struct {
+	Subject  string `form:"subject,optional"`
+	AgentKey string `form:"agent_key,optional"`
+	Status   string `form:"status,optional"`
+	FromMS   int64  `form:"from_ms,optional"`
+	ToMS     int64  `form:"to_ms,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type RunListResp struct {
+	Data     []*RunResp `json:"data"`
+	Total    int        `json:"total"`
+	Page     int        `json:"page"`
+	PageSize int        `json:"page_size"`
+}
+
+type RunMessageResp struct {
+	Role      string `json:"role"`
+	Content   string `json:"content"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type RunPathReq struct {
+	RunID string `path:"runId"`
+}
+
+type RunResp struct {
+	RunID        string `json:"run_id"`
+	SessionID    string `json:"session_id"`
+	AgentKey     string `json:"agent_key"`
+	AgentVersion int    `json:"agent_version"`
+	Subject      string `json:"subject"`
+	SubjectName  string `json:"subject_name"`
+	Status       string `json:"status"`
+	Steps        int    `json:"steps"`
+	ToolCalls    int    `json:"tool_calls"`
+	TokensIn     int64  `json:"tokens_in"`
+	TokensOut    int64  `json:"tokens_out"`
+	LatencyMS    int64  `json:"latency_ms"`
+	CostMicros   int64  `json:"cost_micros"`
+	StartedAt    int64  `json:"started_at"`
+	FinishedAt   int64  `json:"finished_at,optional"`
+	Error        string `json:"error,optional"`
+}
+
+type RunSpanResp struct {
+	SpanID          string `json:"span_id"`
+	ParentID        string `json:"parent_id,optional"`
+	Kind            string `json:"kind"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	LatencyMS       int64  `json:"latency_ms"`
+	TokensIn        int64  `json:"tokens_in"`
+	TokensOut       int64  `json:"tokens_out"`
+	Input           string `json:"input,optional"`
+	Output          string `json:"output,optional"`
+	InputTruncated  bool   `json:"input_truncated,optional"`
+	OutputTruncated bool   `json:"output_truncated,optional"`
+	Error           string `json:"error,optional"`
+	StartedAt       int64  `json:"started_at"`
 }
 
 type SearchDatasetReq struct {
@@ -300,8 +874,93 @@ type SessionResp struct {
 	UpdatedAt int64  `json:"updated_at"`
 }
 
+type SetAgentDefDatasetsReq struct {
+	ID         uint64   `path:"id"`
+	DatasetIDs []uint64 `json:"dataset_ids"`
+}
+
+type StartEvalRunResp struct {
+	RunID string `json:"run_id"`
+}
+
 type StatusResp struct {
 	Status string `json:"status"`
+}
+
+type SyncCreatedUser struct {
+	ExternalID      string `json:"externalId"`
+	Username        string `json:"username"`
+	InitialPassword string `json:"initialPassword"`
+}
+
+type SyncUserError struct {
+	ExternalID string `json:"externalId,omitempty"`
+	Username   string `json:"username,omitempty"`
+	Reason     string `json:"reason"`
+}
+
+type SyncUsersReq struct {
+	DryRun bool `json:"dryRun,optional"`
+}
+
+type SyncUsersResp struct {
+	DryRun       bool              `json:"dryRun"`
+	Total        int               `json:"total"`
+	Created      int               `json:"created"`
+	Updated      int               `json:"updated"`
+	Skipped      int               `json:"skipped"`
+	Failed       int               `json:"failed"`
+	CreatedUsers []SyncCreatedUser `json:"createdUsers,omitempty"`
+	Errors       []SyncUserError   `json:"errors,omitempty"`
+}
+
+type ToolKeyReq struct {
+	Key string `path:"key"`
+}
+
+type ToolListReq struct {
+	Keyword  string `form:"keyword,optional"`
+	Kind     string `form:"kind,optional"`
+	RiskTier string `form:"risk_tier,optional"`
+	Enabled  string `form:"enabled,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
+type ToolListResp struct {
+	Data     []*ToolResp `json:"data"`
+	Total    int         `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
+}
+
+type ToolResp struct {
+	Key          string `json:"key"`
+	Name         string `json:"name"`
+	Kind         string `json:"kind"`
+	Description  string `json:"description"`
+	RiskTier     string `json:"risk_tier"`
+	Enabled      bool   `json:"enabled"`
+	ConfigSchema string `json:"config_schema,optional"`
+	AuthType     string `json:"auth_type"`
+	HasSecret    bool   `json:"has_secret"`
+	TimeoutMS    int64  `json:"timeout_ms"`
+	Runs         int    `json:"runs"`
+	UpdatedAt    int64  `json:"updated_at"`
+}
+
+type ToolTestResp struct {
+	OK        bool   `json:"ok"`
+	LatencyMS int64  `json:"latency_ms"`
+	Error     string `json:"error,optional"`
+}
+
+type UpdateAgentDefReq struct {
+	ID          uint64 `path:"id"`
+	Name        string `json:"name,optional"`
+	Description string `json:"description,optional"`
+	Model       string `json:"model,optional"`
+	RiskTier    string `json:"risk_tier,optional"`
 }
 
 type UpdateDocumentReq struct {
@@ -313,6 +972,86 @@ type UpdateDocumentReq struct {
 	Metadata   map[string]string `json:"metadata,optional"`
 }
 
+type UpdateOrgUnitReq struct {
+	ID       uint64 `path:"id"`
+	Name     string `json:"name,optional"`
+	ParentID uint64 `json:"parent_id,optional"`
+}
+
+type UpdateToolReq struct {
+	Key         string `path:"key"`
+	Name        string `json:"name,optional"`
+	Description string `json:"description,optional"`
+	RiskTier    string `json:"risk_tier,optional"`
+	AuthType    string `json:"auth_type,optional"`
+	Secret      string `json:"secret,optional"`
+	TimeoutMS   int64  `json:"timeout_ms,optional"`
+}
+
+type UpdateUserReq struct {
+	ID       uint64 `path:"id"`
+	Nickname string `json:"nickname,optional"`
+	Role     string `json:"role,optional"`
+	Status   string `json:"status,optional"`
+}
+
+type UpsertModelProviderReq struct {
+	Key      string `path:"key"`
+	Name     string `json:"name"`
+	BaseURL  string `json:"base_url"`
+	AuthType string `json:"auth_type"`
+	Secret   string `json:"secret,optional"`
+	Enabled  bool   `json:"enabled,optional"`
+}
+
+type UpsertModelReq struct {
+	Key                   string `path:"key"`
+	ProviderKey           string `json:"provider_key"`
+	Kind                  string `json:"kind"`
+	ContextWindow         int64  `json:"context_window,optional"`
+	MaxOutputTokens       int64  `json:"max_output_tokens,optional"`
+	InputPriceMicrosPerK  int64  `json:"input_price_micros_per_k,optional"`
+	OutputPriceMicrosPerK int64  `json:"output_price_micros_per_k,optional"`
+	Enabled               bool   `json:"enabled,optional"`
+}
+
+type UsagePointResp struct {
+	Bucket        string `json:"bucket"`
+	BucketStartMS int64  `json:"bucket_start_ms"`
+	Runs          int    `json:"runs"`
+	Tokens        int64  `json:"tokens"`
+	CostMicros    int64  `json:"cost_micros"`
+}
+
+type UsageReq struct {
+	FromMS   int64  `form:"from_ms,optional"`
+	ToMS     int64  `form:"to_ms,optional"`
+	Interval string `form:"interval,optional"`
+	GroupBy  string `form:"group_by,optional"`
+}
+
+type UsageResp struct {
+	Totals *UsageTotalsResp  `json:"totals"`
+	Trend  []*UsagePointResp `json:"trend"`
+	Rows   []*UsageRowResp   `json:"rows"`
+}
+
+type UsageRowResp struct {
+	Key        string `json:"key"`
+	Name       string `json:"name"`
+	Runs       int    `json:"runs"`
+	TokensIn   int64  `json:"tokens_in"`
+	TokensOut  int64  `json:"tokens_out"`
+	CostMicros int64  `json:"cost_micros"`
+}
+
+type UsageTotalsResp struct {
+	Runs       int   `json:"runs"`
+	TokensIn   int64 `json:"tokens_in"`
+	TokensOut  int64 `json:"tokens_out"`
+	CostMicros int64 `json:"cost_micros"`
+}
+
 type UserListReq struct {
 	Keyword string `form:"keyword,optional"`
 }
@@ -320,6 +1059,10 @@ type UserListReq struct {
 type UserListResp struct {
 	Data  []UserResp `json:"data"`
 	Total int        `json:"total"`
+}
+
+type UserPathReq struct {
+	ID uint64 `path:"id"`
 }
 
 type UserResp struct {

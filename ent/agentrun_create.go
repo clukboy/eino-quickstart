@@ -38,6 +38,34 @@ func (_c *AgentRunCreate) SetRequestedBy(v string) *AgentRunCreate {
 	return _c
 }
 
+// SetAgentKey sets the "agent_key" field.
+func (_c *AgentRunCreate) SetAgentKey(v string) *AgentRunCreate {
+	_c.mutation.SetAgentKey(v)
+	return _c
+}
+
+// SetNillableAgentKey sets the "agent_key" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableAgentKey(v *string) *AgentRunCreate {
+	if v != nil {
+		_c.SetAgentKey(*v)
+	}
+	return _c
+}
+
+// SetAgentVersion sets the "agent_version" field.
+func (_c *AgentRunCreate) SetAgentVersion(v int) *AgentRunCreate {
+	_c.mutation.SetAgentVersion(v)
+	return _c
+}
+
+// SetNillableAgentVersion sets the "agent_version" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableAgentVersion(v *int) *AgentRunCreate {
+	if v != nil {
+		_c.SetAgentVersion(*v)
+	}
+	return _c
+}
+
 // SetUserMessage sets the "user_message" field.
 func (_c *AgentRunCreate) SetUserMessage(v string) *AgentRunCreate {
 	_c.mutation.SetUserMessage(v)
@@ -96,6 +124,104 @@ func (_c *AgentRunCreate) SetErrorCode(v string) *AgentRunCreate {
 func (_c *AgentRunCreate) SetNillableErrorCode(v *string) *AgentRunCreate {
 	if v != nil {
 		_c.SetErrorCode(*v)
+	}
+	return _c
+}
+
+// SetError sets the "error" field.
+func (_c *AgentRunCreate) SetError(v string) *AgentRunCreate {
+	_c.mutation.SetError(v)
+	return _c
+}
+
+// SetNillableError sets the "error" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableError(v *string) *AgentRunCreate {
+	if v != nil {
+		_c.SetError(*v)
+	}
+	return _c
+}
+
+// SetSteps sets the "steps" field.
+func (_c *AgentRunCreate) SetSteps(v int) *AgentRunCreate {
+	_c.mutation.SetSteps(v)
+	return _c
+}
+
+// SetNillableSteps sets the "steps" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableSteps(v *int) *AgentRunCreate {
+	if v != nil {
+		_c.SetSteps(*v)
+	}
+	return _c
+}
+
+// SetToolCalls sets the "tool_calls" field.
+func (_c *AgentRunCreate) SetToolCalls(v int) *AgentRunCreate {
+	_c.mutation.SetToolCalls(v)
+	return _c
+}
+
+// SetNillableToolCalls sets the "tool_calls" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableToolCalls(v *int) *AgentRunCreate {
+	if v != nil {
+		_c.SetToolCalls(*v)
+	}
+	return _c
+}
+
+// SetTokensIn sets the "tokens_in" field.
+func (_c *AgentRunCreate) SetTokensIn(v int64) *AgentRunCreate {
+	_c.mutation.SetTokensIn(v)
+	return _c
+}
+
+// SetNillableTokensIn sets the "tokens_in" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableTokensIn(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetTokensIn(*v)
+	}
+	return _c
+}
+
+// SetTokensOut sets the "tokens_out" field.
+func (_c *AgentRunCreate) SetTokensOut(v int64) *AgentRunCreate {
+	_c.mutation.SetTokensOut(v)
+	return _c
+}
+
+// SetNillableTokensOut sets the "tokens_out" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableTokensOut(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetTokensOut(*v)
+	}
+	return _c
+}
+
+// SetLatencyMs sets the "latency_ms" field.
+func (_c *AgentRunCreate) SetLatencyMs(v int64) *AgentRunCreate {
+	_c.mutation.SetLatencyMs(v)
+	return _c
+}
+
+// SetNillableLatencyMs sets the "latency_ms" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableLatencyMs(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetLatencyMs(*v)
+	}
+	return _c
+}
+
+// SetCostMicros sets the "cost_micros" field.
+func (_c *AgentRunCreate) SetCostMicros(v int64) *AgentRunCreate {
+	_c.mutation.SetCostMicros(v)
+	return _c
+}
+
+// SetNillableCostMicros sets the "cost_micros" field if the given value is not nil.
+func (_c *AgentRunCreate) SetNillableCostMicros(v *int64) *AgentRunCreate {
+	if v != nil {
+		_c.SetCostMicros(*v)
 	}
 	return _c
 }
@@ -191,9 +317,41 @@ func (_c *AgentRunCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *AgentRunCreate) defaults() {
+	if _, ok := _c.mutation.AgentKey(); !ok {
+		v := agentrun.DefaultAgentKey
+		_c.mutation.SetAgentKey(v)
+	}
+	if _, ok := _c.mutation.AgentVersion(); !ok {
+		v := agentrun.DefaultAgentVersion
+		_c.mutation.SetAgentVersion(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := agentrun.DefaultStatus
 		_c.mutation.SetStatus(v)
+	}
+	if _, ok := _c.mutation.Steps(); !ok {
+		v := agentrun.DefaultSteps
+		_c.mutation.SetSteps(v)
+	}
+	if _, ok := _c.mutation.ToolCalls(); !ok {
+		v := agentrun.DefaultToolCalls
+		_c.mutation.SetToolCalls(v)
+	}
+	if _, ok := _c.mutation.TokensIn(); !ok {
+		v := agentrun.DefaultTokensIn
+		_c.mutation.SetTokensIn(v)
+	}
+	if _, ok := _c.mutation.TokensOut(); !ok {
+		v := agentrun.DefaultTokensOut
+		_c.mutation.SetTokensOut(v)
+	}
+	if _, ok := _c.mutation.LatencyMs(); !ok {
+		v := agentrun.DefaultLatencyMs
+		_c.mutation.SetLatencyMs(v)
+	}
+	if _, ok := _c.mutation.CostMicros(); !ok {
+		v := agentrun.DefaultCostMicros
+		_c.mutation.SetCostMicros(v)
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := agentrun.DefaultCreatedAt()
@@ -216,6 +374,12 @@ func (_c *AgentRunCreate) check() error {
 	if _, ok := _c.mutation.RequestedBy(); !ok {
 		return &ValidationError{Name: "requested_by", err: errors.New(`ent: missing required field "AgentRun.requested_by"`)}
 	}
+	if _, ok := _c.mutation.AgentKey(); !ok {
+		return &ValidationError{Name: "agent_key", err: errors.New(`ent: missing required field "AgentRun.agent_key"`)}
+	}
+	if _, ok := _c.mutation.AgentVersion(); !ok {
+		return &ValidationError{Name: "agent_version", err: errors.New(`ent: missing required field "AgentRun.agent_version"`)}
+	}
 	if _, ok := _c.mutation.UserMessage(); !ok {
 		return &ValidationError{Name: "user_message", err: errors.New(`ent: missing required field "AgentRun.user_message"`)}
 	}
@@ -226,6 +390,24 @@ func (_c *AgentRunCreate) check() error {
 		if err := agentrun.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "AgentRun.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.Steps(); !ok {
+		return &ValidationError{Name: "steps", err: errors.New(`ent: missing required field "AgentRun.steps"`)}
+	}
+	if _, ok := _c.mutation.ToolCalls(); !ok {
+		return &ValidationError{Name: "tool_calls", err: errors.New(`ent: missing required field "AgentRun.tool_calls"`)}
+	}
+	if _, ok := _c.mutation.TokensIn(); !ok {
+		return &ValidationError{Name: "tokens_in", err: errors.New(`ent: missing required field "AgentRun.tokens_in"`)}
+	}
+	if _, ok := _c.mutation.TokensOut(); !ok {
+		return &ValidationError{Name: "tokens_out", err: errors.New(`ent: missing required field "AgentRun.tokens_out"`)}
+	}
+	if _, ok := _c.mutation.LatencyMs(); !ok {
+		return &ValidationError{Name: "latency_ms", err: errors.New(`ent: missing required field "AgentRun.latency_ms"`)}
+	}
+	if _, ok := _c.mutation.CostMicros(); !ok {
+		return &ValidationError{Name: "cost_micros", err: errors.New(`ent: missing required field "AgentRun.cost_micros"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "AgentRun.created_at"`)}
@@ -271,6 +453,14 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 		_spec.SetField(agentrun.FieldRequestedBy, field.TypeString, value)
 		_node.RequestedBy = value
 	}
+	if value, ok := _c.mutation.AgentKey(); ok {
+		_spec.SetField(agentrun.FieldAgentKey, field.TypeString, value)
+		_node.AgentKey = value
+	}
+	if value, ok := _c.mutation.AgentVersion(); ok {
+		_spec.SetField(agentrun.FieldAgentVersion, field.TypeInt, value)
+		_node.AgentVersion = value
+	}
 	if value, ok := _c.mutation.UserMessage(); ok {
 		_spec.SetField(agentrun.FieldUserMessage, field.TypeString, value)
 		_node.UserMessage = value
@@ -290,6 +480,34 @@ func (_c *AgentRunCreate) createSpec() (*AgentRun, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ErrorCode(); ok {
 		_spec.SetField(agentrun.FieldErrorCode, field.TypeString, value)
 		_node.ErrorCode = &value
+	}
+	if value, ok := _c.mutation.Error(); ok {
+		_spec.SetField(agentrun.FieldError, field.TypeString, value)
+		_node.Error = &value
+	}
+	if value, ok := _c.mutation.Steps(); ok {
+		_spec.SetField(agentrun.FieldSteps, field.TypeInt, value)
+		_node.Steps = value
+	}
+	if value, ok := _c.mutation.ToolCalls(); ok {
+		_spec.SetField(agentrun.FieldToolCalls, field.TypeInt, value)
+		_node.ToolCalls = value
+	}
+	if value, ok := _c.mutation.TokensIn(); ok {
+		_spec.SetField(agentrun.FieldTokensIn, field.TypeInt64, value)
+		_node.TokensIn = value
+	}
+	if value, ok := _c.mutation.TokensOut(); ok {
+		_spec.SetField(agentrun.FieldTokensOut, field.TypeInt64, value)
+		_node.TokensOut = value
+	}
+	if value, ok := _c.mutation.LatencyMs(); ok {
+		_spec.SetField(agentrun.FieldLatencyMs, field.TypeInt64, value)
+		_node.LatencyMs = value
+	}
+	if value, ok := _c.mutation.CostMicros(); ok {
+		_spec.SetField(agentrun.FieldCostMicros, field.TypeInt64, value)
+		_node.CostMicros = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(agentrun.FieldCreatedAt, field.TypeTime, value)

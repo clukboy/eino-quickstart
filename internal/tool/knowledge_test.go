@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -131,5 +132,47 @@ func TestKnowledgeSearchReturnsEmptyMessageWithoutAuthorizedDatasets(t *testing.
 	}
 	if len(searcher.calls) != 0 {
 		t.Fatalf("searcher was called without authorized datasets: %+v", searcher.calls)
+	}
+}
+
+type rotatingDatasetBindings struct {
+	calls int
+}
+
+func (b *rotatingDatasetBindings) DatasetIDs(_ context.Context, subject string) ([]uint64, error) {
+	if subject != "agent-9" {
+		return nil, fmt.Errorf("unexpected subject %q", subject)
+	}
+	b.calls++
+	if b.calls == 1 {
+		return []uint64{11}, nil
+	}
+	return []uint64{22}, nil
+}
+
+func TestKnowledgeSearchResolvesBindingsOnEveryInvocation(t *testing.T) {
+	searcher := &fakeKnowledgeSearcher{outcomes: map[uint64]knowledge.SearchOutcome{
+		11: {Hits: []knowledge.SearchHit{{ChunkID: 1, DocumentID: 11, Source: "a.md", Content: "A", Score: 1}}},
+		22: {Hits: []knowledge.SearchHit{{ChunkID: 2, DocumentID: 22, Source: "b.md", Content: "B", Score: 1}}},
+	}}
+	bindings := &rotatingDatasetBindings{}
+	toolValue, err := NewKnowledgeSearchWithBindings("agent-9", bindings, searcher)
+	if err != nil {
+		t.Fatalf("construct tool: %v", err)
+	}
+	ctx := auth.WithIdentity(context.Background(), auth.Identity{Subject: "agent-9", Role: auth.RoleAgent})
+	first, err := toolValue.InvokableRun(ctx, `{"query":"first"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := toolValue.InvokableRun(ctx, `{"query":"second"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(first, "a.md") || !strings.Contains(second, "b.md") {
+		t.Fatalf("binding changes were not observed: first=%q second=%q", first, second)
+	}
+	if len(searcher.calls) != 2 || searcher.calls[0].DatasetID != 11 || searcher.calls[1].DatasetID != 22 {
+		t.Fatalf("search scopes=%+v, want 11 then 22", searcher.calls)
 	}
 }

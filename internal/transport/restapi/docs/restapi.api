@@ -14,7 +14,7 @@ syntax = "v1"
 //                                          （组上不挂中间件：两条是入口，两条要服务任意角色）
 //   user/user.api           账号管理        GET /users、POST /users、
 //                                          POST /users/sync（组上挂 RoleAdmin；
-//                                          sync 是恒返回 501 的占位）
+//                                          支持 dryRun 的 provider-neutral 用户同步）
 //   agent/agent.api         会话            POST /sessions、GET /sessions、
 //                                          GET /sessions/:id/messages
 //   stream/stream.api       流式对话与续跑   SSE：POST /chat、/approvals/:id/resume
@@ -22,6 +22,7 @@ syntax = "v1"
 //   admin/admin.api         agent 数据集授权与主体矩阵 /agents/:subject/dataset*、
 //                           /subjects、/dataset/:id/subjects
 //   dataset/dataset.api     数据集与文档     /dataset*（含文档 CRUD 与重建索引）
+//   console/*.api             控制台按模块分包；group 使用 console/<module>
 //
 // import 路径相对于本文件所在目录。新增接口只改对应子文件即可。
 //
@@ -87,3 +88,16 @@ import "stream/stream.api"
 import "approver/approver.api"
 import "admin/admin.api"
 import "dataset/dataset.api"
+import "console/types.api"
+import "console/overview.api"
+import "console/run.api"
+import "console/audit.api"
+import "console/usage.api"
+import "console/agent.api"
+import "console/tool.api"
+import "console/model.api"
+import "console/approval.api"
+import "console/security.api"
+import "console/org.api"
+import "console/eval.api"
+import "console/feedback.api"

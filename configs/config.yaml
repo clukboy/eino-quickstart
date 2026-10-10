@@ -175,6 +175,10 @@ knowledge:
   # 单篇正文的上限（字节）。超过一律**拒绝**，不截断 —— 截断一份正文等于把索引
   # 建在一份不完整的原文上，而调用方从响应里看不出少了什么。
   maxDocumentBytes: 5242880
+  # multipart 上传的请求总上限（含 multipart 边界与字段开销）。
+  maxUploadRequestBytes: 52428800
+  # 单次最多接收的 file 字段数量；每个 file 仍受 maxDocumentBytes 限制。
+  maxUploadFiles: 10
   chunkSizeCharacters: 1200
   chunkOverlapCharacters: 200
   maxChunksPerDocument: 2000
@@ -252,6 +256,11 @@ retrieval:
   vectorCandidateLimit: 300
   enableRerank: false
   maxRerankCandidates: 20
+  # Provider-neutral HTTP contract; enable only after endpoint/model are provisioned.
+  rerankEndpoint: ""
+  rerankApiKeyEnv: "EINO_RERANK_API_KEY"
+  rerankModel: ""
+  rerankTimeoutMS: 2000
 
 indexer:
   # 一轮从 document_chunks 里取多少 pending 分块做 embedding + 写库。

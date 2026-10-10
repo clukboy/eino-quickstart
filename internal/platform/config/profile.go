@@ -54,6 +54,7 @@ func validateProfileSections(data []byte, profile configProfile) error {
 		}
 	} else {
 		allowed["indexer"] = true
+		allowed["maintenance"] = true
 	}
 	for key, node := range sections {
 		if !allowed[key] {
@@ -71,7 +72,7 @@ func validateProfileSections(data []byte, profile configProfile) error {
 				forbidden = []string{"queues", "concurrency", "retryDelaySeconds", "maxRetryDelaySeconds", "shutdownTimeoutSeconds"}
 			}
 		} else if key == "knowledge" {
-			forbidden = []string{"defaultTopK", "maxTopK", "maxQueryCharacters", "maxResultBytes", "recallGrouping"}
+			forbidden = []string{"defaultTopK", "maxTopK", "maxQueryCharacters", "maxResultBytes", "recallGrouping", "productSplitEnabled", "productSplitEndpoint", "productSplitApiKeyEnv", "productSplitModel", "productSplitParserVersion", "productSplitTimeoutMS", "productSplitMaxProducts"}
 		}
 		if profile == profileWorker {
 			if key == "milvus" {

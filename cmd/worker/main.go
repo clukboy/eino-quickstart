@@ -75,6 +75,11 @@ func runWorker() error {
 	}
 	logger = logger.With(slog.String("process", "worker"))
 
+	metrics := observability.NewMetrics()
+	if err := metrics.RegisterDefault(); err != nil {
+		return fmt.Errorf("register business metrics: %w", err)
+	}
+
 	// asynq 与 go-zero 的内部日志走 logx，桥到项目 slog，和 restapi 进程落在
 	// 同一个观测面。
 	logx.DisableStat()
@@ -109,7 +114,7 @@ func runWorker() error {
 		slog.Float64("sample_ratio", cfg.Observability.TraceSampleRatio),
 	)
 
-	entClient, err := entx.Open(ctx, cfg.Storage)
+	entClient, err := entx.OpenWithoutMigration(ctx, cfg.Storage)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
@@ -205,6 +210,7 @@ func runWorker() error {
 		// Embedder 会自己把请求切到那个上限以内。
 		BatchSize: cfg.Indexer.BatchSize,
 		Logger:    logger,
+		Metrics:   metrics,
 	})
 	if err != nil {
 		return fmt.Errorf("init indexer: %w", err)
@@ -222,6 +228,7 @@ func runWorker() error {
 	}()
 
 	registerHandlers(queueClient, indexer)
+	startQueueMetrics(ctx, queueClient, asynqConf, metrics, logger)
 
 	// worker 是本进程唯一的 service，直接走 ServiceGroup + 信号上下文的组合：
 	// ServiceGroup.Start 阻塞，信号触发 group.Stop -> asynq Shutdown 优雅排空。
@@ -249,6 +256,35 @@ func runWorker() error {
 	group.Start()
 	logger.Info("eino worker stopped")
 	return nil
+}
+
+func startQueueMetrics(ctx context.Context, _ *asynqqueue.AsynqClient, cfg *asynqqueue.AsynqConf, metrics *observability.Metrics, logger *slog.Logger) {
+	if cfg == nil || metrics == nil {
+		return
+	}
+	refresh := func() {
+		for queueName := range cfg.QueuesOrDefault() {
+			depth, err := cfg.QueueDepth(queueName)
+			if err != nil {
+				logger.Warn("queue depth unavailable", slog.String("queue", queueName), slog.String("error", err.Error()))
+				continue
+			}
+			metrics.SetQueueDepth(queueName, depth)
+		}
+	}
+	refresh()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				refresh()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // registerHandlers 把任务类型绑定到处理函数。必须在 Start 之前完成：

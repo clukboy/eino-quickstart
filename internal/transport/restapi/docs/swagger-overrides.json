@@ -7,7 +7,7 @@
     "path": "/api/v1/dataset/{id}/documents/upload",
     "method": "post",
     "field": "file",
-    "description": "Required multipart file field. Repeat file to upload multiple documents; response is a document list. Product documents may split into more than one item."
+    "description": "Required multipart file field. Repeat file to upload multiple Markdown/text documents. The response keeps data for compatibility and adds files with per-file success/failure details; when partial_failure is true, retry only failed files."
   },
   "errors": {
     "400": "Invalid request fields or business input",

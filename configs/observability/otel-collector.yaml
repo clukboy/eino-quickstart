@@ -1,0 +1,25 @@
+# Local P26 collector: accepts OTLP/gRPC from both api and worker and exposes
+# an in-memory debug exporter. Replace the debug exporter with a bounded backend
+# exporter in a real environment; never send request bodies or credentials.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 128
+  batch:
+    timeout: 1s
+exporters:
+  debug:
+    verbosity: basic
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]

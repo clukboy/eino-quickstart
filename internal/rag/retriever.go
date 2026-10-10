@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"eino-quickstart/internal/rag/constant"
 
@@ -113,6 +114,16 @@ type ChannelState struct {
 // 一模一样。
 type Report struct {
 	Channels []ChannelState
+	Rerank   RerankState
+}
+
+// RerankState records whether the optional reranker ran or degraded. A rerank
+// failure never erases the already fused recall results.
+type RerankState struct {
+	Enabled    bool
+	Candidates int
+	Applied    bool
+	Err        string
 }
 
 // Used 列出真正给出了候选的通道名。
@@ -126,13 +137,16 @@ func (r Report) Used() []string {
 	return names
 }
 
-// Degraded 列出降级的通道名。
+// Degraded 列出降级的通道名；重排失败时额外包含 "rerank"。
 func (r Report) Degraded() []string {
-	names := make([]string, 0, len(r.Channels))
+	names := make([]string, 0, len(r.Channels)+1)
 	for _, channel := range r.Channels {
 		if channel.Err != "" {
 			names = append(names, channel.Name)
 		}
+	}
+	if r.Rerank.Err != "" {
+		names = append(names, "rerank")
 	}
 	return names
 }
@@ -176,10 +190,12 @@ type HybridRetriever struct {
 	reranker Reranker // 可为 nil
 	logger   *slog.Logger
 
-	policy    RetrievalPolicy
-	rrfK      float64
-	defTopK   int
-	defThresh float64
+	policy        RetrievalPolicy
+	rrfK          float64
+	defTopK       int
+	defThresh     float64
+	maxRerank     int
+	rerankTimeout time.Duration
 }
 
 type HybridConfig struct {
@@ -192,6 +208,13 @@ type HybridConfig struct {
 
 	// Retrieval 是三条通道的权重、融合平滑与候选上限。全零时用内置默认值。
 	Retrieval RetrievalPolicy
+
+	// MaxRerankCandidates bounds the number of fused candidates sent to an external
+	// reranker. Zero uses the safe default of 20 when a reranker is configured.
+	MaxRerankCandidates int
+
+	// RerankTimeout bounds one external rerank call. Zero uses 2 seconds.
+	RerankTimeout time.Duration
 
 	// ScoreThreshold 是**单通道原始分**的下限：余弦相似度、BM25 分、词元命中率。
 	// 0 表示不过滤。
@@ -220,6 +243,12 @@ func NewHybridRetriever(cfg HybridConfig) (*HybridRetriever, error) {
 		cfg.Logger = slog.Default()
 	}
 	policy := cfg.Retrieval.normalize()
+	if cfg.Reranker != nil && cfg.MaxRerankCandidates <= 0 {
+		cfg.MaxRerankCandidates = 20
+	}
+	if cfg.RerankTimeout <= 0 {
+		cfg.RerankTimeout = 2 * time.Second
+	}
 	if cfg.Embedder == nil {
 		// 关掉而不是留着报错：留着会让每一次响应的 degraded 都带上 vector，
 		// 那条信息就不再指示任何异常了（它本该表示「这次运行有个东西坏了」）。
@@ -229,14 +258,16 @@ func NewHybridRetriever(cfg HybridConfig) (*HybridRetriever, error) {
 		policy.VectorWeight = 0
 	}
 	return &HybridRetriever{
-		store:     cfg.Store,
-		embedder:  cfg.Embedder,
-		reranker:  cfg.Reranker,
-		logger:    cfg.Logger,
-		policy:    policy,
-		rrfK:      float64(policy.RRFSmoothing),
-		defTopK:   cfg.TopK,
-		defThresh: cfg.ScoreThreshold,
+		store:         cfg.Store,
+		embedder:      cfg.Embedder,
+		reranker:      cfg.Reranker,
+		logger:        cfg.Logger,
+		policy:        policy,
+		rrfK:          float64(policy.RRFSmoothing),
+		defTopK:       cfg.TopK,
+		defThresh:     cfg.ScoreThreshold,
+		maxRerank:     cfg.MaxRerankCandidates,
+		rerankTimeout: cfg.RerankTimeout,
 	}, nil
 }
 
@@ -305,11 +336,29 @@ func (h *HybridRetriever) RetrieveDetailed(ctx context.Context, query string, op
 		out = append(out, item.doc)
 	}
 
-	// [优化] 精排
+	// Optional rerank is bounded and fail-open: recall results remain useful when
+	// the external service times out, rejects a request, or returns an invalid order.
 	if h.reranker != nil {
-		out, err = h.reranker.Rerank(ctx, query, out)
-		if err != nil {
-			return nil, report, fmt.Errorf("rag: rerank: %w", err)
+		report.Rerank.Enabled = true
+		limit := h.maxRerank
+		if limit <= 0 || limit > len(out) {
+			limit = len(out)
+		}
+		report.Rerank.Candidates = limit
+		if limit > 0 {
+			rerankCtx, cancel := context.WithTimeout(ctx, h.rerankTimeout)
+			reranked, rerankErr := h.reranker.Rerank(rerankCtx, query, out[:limit])
+			cancel()
+			if rerankErr != nil {
+				report.Rerank.Err = rerankErr.Error()
+				h.logger.Warn("rerank failed; returning fused recall", slog.String("error", rerankErr.Error()))
+			} else if err := validateRerankSubset(out[:limit], reranked); err != nil {
+				report.Rerank.Err = err.Error()
+				h.logger.Warn("rerank returned invalid order; returning fused recall", slog.String("error", err.Error()))
+			} else {
+				out = append(append([]*schema.Document(nil), reranked...), out[limit:]...)
+				report.Rerank.Applied = true
+			}
 		}
 	}
 
@@ -317,6 +366,33 @@ func (h *HybridRetriever) RetrieveDetailed(ctx context.Context, query string, op
 		out = out[:topK]
 	}
 	return out, report, nil
+}
+
+func validateRerankSubset(original, reranked []*schema.Document) error {
+	if len(original) != len(reranked) {
+		return fmt.Errorf("rag: reranker returned %d documents, want %d", len(reranked), len(original))
+	}
+	allowed := make(map[*schema.Document]struct{}, len(original))
+	for _, doc := range original {
+		if doc == nil {
+			return errors.New("rag: nil document in recall candidates")
+		}
+		allowed[doc] = struct{}{}
+	}
+	seen := make(map[*schema.Document]struct{}, len(reranked))
+	for _, doc := range reranked {
+		if doc == nil {
+			return errors.New("rag: reranker returned nil document")
+		}
+		if _, ok := allowed[doc]; !ok {
+			return errors.New("rag: reranker returned a document outside the candidate set")
+		}
+		if _, ok := seen[doc]; ok {
+			return errors.New("rag: reranker returned duplicate documents")
+		}
+		seen[doc] = struct{}{}
+	}
+	return nil
 }
 
 // channelPlan 描述一条通道：叫什么、有多重、取多少候选、怎么执行。

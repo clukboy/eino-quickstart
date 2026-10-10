@@ -101,7 +101,7 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
-	entClient, err := entx.Open(ctx, cfg.Storage)
+	entClient, err := entx.OpenWithoutMigration(ctx, cfg.Storage)
 	if err != nil {
 		return fmt.Errorf("连接 PostgreSQL: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"eino-quickstart/ent"
@@ -179,6 +180,15 @@ type SearchInput struct {
 	TopK      int
 }
 
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 // Search 在某个数据集内召回与 query 相关的分块。
 //
 // 这里只做三件事：校验参数、确认数据集存在、把范围交给检索实现。三条通道怎么
@@ -192,7 +202,8 @@ type SearchInput struct {
 // 「数据集不存在」返回 ErrDatasetNotFound 而不是空结果：空结果看起来和「这个
 // 数据集里没有相关内容」一模一样，而调用方的下一步动作完全不同（检查 id 还是
 // 换个说法再问）。
-func (s *Service) Search(ctx context.Context, in SearchInput) (_ SearchOutcome, err error) {
+func (s *Service) Search(ctx context.Context, in SearchInput) (outcome SearchOutcome, err error) {
+	startedAt := time.Now()
 	ctx, span := observability.StartSpan(ctx, "knowledge.search",
 		oteltrace.WithAttributes(
 			attribute.Int64("knowledge.dataset_id", int64(in.DatasetID)),
@@ -200,6 +211,30 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (_ SearchOutcome, 
 	)
 	defer func() {
 		observability.SpanError(span, err)
+		if s.metrics != nil {
+			if err != nil {
+				s.metrics.RecordRetrieval("none", "error", true, time.Since(startedAt))
+				s.metrics.SetHealth("retrieval", "unavailable")
+			} else {
+				channels := outcome.Channels
+				if len(channels) == 0 {
+					channels = []string{"none"}
+				}
+				state := "hit"
+				if len(outcome.Hits) == 0 {
+					state = "empty"
+				}
+				for _, channel := range channels {
+					degraded := containsString(outcome.Degraded, channel)
+					s.metrics.RecordRetrieval(channel, state, degraded, time.Since(startedAt))
+				}
+				if len(outcome.Degraded) > 0 {
+					s.metrics.SetHealth("retrieval", "degraded")
+				} else {
+					s.metrics.SetHealth("retrieval", "ready")
+				}
+			}
+		}
 		span.End()
 	}()
 
@@ -229,7 +264,7 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (_ SearchOutcome, 
 	topK := s.limits.clampTopK(in.TopK)
 	granularity := s.granularityFor(dataset)
 
-	outcome, err := s.recall(ctx, query, in.DatasetID, granularity, topK)
+	outcome, err = s.recall(ctx, query, in.DatasetID, granularity, topK)
 	if err != nil {
 		return SearchOutcome{}, err
 	}

@@ -24,10 +24,9 @@ Shutdown:
 # http_server_requests_code_total（labels: path/method/code），
 # 与旧的 eino_harness_* 私有指标不是同一套，抓取规则要跟着改。
 #
-# 当前是注释状态 = 指标未暴露。chain_test.go 里的
-# TestShippedConfigKeepsAgentsConfigurable 断言这一段非空，所以它在开启之前
-# 一直是失败状态；真要开指标就把下面三行解注释，测试会一起转绿。
-# Prometheus:
-#   Host: 0.0.0.0
-#   Port: 9091
-#   Path: /metrics
+# 指标独立监听，不占用业务 HTTP 端口；默认只绑定本机，交给本机 Prometheus
+# 或反向代理采集。若部署需要跨主机抓取，应在部署层显式改 Host 并限制网络访问。
+Prometheus:
+  Host: 127.0.0.1
+  Port: 9091
+  Path: /metrics

@@ -1,0 +1,635 @@
+syntax = "v1"
+
+// 控制台与运营接口契约。
+//
+// 这里先冻结前端已经使用的 HTTP 形状；具体业务实现可以随后接入持久化、模型、
+// worker 和审计链路。所有路由都由 goctl 生成，禁止在 routes.go 中手写补路由。
+
+// ---------- 概览、运行记录、审计、用量 ----------
+
+type OverviewReq {
+	Days int `form:"days,optional"`
+}
+
+type OverviewKpiResp {
+	Sessions int `json:"sessions"`
+	Messages int `json:"messages"`
+	Runs int `json:"runs"`
+	TokensIn int64 `json:"tokens_in"`
+	TokensOut int64 `json:"tokens_out"`
+	CostMicros int64 `json:"cost_micros"`
+	PendingApprovals int `json:"pending_approvals"`
+	FailedRuns int `json:"failed_runs"`
+}
+
+type OverviewPointResp {
+	Bucket string `json:"bucket"`
+	Runs int `json:"runs"`
+	Tokens int64 `json:"tokens"`
+	CostMicros int64 `json:"cost_micros"`
+}
+
+type OverviewTopResp {
+	Key string `json:"key"`
+	Name string `json:"name"`
+	Runs int `json:"runs"`
+	CostMicros int64 `json:"cost_micros"`
+}
+
+type OverviewResp {
+	Kpi *OverviewKpiResp `json:"kpi"`
+	Trend []*OverviewPointResp `json:"trend"`
+	TopAgents []*OverviewTopResp `json:"top_agents"`
+	TopDatasets []*OverviewTopResp `json:"top_datasets"`
+	RecentFails []*RunResp `json:"recent_fails"`
+}
+
+type RunListReq {
+	Subject string `form:"subject,optional"`
+	AgentKey string `form:"agent_key,optional"`
+	Status string `form:"status,optional"`
+	FromMS int64 `form:"from_ms,optional"`
+	ToMS int64 `form:"to_ms,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type RunResp {
+	RunID string `json:"run_id"`
+	SessionID string `json:"session_id"`
+	AgentKey string `json:"agent_key"`
+	AgentVersion int `json:"agent_version"`
+	Subject string `json:"subject"`
+	SubjectName string `json:"subject_name"`
+	Status string `json:"status"`
+	Steps int `json:"steps"`
+	ToolCalls int `json:"tool_calls"`
+	TokensIn int64 `json:"tokens_in"`
+	TokensOut int64 `json:"tokens_out"`
+	LatencyMS int64 `json:"latency_ms"`
+	CostMicros int64 `json:"cost_micros"`
+	StartedAt int64 `json:"started_at"`
+	FinishedAt int64 `json:"finished_at,optional"`
+	Error string `json:"error,optional"`
+}
+
+type RunListResp {
+	Data []*RunResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type RunPathReq {
+	RunID string `path:"runId"`
+}
+
+type RunSpanResp {
+	SpanID string `json:"span_id"`
+	ParentID string `json:"parent_id,optional"`
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Status string `json:"status"`
+	LatencyMS int64 `json:"latency_ms"`
+	TokensIn int64 `json:"tokens_in"`
+	TokensOut int64 `json:"tokens_out"`
+	Input string `json:"input,optional"`
+	Output string `json:"output,optional"`
+	InputTruncated bool `json:"input_truncated,optional"`
+	OutputTruncated bool `json:"output_truncated,optional"`
+	Error string `json:"error,optional"`
+	StartedAt int64 `json:"started_at"`
+}
+
+type RunMessageResp {
+	Role string `json:"role"`
+	Content string `json:"content"`
+	CreatedAt int64 `json:"created_at"`
+}
+
+type RunDetailResp {
+	Run *RunResp `json:"run"`
+	Spans []*RunSpanResp `json:"spans"`
+	Hits []*SearchHitResp `json:"hits"`
+	Messages []*RunMessageResp `json:"messages"`
+}
+
+type AuditLogReq {
+	Actor string `form:"actor,optional"`
+	Action string `form:"action,optional"`
+	ResourceType string `form:"resource_type,optional"`
+	ResourceID string `form:"resource_id,optional"`
+	FromMS int64 `form:"from_ms,optional"`
+	ToMS int64 `form:"to_ms,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type AuditDiffResp {
+	Before map[string]interface{} `json:"before,optional"`
+	After map[string]interface{} `json:"after,optional"`
+}
+
+type AuditLogResp {
+	ID uint64 `json:"id"`
+	Actor string `json:"actor"`
+	ActorName string `json:"actor_name"`
+	Action string `json:"action"`
+	ResourceType string `json:"resource_type"`
+	ResourceID string `json:"resource_id"`
+	ResourceName string `json:"resource_name"`
+	Summary string `json:"summary"`
+	Diff *AuditDiffResp `json:"diff,optional"`
+	IP string `json:"ip,optional"`
+	CreatedAt int64 `json:"created_at"`
+}
+
+type AuditLogListResp {
+	Data []*AuditLogResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type UsageReq {
+	FromMS int64 `form:"from_ms,optional"`
+	ToMS int64 `form:"to_ms,optional"`
+	Interval string `form:"interval,optional"`
+	GroupBy string `form:"group_by,optional"`
+}
+
+type UsageTotalsResp {
+	Runs int `json:"runs"`
+	TokensIn int64 `json:"tokens_in"`
+	TokensOut int64 `json:"tokens_out"`
+	CostMicros int64 `json:"cost_micros"`
+}
+
+type UsagePointResp {
+	Bucket string `json:"bucket"`
+	BucketStartMS int64 `json:"bucket_start_ms"`
+	Runs int `json:"runs"`
+	Tokens int64 `json:"tokens"`
+	CostMicros int64 `json:"cost_micros"`
+}
+
+type UsageRowResp {
+	Key string `json:"key"`
+	Name string `json:"name"`
+	Runs int `json:"runs"`
+	TokensIn int64 `json:"tokens_in"`
+	TokensOut int64 `json:"tokens_out"`
+	CostMicros int64 `json:"cost_micros"`
+}
+
+type UsageResp {
+	Totals *UsageTotalsResp `json:"totals"`
+	Trend []*UsagePointResp `json:"trend"`
+	Rows []*UsageRowResp `json:"rows"`
+}
+
+// ---------- Agent 定义、版本、工具 ----------
+
+type AgentDefListReq {
+	Keyword string `form:"keyword,optional"`
+	Status string `form:"status,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type AgentDefResp {
+	ID uint64 `json:"id"`
+	Name string `json:"name"`
+	Description string `json:"description"`
+	Owner string `json:"owner"`
+	OwnerName string `json:"owner_name"`
+	Status string `json:"status"`
+	CurrentVersion int `json:"current_version"`
+	PublishedVersion int `json:"published_version"`
+	Model string `json:"model"`
+	RiskTier string `json:"risk_tier"`
+	Runs int `json:"runs"`
+	CreatedAt int64 `json:"created_at"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type AgentDefListResp {
+	Data []*AgentDefResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type CreateAgentDefReq {
+	Name string `json:"name"`
+	Description string `json:"description,optional"`
+	Model string `json:"model"`
+	RiskTier string `json:"risk_tier,optional"`
+}
+
+type AgentDefIDReq { ID uint64 `path:"id"` }
+
+type UpdateAgentDefReq {
+	ID uint64 `path:"id"`
+	Name string `json:"name,optional"`
+	Description string `json:"description,optional"`
+	Model string `json:"model,optional"`
+	RiskTier string `json:"risk_tier,optional"`
+}
+
+type AgentVersionResp {
+	Version int `json:"version"`
+	SystemPrompt string `json:"system_prompt"`
+	Model string `json:"model"`
+	Temperature float64 `json:"temperature"`
+	MaxIterations int `json:"max_iterations"`
+	ToolKeys []string `json:"tool_keys"`
+	DatasetIDs []uint64 `json:"dataset_ids"`
+	Status string `json:"status"`
+	ChangeNote string `json:"change_note,optional"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt int64 `json:"created_at"`
+}
+
+type AgentVersionListResp { Data []*AgentVersionResp `json:"data"` }
+
+type AgentVersionPathReq {
+	ID uint64 `path:"id"`
+	Version int `path:"version"`
+}
+
+type CreateAgentVersionReq {
+	ID uint64 `path:"id"`
+	SystemPrompt string `json:"system_prompt,optional"`
+	ToolKeys []string `json:"tool_keys,optional"`
+	DatasetIDs []uint64 `json:"dataset_ids,optional"`
+	ChangeNote string `json:"change_note,optional"`
+}
+
+type SetAgentDefDatasetsReq {
+	ID uint64 `path:"id"`
+	DatasetIDs []uint64 `json:"dataset_ids"`
+}
+
+type ToolListReq {
+	Keyword string `form:"keyword,optional"`
+	Kind string `form:"kind,optional"`
+	RiskTier string `form:"risk_tier,optional"`
+	Enabled string `form:"enabled,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type ToolResp {
+	Key string `json:"key"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+	Description string `json:"description"`
+	RiskTier string `json:"risk_tier"`
+	Enabled bool `json:"enabled"`
+	ConfigSchema string `json:"config_schema,optional"`
+	AuthType string `json:"auth_type"`
+	HasSecret bool `json:"has_secret"`
+	TimeoutMS int64 `json:"timeout_ms"`
+	Runs int `json:"runs"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type ToolListResp {
+	Data []*ToolResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type ToolKeyReq { Key string `path:"key"` }
+
+type CreateToolReq {
+	Key string `json:"key"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+	Description string `json:"description,optional"`
+	RiskTier string `json:"risk_tier,optional"`
+	AuthType string `json:"auth_type,optional"`
+	Secret string `json:"secret,optional"`
+	TimeoutMS int64 `json:"timeout_ms,optional"`
+}
+
+type UpdateToolReq {
+	Key string `path:"key"`
+	Name string `json:"name,optional"`
+	Description string `json:"description,optional"`
+	RiskTier string `json:"risk_tier,optional"`
+	AuthType string `json:"auth_type,optional"`
+	Secret string `json:"secret,optional"`
+	TimeoutMS int64 `json:"timeout_ms,optional"`
+}
+
+type EnableToolReq {
+	Key string `path:"key"`
+	Enabled bool `json:"enabled"`
+}
+
+type ToolTestResp {
+	OK bool `json:"ok"`
+	LatencyMS int64 `json:"latency_ms"`
+	Error string `json:"error,optional"`
+}
+
+// ---------- 模型、Provider、路由 ----------
+
+type ModelProviderListReq {
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type ModelProviderResp {
+	Key string `json:"key"`
+	Name string `json:"name"`
+	BaseURL string `json:"base_url"`
+	AuthType string `json:"auth_type"`
+	HasSecret bool `json:"has_secret"`
+	Enabled bool `json:"enabled"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type ModelProviderListResp {
+	Data []*ModelProviderResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type ModelProviderKeyReq { Key string `path:"key"` }
+
+type UpsertModelProviderReq {
+	Key string `path:"key"`
+	Name string `json:"name"`
+	BaseURL string `json:"base_url"`
+	AuthType string `json:"auth_type"`
+	Secret string `json:"secret,optional"`
+	Enabled bool `json:"enabled,optional"`
+}
+
+type ModelListReq {
+	Kind string `form:"kind,optional"`
+	ProviderKey string `form:"provider_key,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+
+type ModelResp {
+	Key string `json:"key"`
+	ProviderKey string `json:"provider_key"`
+	Kind string `json:"kind"`
+	ContextWindow int64 `json:"context_window"`
+	MaxOutputTokens int64 `json:"max_output_tokens"`
+	InputPriceMicrosPerK int64 `json:"input_price_micros_per_k"`
+	OutputPriceMicrosPerK int64 `json:"output_price_micros_per_k"`
+	Enabled bool `json:"enabled"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type ModelListResp {
+	Data []*ModelResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type UpsertModelReq {
+	Key string `path:"key"`
+	ProviderKey string `json:"provider_key"`
+	Kind string `json:"kind"`
+	ContextWindow int64 `json:"context_window,optional"`
+	MaxOutputTokens int64 `json:"max_output_tokens,optional"`
+	InputPriceMicrosPerK int64 `json:"input_price_micros_per_k,optional"`
+	OutputPriceMicrosPerK int64 `json:"output_price_micros_per_k,optional"`
+	Enabled bool `json:"enabled,optional"`
+}
+
+type EnableModelReq {
+	Key string `path:"key"`
+	Enabled bool `json:"enabled"`
+}
+
+type ModelRoutingResp {
+	DefaultChatModel string `json:"default_chat_model"`
+	DefaultEmbeddingModel string `json:"default_embedding_model"`
+	FallbackChain []string `json:"fallback_chain"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type PutModelRoutingReq {
+	DefaultChatModel string `json:"default_chat_model"`
+	DefaultEmbeddingModel string `json:"default_embedding_model"`
+	FallbackChain []string `json:"fallback_chain,optional"`
+}
+
+// ---------- 审批策略、安全策略 ----------
+
+type ApprovalPolicyResp {
+	ToolKey string `json:"tool_key"`
+	RiskTier string `json:"risk_tier"`
+	Mode string `json:"mode"`
+	ApproverRoles []string `json:"approver_roles"`
+	Quorum int `json:"quorum"`
+	TimeoutSeconds int `json:"timeout_seconds"`
+	OnTimeout string `json:"on_timeout"`
+	Enabled bool `json:"enabled"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type ApprovalPolicyListResp { Data []*ApprovalPolicyResp `json:"data"` }
+type PutApprovalPoliciesReq { Data []*ApprovalPolicyResp `json:"data"` }
+
+type PasswordPolicyResp {
+	MinLength int `json:"min_length"`
+	RequireUpper bool `json:"require_upper"`
+	RequireLower bool `json:"require_lower"`
+	RequireDigit bool `json:"require_digit"`
+	RequireSymbol bool `json:"require_symbol"`
+	MaxAgeDays int `json:"max_age_days"`
+	HistoryCount int `json:"history_count"`
+	MaxFailedAttempts int `json:"max_failed_attempts"`
+	LockoutSeconds int `json:"lockout_seconds"`
+	SessionTTLHours int `json:"session_ttl_hours"`
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+type PutPasswordPolicyReq {
+	MinLength int `json:"min_length"`
+	RequireUpper bool `json:"require_upper"`
+	RequireLower bool `json:"require_lower"`
+	RequireDigit bool `json:"require_digit"`
+	RequireSymbol bool `json:"require_symbol"`
+	MaxAgeDays int `json:"max_age_days"`
+	HistoryCount int `json:"history_count"`
+	MaxFailedAttempts int `json:"max_failed_attempts"`
+	LockoutSeconds int `json:"lockout_seconds"`
+	SessionTTLHours int `json:"session_ttl_hours"`
+}
+
+// ---------- 组织 ----------
+
+type OrgUnitListResp {
+	Data []*OrgUnitResp `json:"data"`
+}
+type OrgUnitResp {
+	ID uint64 `json:"id"`
+	Name string `json:"name"`
+	ParentID uint64 `json:"parent_id"`
+	Path string `json:"path"`
+	MemberCount int `json:"member_count"`
+	CreatedAt int64 `json:"created_at"`
+}
+type CreateOrgUnitReq {
+	Name string `json:"name"`
+	ParentID uint64 `json:"parent_id,optional"`
+}
+type UpdateOrgUnitReq {
+	ID uint64 `path:"id"`
+	Name string `json:"name,optional"`
+	ParentID uint64 `json:"parent_id,optional"`
+}
+type OrgUnitIDReq {
+	ID uint64 `path:"id"`
+}
+type OrgMemberResp {
+	Subject string `json:"subject"`
+	Username string `json:"username"`
+	Nickname string `json:"nickname"`
+	Role string `json:"role"`
+	JoinedAt int64 `json:"joined_at"`
+}
+type OrgMemberListResp {
+	Data []*OrgMemberResp `json:"data"`
+	Total int `json:"total"`
+}
+type AddOrgMemberReq {
+	ID uint64 `path:"id"`
+	Subject string `json:"subject"`
+}
+type RemoveOrgMemberReq {
+	ID uint64 `path:"id"`
+	Subject string `path:"subject"`
+}
+
+// ---------- 评测与反馈 ----------
+
+type EvalSetListReq {
+	Keyword string `form:"keyword,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+type EvalSetResp {
+	ID uint64 `json:"id"`
+	Name string `json:"name"`
+	Description string `json:"description"`
+	AgentKey string `json:"agent_key"`
+	CaseCount int `json:"case_count"`
+	LastRunAt int64 `json:"last_run_at,optional"`
+	LastScore float64 `json:"last_score"`
+	CreatedAt int64 `json:"created_at"`
+}
+type EvalSetListResp {
+	Data []*EvalSetResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+type CreateEvalSetReq {
+	Name string `json:"name"`
+	Description string `json:"description,optional"`
+	AgentKey string `json:"agent_key,optional"`
+}
+type EvalSetIDReq {
+	ID uint64 `path:"id"`
+}
+type EvalCaseResp {
+	ID uint64 `json:"id"`
+	Question string `json:"question"`
+	ExpectedAnswer string `json:"expected_answer"`
+	Tags []string `json:"tags"`
+	CreatedAt int64 `json:"created_at"`
+}
+type EvalCaseListResp {
+	Data []*EvalCaseResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+type CreateEvalCaseReq {
+	ID uint64 `path:"id"`
+	Question string `json:"question"`
+	ExpectedAnswer string `json:"expected_answer"`
+	Tags []string `json:"tags,optional"`
+}
+type EvalCasePathReq {
+	ID uint64 `path:"id"`
+	CaseID uint64 `path:"caseId"`
+}
+type EvalRunStartReq {
+	ID uint64 `path:"id"`
+}
+type StartEvalRunResp {
+	RunID string `json:"run_id"`
+}
+type EvalRunResp {
+	RunID string `json:"run_id"`
+	Status string `json:"status"`
+	Total int `json:"total"`
+	Completed int `json:"completed"`
+	Passed int `json:"passed"`
+	Score float64 `json:"score"`
+	StartedAt int64 `json:"started_at"`
+	FinishedAt int64 `json:"finished_at,optional"`
+	Error string `json:"error,optional"`
+}
+type EvalRunListResp {
+	Data []*EvalRunResp `json:"data"`
+	Total int `json:"total"`
+}
+type EvalRunIDReq {
+	RunID string `path:"runId"`
+}
+type EvalCaseResultResp {
+	CaseID uint64 `json:"case_id"`
+	Question string `json:"question"`
+	Answer string `json:"answer"`
+	Score float64 `json:"score"`
+	Passed bool `json:"passed"`
+	Reason string `json:"reason,optional"`
+	LatencyMS int64 `json:"latency_ms"`
+}
+type EvalRunDetailResp {
+	Run *EvalRunResp `json:"run"`
+	Results []*EvalCaseResultResp `json:"results"`
+}
+type FeedbackListReq {
+	Status string `form:"status,optional"`
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
+}
+type FeedbackResp {
+	ID uint64 `json:"id"`
+	RunID string `json:"run_id"`
+	SessionID string `json:"session_id"`
+	Subject string `json:"subject"`
+	Rating string `json:"rating"`
+	Comment string `json:"comment"`
+	Label string `json:"label"`
+	Note string `json:"note,optional"`
+	CreatedAt int64 `json:"created_at"`
+}
+type FeedbackListResp {
+	Data []*FeedbackResp `json:"data"`
+	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+type LabelFeedbackReq {
+	ID uint64 `path:"id"`
+	Label string `json:"label"`
+	Note string `json:"note,optional"`
+}

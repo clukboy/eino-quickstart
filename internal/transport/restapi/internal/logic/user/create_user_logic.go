@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 
-	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
@@ -31,28 +30,6 @@ func NewCreateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 	}
 }
 
-// CreateUser 建一个账号。这是系统里**唯一**产生账号的入口（没有注册接口）。
-//
-// ── 角色不能传 ────────────────────────────────────────────────────
-// 本方法从头到尾没有出现 role：store.Create 的签名里也没有。新账号一律 agent，
-// 所以管理后台造不出第二个管理员 —— 要给某人提权只能改库
-// （UPDATE users SET role='admin'）。这是「不允许注册」这条需求推到极致的必然
-// 结果，也是刻意的：把提权能力从接口里拿掉，就不存在「一次参数校验疏漏导致
-// 全员变管理员」的可能。要改的话请给 CreateUserReq 加 role 字段并在本方法里
-// 限制取值，不要去动 store.Create 的签名 —— 那层是故意做成拿不到提权能力的。
-//
-// ── 初始密码是共享凭证 ────────────────────────────────────────────
-// 管理员设的这个密码他本人知道，所以它只能用一次：新账号的
-// must_change_password 为真（store.Create 硬编码），在改密之前除
-// /api/v1/auth/* 之外什么都访问不了（middleware/password_guard.go）。响应里
-// 把 must_change_password 回给前端，就是为了让管理员看到「待改密」这一列，
-// 从而明白这枚密码不是长期凭证。
-//
-// ── username 与 nickname 是两件事 ────────────────────────────────
-// 前者是登录名（唯一、ASCII、有格式限制），后者是显示名（可中文、可重名）。
-// 两个都校验，但规则不同：详见 helpers.go 的 usernamePattern 与 nicknameLimit。
-// 昵称是**必填**的（建号接口不带它会被 400），因为「列表里只有一串 ASCII 登录名」
-// 对管理员毫无帮助 —— 他需要认出这是谁。
 func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.UserResp, err error) {
 	store, err := accountStore(l.svcCtx)
 	if err != nil {
@@ -69,8 +46,6 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.User
 		return nil, err
 	}
 
-	// ValidatePassword 的消息是给用户看的，原样透出（见 account.ValidatePassword
-	// 的注释：文案只有一份，避免建号说 8 位、改密说 6 位）。
 	if err := account.ValidatePassword(req.Password); err != nil {
 		return nil, httpx.BadRequest(err.Error())
 	}
@@ -84,36 +59,17 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserReq) (resp *types.User
 	record, err := store.Create(l.ctx, account.CreateParams{
 		Username: username,
 		Nickname: nickname,
-		// 注意顺序无关：CreateParams 是带字段名的结构体，不是三个连着的 string
-		// —— 后者把昵称当密码传也能编译过（见 store.go 里的说明）。
 		PasswordHash: passwordHash,
 	})
 	if errors.Is(err, account.ErrUsernameTaken) {
-		// 409 而不是 400：用户名重复是**资源冲突**，前端的处置也不同（把输入框
-		// 标红并提示换一个），与「格式不对」不是一类。
 		return nil, httpx.Conflict("用户名已存在")
 	}
 	if err != nil {
 		l.Errorf("create account failed username=%s: %v", username, err)
 		return nil, httpx.Internal("创建账号失败")
 	}
-
-	// 记 subject（= user:<id>）而不是密码或哈希。管理员的操作值得留痕：这条
-	// 日志是「这个账号是谁建的、什么时候建的」唯一能回答的地方（users 表里
-	// 没有 creator 列）。
-	//
-	// 昵称也一起记：它是排查「管理员说他建的是张三、列表里却没有」这类问题的
-	// 唯一线索，而且它不是凭证，留在日志里没有风险。
-	l.Infof(
-		"account created subject=%s username=%s nickname=%s role=%s must_change_password=%t",
-		auth.NewAccountSubject(record.ID),
-		record.Username,
-		record.Nickname,
-		record.Role,
-		record.MustChangePassword,
-	)
-
-	dto := userDTO(*record)
+	
+	dto := userDTO(record)
 
 	return &dto, nil
 }

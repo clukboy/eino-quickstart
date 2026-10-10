@@ -1,0 +1,18 @@
+syntax = "v1"
+
+// feedback 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/feedback
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListFeedback
+	get /feedback (FeedbackListReq) returns (FeedbackListResp)
+
+	@handler LabelFeedback
+	patch /feedback/:id (LabelFeedbackReq) returns (FeedbackResp)
+
+}

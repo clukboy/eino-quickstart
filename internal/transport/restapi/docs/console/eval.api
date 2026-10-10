@@ -1,0 +1,42 @@
+syntax = "v1"
+
+// eval 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/eval
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListEvalSets
+	get /eval-sets (EvalSetListReq) returns (EvalSetListResp)
+
+	@handler CreateEvalSet
+	post /eval-sets (CreateEvalSetReq) returns (EvalSetResp)
+
+	@handler GetEvalSet
+	get /eval-sets/:id (EvalSetIDReq) returns (EvalSetResp)
+
+	@handler DeleteEvalSet
+	delete /eval-sets/:id (EvalSetIDReq) returns (StatusResp)
+
+	@handler ListEvalCases
+	get /eval-sets/:id/cases (EvalSetIDReq) returns (EvalCaseListResp)
+
+	@handler CreateEvalCase
+	post /eval-sets/:id/cases (CreateEvalCaseReq) returns (EvalCaseResp)
+
+	@handler DeleteEvalCase
+	delete /eval-sets/:id/cases/:caseId (EvalCasePathReq) returns (StatusResp)
+
+	@handler StartEvalRun
+	post /eval-sets/:id/runs (EvalRunStartReq) returns (StartEvalRunResp)
+
+	@handler ListEvalRuns
+	get /eval-sets/:id/runs (EvalSetIDReq) returns (EvalRunListResp)
+
+	@handler GetEvalRun
+	get /eval-runs/:runId (EvalRunIDReq) returns (EvalRunDetailResp)
+
+}

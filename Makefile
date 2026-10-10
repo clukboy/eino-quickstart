@@ -70,3 +70,19 @@ test-knowledge-lifecycle: # Deterministic lifecycle regression, no external serv
 	go test -count=1 ./internal/application/knowledge -run TestDocumentLifecycle
 	go test -count=1 ./internal/transport/restapi/internal/handler/dataset -run TestDocumentHTTPContract
 	python3 -m unittest discover -s scripts/acceptance -p 'test_*.py'
+
+.PHONY: quality-gate
+quality-gate: # Run deterministic local quality gates without external services
+	bash ./scripts/quality-gate.sh
+
+# P27 显式数据库迁移；默认只做 dry-run，apply/status 必须由发布步骤明确选择。
+MIGRATE_CONFIG ?= configs/worker/config.yaml
+.PHONY: db-migrate-dry-run db-migrate-apply db-migrate-status
+db-migrate-dry-run:
+	go run ./cmd/db-migrate -config $(MIGRATE_CONFIG) -profile worker -dry-run
+
+db-migrate-apply:
+	go run ./cmd/db-migrate -config $(MIGRATE_CONFIG) -profile worker -apply
+
+db-migrate-status:
+	go run ./cmd/db-migrate -config $(MIGRATE_CONFIG) -profile worker -status

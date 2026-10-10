@@ -1,8 +1,8 @@
 # P02：API / worker 独立配置与验收准备
 
-更新日期：2026-10-06。
+更新日期：2026-10-07。
 
-> 本次完成 P02 的**配置部分**：独立文件、独立覆盖变量、按进程校验、隔离验收模板和离线检查入口。没有部署依赖，也没有完成真实服务预检、编号执行器、验收报告及自动清理。不能把“配置检查通过”当作“索引链路已验收”。
+> P02 的配置与验收基础设施已交付：独立文件、独立覆盖变量、按进程校验、隔离验收模板、依赖预检、编号入口、脱敏报告、唯一 fixture 和显式清理。当前工作区没有替你伪造外部依赖已就绪；真实 PostgreSQL / Redis / Milvus / embedding / worker 通过与否，必须在你的隔离环境执行 P02 后以报告为准。
 
 ## 1. 先弄清楚改哪个文件
 
@@ -56,11 +56,38 @@ ES 关闭时只是降级验证，不构成完整的关键词 / 精确召回验�
 
 **安全边界：**
 
-1. 默认开发文件保留之前的服务地址，仅用于兼容现有开发连接，不保证资源隔离。P02 验收请用 `configs/acceptance/`。
-2. 验收模板是配置，不会自动创建 PostgreSQL、Redis、Milvus 或 OTLP collector。Redis DB 15 也必须确认专用、未被他人使用；Redis Cluster 不支持这种多逻辑库隔离，需要单独 Redis 实例并调整 DB。
+1. 默认开发文件保留之前的服务地址，仅用于兼容现有开发连接，不保证资源隔离。需要独立隔离时用 `configs/acceptance/`；已有部署时可用 `--existing` 直接复用默认业务配置。
+2. 验收模板本身不会自动创建 PostgreSQL、Redis、Milvus 或 OTLP collector；可选的 `scripts/acceptance/dependencies.sh` 只负责启动本地 Docker 依赖，不改变模板的连接和验收规则。Redis DB 15 也必须确认专用、未被他人使用；Redis Cluster 不支持这种多逻辑库隔离，需要单独 Redis 实例并调整 DB。
 3. 当前数据库启动路径含 schema 同步，可能修改表和索引。**不要用真实业务数据库试启动**，先创建独立 `eino_acceptance` 数据库。
 4. 密钥全部走环境变量；文件中不填明文密钥，不提交本地凭据。
 5. 验收模板的工作区是 `workspace/acceptance`，worker 旧正文目录为 `tests/knowledge/acceptance`；新文档正文存在数据库，不需要往旧目录放文件。
+
+### 3.1 可选：用 Docker Desktop 启动本地依赖
+
+这只是没有现成依赖时的备用方案，不是 P02 的前置条件。当前部署已有数据库和其他服务时，直接使用 `configs/api/config.yaml`、`configs/worker/config.yaml` 与 `configs/api/restapi.yaml`，不要启动本地 Docker；`configs/acceptance/` 只用于需要完全隔离的独立环境。
+
+如果确实需要本地隔离依赖，才使用仓库内的可选 compose 栈。它只绑定回环地址，不启动 API / worker，也不提供 embedding、ES 或 OTLP collector；因此启动后仍需执行 P02 预检。
+
+```bash
+cd /Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2
+export EINO_STORAGE_PASSWORD='local-only-password'
+bash scripts/acceptance/dependencies.sh up
+bash scripts/acceptance/dependencies.sh status
+```
+
+这会启动项目名为 `eino-acceptance` 的 PostgreSQL、Redis、Milvus 及其 etcd / MinIO 支撑服务。PostgreSQL 密码来自 `EINO_STORAGE_PASSWORD`，应与 `configs/acceptance/api.yaml` 和 `configs/acceptance/worker.yaml` 的数据库凭据一致；不要把真实密码写进 `configs/acceptance/.env.example` 或提交到 Git。
+
+常用操作：
+
+```bash
+# 查看最近日志（默认每个服务 100 行）
+bash scripts/acceptance/dependencies.sh logs
+
+# 停止容器，但保留 named volume，便于下一次继续使用
+bash scripts/acceptance/dependencies.sh down
+```
+
+`down` 不删除卷；如果要重新初始化本地数据，必须由用户明确决定并单独执行受控的 compose 卷清理。脚本不会接管冲突端口，也不会操作其他 compose 项目。模板和脚本位置分别是 `configs/acceptance/compose.yaml`、`configs/acceptance/.env.example`、`scripts/acceptance/dependencies.sh`。
 
 ## 4. 不连接依赖，先验证“配置是否能加载”
 
@@ -121,7 +148,46 @@ EINO_WORKER_CONFIG=./configs/acceptance/api.yaml \
 
 ## 5. 接真实服务时，按这个顺序做
 
-这部分是**用户下一步验证步骤，本次没有代你执行**。
+配置和预检入口已经交付；下面的真实服务启动、凭证有效性和 embedding 小调用使用已有部署配置执行，不需要本地 Docker。若目标服务尚未运行，P02 会生成 BLOCKED 报告，而不是假报通过。
+
+### 5.1 先跑预检，再启动完整链路
+
+从仓库根目录执行。预检只读取 API / worker / REST 配置；它不会建表、建 collection、建 ES index 或发送索引任务。Redis 权限探针使用本轮唯一 key，设置 1 秒过期并在结束时删除；embedding 只有显式加 `EINO_P02_PROBE_EMBEDDING=1` 才会发出一次可能计费的请求。
+
+```bash
+bash scripts/acceptance/run.sh --list
+
+# 只允许 PostgreSQL 关键词回落的模式；ES address 为空是合法的。
+# 复用已有部署，不启动本地 Docker。
+EINO_STORAGE_PASSWORD='你的数据库密码' \
+EINO_EMBEDDING_API_KEY='你的 embedding key' \
+EINO_API_KEY_DEVELOPER='你的 agent key' \
+EINO_API_KEY_APPROVER='你的 approver key' \
+EINO_API_KEY_ADMIN='你的 admin key' \
+EINO_ANONYMOUS_SECRET='独立匿名签名密钥' \
+EINO_ACCOUNT_SECRET='独立账号签名密钥' \
+bash scripts/acceptance/run.sh P02 --existing --degraded
+
+# 确认 embedding 模型与维度时，显式允许一次小调用；不要无预算重复执行。
+EINO_P02_PROBE_EMBEDDING=1 \
+EINO_STORAGE_PASSWORD='你的隔离库密码' EINO_EMBEDDING_API_KEY='你的 embedding key' \
+EINO_API_KEY_DEVELOPER='你的 agent key' EINO_API_KEY_APPROVER='你的 approver key' \
+EINO_API_KEY_ADMIN='你的 admin key' EINO_ANONYMOUS_SECRET='独立匿名签名密钥' \
+EINO_ACCOUNT_SECRET='独立账号签名密钥' \
+bash scripts/acceptance/run.sh P02 --existing --degraded
+
+# 只有配置了独立 ES 地址后才执行完整检索模式。
+bash scripts/acceptance/run.sh P02 --existing --complete
+```
+
+报告目录会打印在命令末尾，里面有 `preflight.json`、`summary.json`、`preflight.log` 和带唯一标记的 `fixture.md`。报告只记录资源地址 / 名称和检查结果，不记录密码、API key 或签名密钥。`P02 --complete` 要求 ES 可用；`P02 --degraded` 允许 ES 关闭，但不会放宽 PostgreSQL、Redis、Milvus、worker 注册和 embedding 维度检查。
+
+清理只接受一个 P02 报告目录，并且必须显式确认；不会执行 `FLUSHDB`、全库删除或删除共享 collection：
+
+```bash
+bash scripts/acceptance/run.sh P02-cleanup \
+  /absolute/path/to/logs/acceptance/P02/<本轮报告目录名> --confirm
+```
 
 1. 先准备独立 PostgreSQL 数据库、专用 Redis DB / 实例、Milvus；需要 ES 完整验证时再准备独立索引。把实际地址写入两份验收业务配置。
 2. 确认模型 / embedding 服务能使用配置中的模型名和维度；实际小调用可能计费，先确认预算。
@@ -153,7 +219,7 @@ EINO_WORKER_CONFIG=./configs/acceptance/api.yaml \
 
 8. 核对日志文件分离：`logs/acceptance/server.json` 和 `logs/acceptance/worker.json`；核对 API 和 worker 日志记录的配置路径及服务名。OTLP collector 示例为 `127.0.0.1:4317`，没有准备时不要宣称 tracing 已验收。
 
-**不要做：** 不运行 `FLUSHDB`、不删共享 collection、不执行全库清空。后续清理必须依据本轮资源台账；本次没有提供自动清理脚本。
+**不要做：** 不运行 `FLUSHDB`、不删共享 collection、不执行全库清空。P02 只清理自己报告目录里的 fixture；文档、数据集、队列和索引资源的创建/删除仍必须由对应 P04/P05 验收台账和显式清理入口负责。
 
 ## 6. 完成范围与剩余计划
 
@@ -162,16 +228,19 @@ EINO_WORKER_CONFIG=./configs/acceptance/api.yaml \
 - [x] 角色专属校验、字段拼写校验、API 纯队列投递客户端。
 - [x] worker 不依赖对话 / 身份 / HTTP / 工作区配置。
 - [x] 隔离验收配置模板、资源命名、离线检查命令和启动步骤。
-- [ ] 按实际服务地址部署隔离依赖并验证连接、权限、embedding 维度。
-- [ ] 编号验收执行器 `scripts/acceptance/run.sh`、`--list` 和预检。
-- [ ] 独立报告目录、资源台账及安全清理实现。
-- [ ] API + worker 真实服务启动与小文档端到端验收。
+- [ ] 按实际服务地址部署隔离依赖并验证连接、权限、embedding 维度（需要用户环境复测）。
+- [x] 编号验收执行器 `scripts/acceptance/run.sh`、`--list`、P02 `--degraded/--complete` 和脱敏预检报告。
+- [x] 独立报告目录、资源摘要、唯一 fixture 及 `P02-cleanup ... --confirm` 安全清理实现。
+- [ ] API + worker 真实服务启动与小文档端到端验收（P04 负责业务链路证据）。
 
-P01 的 Prometheus / DevServer 指标策略属于另一项。本次保留当前 HTTP 配置策略，不用 P02 的配置拆分掩盖已有指标测试问题。
+P01 的 Prometheus 指标策略已独立完成：REST 配置显式启用 `127.0.0.1:9091/metrics`，P02 的 API / worker 配置拆分不改变该约定。
 
 ## 7. 本次验证记录
 
 - `go test ./internal/platform/config ./internal/platform/queue/asynq ./cmd/restapi ./cmd/worker ./cmd/rag-test -count=1`：通过（worker 暂无独立单元测试，包编译通过）。
 - 第 4.2 / 4.3 节的 `-check-config`：均成功，worker 在 API 凭据为空时通过。
-- `go test ./...`：未全绿；剩余失败在 `internal/transport/restapi` 的 `TestShippedConfigKeepsAgentsConfigurable` 和 `TestPrometheusAgentServesGoZeroMetrics`。当前 Prometheus 配置仍被注释，用户已有 DevServer 测试调整与配置尚未对齐，属于 P01 待处理事项，本次未改变指标策略。
-- 没有运行真实服务启动、上传文档、模型调用或 schema 同步。
+- `go test ./cmd/acceptance-preflight`：通过，覆盖 BLOCKED/FAIL 状态优先级、fixture 唯一标记/权限及脱敏报告。
+- `bash scripts/acceptance/run.sh --list`、shell 语法检查：通过。
+- `bash scripts/acceptance/run.sh P02 --degraded`：按预期 BLOCKED（API health/ready 通过；本机 PostgreSQL、Redis、Milvus 未启动；报告和 fixture 已生成），退出码 2；随后 `P02-cleanup ... --confirm` 只删除该报告目录的 fixture。
+- 历史 P01 指标失败已在 2026-10-07 修复；当前全量 `go test -count=1 ./...` 已退出码 0。启用/禁用测试和实际 agent 抓取测试均通过，详见 `docs/p01-metrics-acceptance.md`。
+- 没有运行真实 worker 启动、上传文档或 embedding 计费调用；真实 schema 同步由后续 P04/用户隔离环境承担。

@@ -9,11 +9,23 @@ import (
 // AgentDataset is the predicate function for agentdataset builders.
 type AgentDataset func(*sql.Selector)
 
+// AgentDef is the predicate function for agentdef builders.
+type AgentDef func(*sql.Selector)
+
+// AgentDefDataset is the predicate function for agentdefdataset builders.
+type AgentDefDataset func(*sql.Selector)
+
 // AgentRun is the predicate function for agentrun builders.
 type AgentRun func(*sql.Selector)
 
+// AgentVersion is the predicate function for agentversion builders.
+type AgentVersion func(*sql.Selector)
+
 // Approval is the predicate function for approval builders.
 type Approval func(*sql.Selector)
+
+// ApprovalPolicy is the predicate function for approvalpolicy builders.
+type ApprovalPolicy func(*sql.Selector)
 
 // AuditEvent is the predicate function for auditevent builders.
 type AuditEvent func(*sql.Selector)
@@ -33,17 +45,53 @@ type Document func(*sql.Selector)
 // DocumentChunk is the predicate function for documentchunk builders.
 type DocumentChunk func(*sql.Selector)
 
-// KnowledgeFolder is the predicate function for knowledgefolder builders.
-type KnowledgeFolder func(*sql.Selector)
+// EvalCase is the predicate function for evalcase builders.
+type EvalCase func(*sql.Selector)
 
-// KnowledgeIndex is the predicate function for knowledgeindex builders.
-type KnowledgeIndex func(*sql.Selector)
+// EvalCaseResult is the predicate function for evalcaseresult builders.
+type EvalCaseResult func(*sql.Selector)
+
+// EvalRun is the predicate function for evalrun builders.
+type EvalRun func(*sql.Selector)
+
+// EvalSet is the predicate function for evalset builders.
+type EvalSet func(*sql.Selector)
+
+// Feedback is the predicate function for feedback builders.
+type Feedback func(*sql.Selector)
+
+// Model is the predicate function for model builders.
+type Model func(*sql.Selector)
+
+// ModelProvider is the predicate function for modelprovider builders.
+type ModelProvider func(*sql.Selector)
+
+// ModelRouting is the predicate function for modelrouting builders.
+type ModelRouting func(*sql.Selector)
+
+// OrgMember is the predicate function for orgmember builders.
+type OrgMember func(*sql.Selector)
+
+// OrgUnit is the predicate function for orgunit builders.
+type OrgUnit func(*sql.Selector)
+
+// PasswordPolicy is the predicate function for passwordpolicy builders.
+type PasswordPolicy func(*sql.Selector)
+
+// RunRetrievalHit is the predicate function for runretrievalhit builders.
+type RunRetrievalHit func(*sql.Selector)
+
+// RunSpan is the predicate function for runspan builders.
+type RunSpan func(*sql.Selector)
 
 // Session is the predicate function for session builders.
 type Session func(*sql.Selector)
 
 // SessionMessage is the predicate function for sessionmessage builders.
 type SessionMessage func(*sql.Selector)
+
+// Tool is the predicate function for tool builders.
+type Tool func(*sql.Selector)
 
 // User is the predicate function for user builders.
 type User func(*sql.Selector)

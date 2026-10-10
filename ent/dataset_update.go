@@ -5,9 +5,9 @@ package ent
 import (
 	"context"
 	"eino-quickstart/ent/agentdataset"
+	"eino-quickstart/ent/agentdefdataset"
 	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/predicate"
 	"errors"
 	"fmt"
@@ -127,21 +127,6 @@ func (_u *DatasetUpdate) SetUpdatedAt(v time.Time) *DatasetUpdate {
 	return _u
 }
 
-// AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by IDs.
-func (_u *DatasetUpdate) AddFolderIDs(ids ...uint64) *DatasetUpdate {
-	_u.mutation.AddFolderIDs(ids...)
-	return _u
-}
-
-// AddFolders adds the "folders" edges to the KnowledgeFolder entity.
-func (_u *DatasetUpdate) AddFolders(v ...*KnowledgeFolder) *DatasetUpdate {
-	ids := make([]uint64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddFolderIDs(ids...)
-}
-
 // AddDocumentIDs adds the "documents" edge to the Document entity by IDs.
 func (_u *DatasetUpdate) AddDocumentIDs(ids ...uint64) *DatasetUpdate {
 	_u.mutation.AddDocumentIDs(ids...)
@@ -172,30 +157,24 @@ func (_u *DatasetUpdate) AddAgentDatasets(v ...*AgentDataset) *DatasetUpdate {
 	return _u.AddAgentDatasetIDs(ids...)
 }
 
-// Mutation returns the DatasetMutation object of the builder.
-func (_u *DatasetUpdate) Mutation() *DatasetMutation {
-	return _u.mutation
-}
-
-// ClearFolders clears all "folders" edges to the KnowledgeFolder entity.
-func (_u *DatasetUpdate) ClearFolders() *DatasetUpdate {
-	_u.mutation.ClearFolders()
+// AddAgentDefDatasetIDs adds the "agent_def_datasets" edge to the AgentDefDataset entity by IDs.
+func (_u *DatasetUpdate) AddAgentDefDatasetIDs(ids ...uint64) *DatasetUpdate {
+	_u.mutation.AddAgentDefDatasetIDs(ids...)
 	return _u
 }
 
-// RemoveFolderIDs removes the "folders" edge to KnowledgeFolder entities by IDs.
-func (_u *DatasetUpdate) RemoveFolderIDs(ids ...uint64) *DatasetUpdate {
-	_u.mutation.RemoveFolderIDs(ids...)
-	return _u
-}
-
-// RemoveFolders removes "folders" edges to KnowledgeFolder entities.
-func (_u *DatasetUpdate) RemoveFolders(v ...*KnowledgeFolder) *DatasetUpdate {
+// AddAgentDefDatasets adds the "agent_def_datasets" edges to the AgentDefDataset entity.
+func (_u *DatasetUpdate) AddAgentDefDatasets(v ...*AgentDefDataset) *DatasetUpdate {
 	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _u.RemoveFolderIDs(ids...)
+	return _u.AddAgentDefDatasetIDs(ids...)
+}
+
+// Mutation returns the DatasetMutation object of the builder.
+func (_u *DatasetUpdate) Mutation() *DatasetMutation {
+	return _u.mutation
 }
 
 // ClearDocuments clears all "documents" edges to the Document entity.
@@ -238,6 +217,27 @@ func (_u *DatasetUpdate) RemoveAgentDatasets(v ...*AgentDataset) *DatasetUpdate 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentDatasetIDs(ids...)
+}
+
+// ClearAgentDefDatasets clears all "agent_def_datasets" edges to the AgentDefDataset entity.
+func (_u *DatasetUpdate) ClearAgentDefDatasets() *DatasetUpdate {
+	_u.mutation.ClearAgentDefDatasets()
+	return _u
+}
+
+// RemoveAgentDefDatasetIDs removes the "agent_def_datasets" edge to AgentDefDataset entities by IDs.
+func (_u *DatasetUpdate) RemoveAgentDefDatasetIDs(ids ...uint64) *DatasetUpdate {
+	_u.mutation.RemoveAgentDefDatasetIDs(ids...)
+	return _u
+}
+
+// RemoveAgentDefDatasets removes "agent_def_datasets" edges to AgentDefDataset entities.
+func (_u *DatasetUpdate) RemoveAgentDefDatasets(v ...*AgentDefDataset) *DatasetUpdate {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentDefDatasetIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -327,51 +327,6 @@ func (_u *DatasetUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(dataset.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if _u.mutation.FoldersCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedFoldersIDs(); len(nodes) > 0 && !_u.mutation.FoldersCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.FoldersIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _u.mutation.DocumentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -455,6 +410,51 @@ func (_u *DatasetUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentdataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentDefDatasetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentDefDatasetsIDs(); len(nodes) > 0 && !_u.mutation.AgentDefDatasetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentDefDatasetsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {
@@ -578,21 +578,6 @@ func (_u *DatasetUpdateOne) SetUpdatedAt(v time.Time) *DatasetUpdateOne {
 	return _u
 }
 
-// AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by IDs.
-func (_u *DatasetUpdateOne) AddFolderIDs(ids ...uint64) *DatasetUpdateOne {
-	_u.mutation.AddFolderIDs(ids...)
-	return _u
-}
-
-// AddFolders adds the "folders" edges to the KnowledgeFolder entity.
-func (_u *DatasetUpdateOne) AddFolders(v ...*KnowledgeFolder) *DatasetUpdateOne {
-	ids := make([]uint64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _u.AddFolderIDs(ids...)
-}
-
 // AddDocumentIDs adds the "documents" edge to the Document entity by IDs.
 func (_u *DatasetUpdateOne) AddDocumentIDs(ids ...uint64) *DatasetUpdateOne {
 	_u.mutation.AddDocumentIDs(ids...)
@@ -623,30 +608,24 @@ func (_u *DatasetUpdateOne) AddAgentDatasets(v ...*AgentDataset) *DatasetUpdateO
 	return _u.AddAgentDatasetIDs(ids...)
 }
 
-// Mutation returns the DatasetMutation object of the builder.
-func (_u *DatasetUpdateOne) Mutation() *DatasetMutation {
-	return _u.mutation
-}
-
-// ClearFolders clears all "folders" edges to the KnowledgeFolder entity.
-func (_u *DatasetUpdateOne) ClearFolders() *DatasetUpdateOne {
-	_u.mutation.ClearFolders()
+// AddAgentDefDatasetIDs adds the "agent_def_datasets" edge to the AgentDefDataset entity by IDs.
+func (_u *DatasetUpdateOne) AddAgentDefDatasetIDs(ids ...uint64) *DatasetUpdateOne {
+	_u.mutation.AddAgentDefDatasetIDs(ids...)
 	return _u
 }
 
-// RemoveFolderIDs removes the "folders" edge to KnowledgeFolder entities by IDs.
-func (_u *DatasetUpdateOne) RemoveFolderIDs(ids ...uint64) *DatasetUpdateOne {
-	_u.mutation.RemoveFolderIDs(ids...)
-	return _u
-}
-
-// RemoveFolders removes "folders" edges to KnowledgeFolder entities.
-func (_u *DatasetUpdateOne) RemoveFolders(v ...*KnowledgeFolder) *DatasetUpdateOne {
+// AddAgentDefDatasets adds the "agent_def_datasets" edges to the AgentDefDataset entity.
+func (_u *DatasetUpdateOne) AddAgentDefDatasets(v ...*AgentDefDataset) *DatasetUpdateOne {
 	ids := make([]uint64, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _u.RemoveFolderIDs(ids...)
+	return _u.AddAgentDefDatasetIDs(ids...)
+}
+
+// Mutation returns the DatasetMutation object of the builder.
+func (_u *DatasetUpdateOne) Mutation() *DatasetMutation {
+	return _u.mutation
 }
 
 // ClearDocuments clears all "documents" edges to the Document entity.
@@ -689,6 +668,27 @@ func (_u *DatasetUpdateOne) RemoveAgentDatasets(v ...*AgentDataset) *DatasetUpda
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentDatasetIDs(ids...)
+}
+
+// ClearAgentDefDatasets clears all "agent_def_datasets" edges to the AgentDefDataset entity.
+func (_u *DatasetUpdateOne) ClearAgentDefDatasets() *DatasetUpdateOne {
+	_u.mutation.ClearAgentDefDatasets()
+	return _u
+}
+
+// RemoveAgentDefDatasetIDs removes the "agent_def_datasets" edge to AgentDefDataset entities by IDs.
+func (_u *DatasetUpdateOne) RemoveAgentDefDatasetIDs(ids ...uint64) *DatasetUpdateOne {
+	_u.mutation.RemoveAgentDefDatasetIDs(ids...)
+	return _u
+}
+
+// RemoveAgentDefDatasets removes "agent_def_datasets" edges to AgentDefDataset entities.
+func (_u *DatasetUpdateOne) RemoveAgentDefDatasets(v ...*AgentDefDataset) *DatasetUpdateOne {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentDefDatasetIDs(ids...)
 }
 
 // Where appends a list predicates to the DatasetUpdate builder.
@@ -808,51 +808,6 @@ func (_u *DatasetUpdateOne) sqlSave(ctx context.Context) (_node *Dataset, err er
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(dataset.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if _u.mutation.FoldersCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RemovedFoldersIDs(); len(nodes) > 0 && !_u.mutation.FoldersCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.FoldersIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _u.mutation.DocumentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -936,6 +891,51 @@ func (_u *DatasetUpdateOne) sqlSave(ctx context.Context) (_node *Dataset, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentdataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentDefDatasetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentDefDatasetsIDs(); len(nodes) > 0 && !_u.mutation.AgentDefDatasetsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentDefDatasetsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

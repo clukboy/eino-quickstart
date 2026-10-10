@@ -23,6 +23,10 @@ type AgentRun struct {
 	SessionID string `json:"session_id,omitempty"`
 	// RequestedBy holds the value of the "requested_by" field.
 	RequestedBy string `json:"requested_by,omitempty"`
+	// AgentKey holds the value of the "agent_key" field.
+	AgentKey string `json:"agent_key,omitempty"`
+	// AgentVersion holds the value of the "agent_version" field.
+	AgentVersion int `json:"agent_version,omitempty"`
 	// UserMessage holds the value of the "user_message" field.
 	UserMessage string `json:"user_message,omitempty"`
 	// CheckpointID holds the value of the "checkpoint_id" field.
@@ -33,6 +37,20 @@ type AgentRun struct {
 	ApprovalID *string `json:"approval_id,omitempty"`
 	// ErrorCode holds the value of the "error_code" field.
 	ErrorCode *string `json:"error_code,omitempty"`
+	// Error holds the value of the "error" field.
+	Error *string `json:"error,omitempty"`
+	// Steps holds the value of the "steps" field.
+	Steps int `json:"steps,omitempty"`
+	// ToolCalls holds the value of the "tool_calls" field.
+	ToolCalls int `json:"tool_calls,omitempty"`
+	// TokensIn holds the value of the "tokens_in" field.
+	TokensIn int64 `json:"tokens_in,omitempty"`
+	// TokensOut holds the value of the "tokens_out" field.
+	TokensOut int64 `json:"tokens_out,omitempty"`
+	// LatencyMs holds the value of the "latency_ms" field.
+	LatencyMs int64 `json:"latency_ms,omitempty"`
+	// CostMicros holds the value of the "cost_micros" field.
+	CostMicros int64 `json:"cost_micros,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -49,9 +67,9 @@ func (*AgentRun) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case agentrun.FieldID:
+		case agentrun.FieldID, agentrun.FieldAgentVersion, agentrun.FieldSteps, agentrun.FieldToolCalls, agentrun.FieldTokensIn, agentrun.FieldTokensOut, agentrun.FieldLatencyMs, agentrun.FieldCostMicros:
 			values[i] = new(sql.NullInt64)
-		case agentrun.FieldRunID, agentrun.FieldSessionID, agentrun.FieldRequestedBy, agentrun.FieldUserMessage, agentrun.FieldCheckpointID, agentrun.FieldStatus, agentrun.FieldApprovalID, agentrun.FieldErrorCode:
+		case agentrun.FieldRunID, agentrun.FieldSessionID, agentrun.FieldRequestedBy, agentrun.FieldAgentKey, agentrun.FieldUserMessage, agentrun.FieldCheckpointID, agentrun.FieldStatus, agentrun.FieldApprovalID, agentrun.FieldErrorCode, agentrun.FieldError:
 			values[i] = new(sql.NullString)
 		case agentrun.FieldCreatedAt, agentrun.FieldUpdatedAt, agentrun.FieldCompletedAt, agentrun.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
@@ -94,6 +112,18 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RequestedBy = value.String
 			}
+		case agentrun.FieldAgentKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_key", values[i])
+			} else if value.Valid {
+				_m.AgentKey = value.String
+			}
+		case agentrun.FieldAgentVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_version", values[i])
+			} else if value.Valid {
+				_m.AgentVersion = int(value.Int64)
+			}
 		case agentrun.FieldUserMessage:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field user_message", values[i])
@@ -126,6 +156,49 @@ func (_m *AgentRun) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ErrorCode = new(string)
 				*_m.ErrorCode = value.String
+			}
+		case agentrun.FieldError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field error", values[i])
+			} else if value.Valid {
+				_m.Error = new(string)
+				*_m.Error = value.String
+			}
+		case agentrun.FieldSteps:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field steps", values[i])
+			} else if value.Valid {
+				_m.Steps = int(value.Int64)
+			}
+		case agentrun.FieldToolCalls:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field tool_calls", values[i])
+			} else if value.Valid {
+				_m.ToolCalls = int(value.Int64)
+			}
+		case agentrun.FieldTokensIn:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field tokens_in", values[i])
+			} else if value.Valid {
+				_m.TokensIn = value.Int64
+			}
+		case agentrun.FieldTokensOut:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field tokens_out", values[i])
+			} else if value.Valid {
+				_m.TokensOut = value.Int64
+			}
+		case agentrun.FieldLatencyMs:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field latency_ms", values[i])
+			} else if value.Valid {
+				_m.LatencyMs = value.Int64
+			}
+		case agentrun.FieldCostMicros:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cost_micros", values[i])
+			} else if value.Valid {
+				_m.CostMicros = value.Int64
 			}
 		case agentrun.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -198,6 +271,12 @@ func (_m *AgentRun) String() string {
 	builder.WriteString("requested_by=")
 	builder.WriteString(_m.RequestedBy)
 	builder.WriteString(", ")
+	builder.WriteString("agent_key=")
+	builder.WriteString(_m.AgentKey)
+	builder.WriteString(", ")
+	builder.WriteString("agent_version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AgentVersion))
+	builder.WriteString(", ")
 	builder.WriteString("user_message=")
 	builder.WriteString(_m.UserMessage)
 	builder.WriteString(", ")
@@ -218,6 +297,29 @@ func (_m *AgentRun) String() string {
 		builder.WriteString("error_code=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	if v := _m.Error; v != nil {
+		builder.WriteString("error=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("steps=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Steps))
+	builder.WriteString(", ")
+	builder.WriteString("tool_calls=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ToolCalls))
+	builder.WriteString(", ")
+	builder.WriteString("tokens_in=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TokensIn))
+	builder.WriteString(", ")
+	builder.WriteString("tokens_out=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TokensOut))
+	builder.WriteString(", ")
+	builder.WriteString("latency_ms=")
+	builder.WriteString(fmt.Sprintf("%v", _m.LatencyMs))
+	builder.WriteString(", ")
+	builder.WriteString("cost_micros=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CostMicros))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -1,0 +1,42 @@
+syntax = "v1"
+
+// agent 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/agent
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListAgentDefs
+	get /agent-defs (AgentDefListReq) returns (AgentDefListResp)
+
+	@handler CreateAgentDef
+	post /agent-defs (CreateAgentDefReq) returns (AgentDefResp)
+
+	@handler GetAgentDef
+	get /agent-defs/:id (AgentDefIDReq) returns (AgentDefResp)
+
+	@handler UpdateAgentDef
+	put /agent-defs/:id (UpdateAgentDefReq) returns (AgentDefResp)
+
+	@handler DeleteAgentDef
+	delete /agent-defs/:id (AgentDefIDReq) returns (StatusResp)
+
+	@handler ListAgentVersions
+	get /agent-defs/:id/versions (AgentDefIDReq) returns (AgentVersionListResp)
+
+	@handler CreateAgentVersion
+	post /agent-defs/:id/versions (CreateAgentVersionReq) returns (AgentVersionResp)
+
+	@handler PublishAgentVersion
+	post /agent-defs/:id/versions/:version/publish (AgentVersionPathReq) returns (AgentVersionResp)
+
+	@handler RetireAgentVersion
+	post /agent-defs/:id/versions/:version/retire (AgentVersionPathReq) returns (AgentVersionResp)
+
+	@handler SetAgentDefDatasets
+	put /agent-defs/:id/datasets (SetAgentDefDatasetsReq) returns (StatusResp)
+
+}

@@ -112,6 +112,20 @@ auth:
     # 每加 1 就把单次哈希耗时翻倍，而 /auth/login 没有限流，别配高。
     bcryptCost: 0
 
+  userSync:
+    enabled: true
+    type: "wechat"
+    wechatConfig:
+      contact:
+        appId: "wwd342688f274e37bd"
+        secret: "00jGyS2ho2YdL2W9B1LC3WmkXrlG1hkuPHpVzs9IZ04"
+        httpDebug: false
+      work:
+        appId: "wwd342688f274e37bd"
+        secret: "Yi0BXHu7M2P1QGgPe_4HcU4zc-ZcaHnNNiK9B4u1mKA"
+        agentId: 1000057
+        httpDebug: false
+
 runtime:
   readTimeoutSeconds: 600
   writeTimeoutSeconds: 120
@@ -145,6 +159,10 @@ execution:
 
 knowledge:
   maxDocumentBytes: 5242880
+  # multipart 上传的请求总上限（含 multipart 边界与字段开销）。
+  maxUploadRequestBytes: 52428800
+  # 单次最多接收的 file 字段数量；每个 file 仍受 maxDocumentBytes 限制。
+  maxUploadFiles: 10
   defaultTopK: 5
   maxTopK: 200
   maxQueryCharacters: 2000
@@ -201,6 +219,11 @@ retrieval:
   vectorCandidateLimit: 300
   enableRerank: false
   maxRerankCandidates: 20
+  # Provider-neutral HTTP contract; enable only after endpoint/model are provisioned.
+  rerankEndpoint: ""
+  rerankApiKeyEnv: "EINO_RERANK_API_KEY"
+  rerankModel: ""
+  rerankTimeoutMS: 2000
 
 # Producer only: queue name "index" is part of the task contract.
 asynq:
@@ -211,3 +234,9 @@ asynq:
     passwordEnv: ""
     db: 0
   maxRetries: 5
+
+redis:
+  addr:
+    - "10.10.2.90:6379"
+  username: ""
+  passwordEnv: ""

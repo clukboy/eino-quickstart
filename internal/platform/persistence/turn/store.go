@@ -290,6 +290,10 @@ func (s *Store) Fail(
 
 	return err
 }
+func (s *Store) CountTerminalBefore(ctx context.Context, before time.Time) (int, error) {
+	return s.client.ChatTurn.Query().Where(entchatturn.StatusIn(StatusCompleted, StatusFailed), entchatturn.CompletedAtLT(before)).Count(ctx)
+}
+
 func (s *Store) DeleteTerminalBefore(
 	ctx context.Context,
 	before time.Time,

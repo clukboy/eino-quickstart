@@ -475,29 +475,6 @@ func UpdatedAtLTE(v time.Time) predicate.Dataset {
 	return predicate.Dataset(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
-// HasFolders applies the HasEdge predicate on the "folders" edge.
-func HasFolders() predicate.Dataset {
-	return predicate.Dataset(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, FoldersTable, FoldersColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasFoldersWith applies the HasEdge predicate on the "folders" edge with a given conditions (other predicates).
-func HasFoldersWith(preds ...predicate.KnowledgeFolder) predicate.Dataset {
-	return predicate.Dataset(func(s *sql.Selector) {
-		step := newFoldersStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasDocuments applies the HasEdge predicate on the "documents" edge.
 func HasDocuments() predicate.Dataset {
 	return predicate.Dataset(func(s *sql.Selector) {
@@ -536,6 +513,29 @@ func HasAgentDatasets() predicate.Dataset {
 func HasAgentDatasetsWith(preds ...predicate.AgentDataset) predicate.Dataset {
 	return predicate.Dataset(func(s *sql.Selector) {
 		step := newAgentDatasetsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentDefDatasets applies the HasEdge predicate on the "agent_def_datasets" edge.
+func HasAgentDefDatasets() predicate.Dataset {
+	return predicate.Dataset(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentDefDatasetsTable, AgentDefDatasetsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentDefDatasetsWith applies the HasEdge predicate on the "agent_def_datasets" edge with a given conditions (other predicates).
+func HasAgentDefDatasetsWith(preds ...predicate.AgentDefDataset) predicate.Dataset {
+	return predicate.Dataset(func(s *sql.Selector) {
+		step := newAgentDefDatasetsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

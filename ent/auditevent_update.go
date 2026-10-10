@@ -129,6 +129,150 @@ func (_u *AuditEventUpdate) ClearActorSubject() *AuditEventUpdate {
 	return _u
 }
 
+// SetAction sets the "action" field.
+func (_u *AuditEventUpdate) SetAction(v string) *AuditEventUpdate {
+	_u.mutation.SetAction(v)
+	return _u
+}
+
+// SetNillableAction sets the "action" field if the given value is not nil.
+func (_u *AuditEventUpdate) SetNillableAction(v *string) *AuditEventUpdate {
+	if v != nil {
+		_u.SetAction(*v)
+	}
+	return _u
+}
+
+// ClearAction clears the value of the "action" field.
+func (_u *AuditEventUpdate) ClearAction() *AuditEventUpdate {
+	_u.mutation.ClearAction()
+	return _u
+}
+
+// SetResourceType sets the "resource_type" field.
+func (_u *AuditEventUpdate) SetResourceType(v string) *AuditEventUpdate {
+	_u.mutation.SetResourceType(v)
+	return _u
+}
+
+// SetNillableResourceType sets the "resource_type" field if the given value is not nil.
+func (_u *AuditEventUpdate) SetNillableResourceType(v *string) *AuditEventUpdate {
+	if v != nil {
+		_u.SetResourceType(*v)
+	}
+	return _u
+}
+
+// ClearResourceType clears the value of the "resource_type" field.
+func (_u *AuditEventUpdate) ClearResourceType() *AuditEventUpdate {
+	_u.mutation.ClearResourceType()
+	return _u
+}
+
+// SetResourceID sets the "resource_id" field.
+func (_u *AuditEventUpdate) SetResourceID(v string) *AuditEventUpdate {
+	_u.mutation.SetResourceID(v)
+	return _u
+}
+
+// SetNillableResourceID sets the "resource_id" field if the given value is not nil.
+func (_u *AuditEventUpdate) SetNillableResourceID(v *string) *AuditEventUpdate {
+	if v != nil {
+		_u.SetResourceID(*v)
+	}
+	return _u
+}
+
+// ClearResourceID clears the value of the "resource_id" field.
+func (_u *AuditEventUpdate) ClearResourceID() *AuditEventUpdate {
+	_u.mutation.ClearResourceID()
+	return _u
+}
+
+// SetResourceName sets the "resource_name" field.
+func (_u *AuditEventUpdate) SetResourceName(v string) *AuditEventUpdate {
+	_u.mutation.SetResourceName(v)
+	return _u
+}
+
+// SetNillableResourceName sets the "resource_name" field if the given value is not nil.
+func (_u *AuditEventUpdate) SetNillableResourceName(v *string) *AuditEventUpdate {
+	if v != nil {
+		_u.SetResourceName(*v)
+	}
+	return _u
+}
+
+// ClearResourceName clears the value of the "resource_name" field.
+func (_u *AuditEventUpdate) ClearResourceName() *AuditEventUpdate {
+	_u.mutation.ClearResourceName()
+	return _u
+}
+
+// SetSummary sets the "summary" field.
+func (_u *AuditEventUpdate) SetSummary(v string) *AuditEventUpdate {
+	_u.mutation.SetSummary(v)
+	return _u
+}
+
+// SetNillableSummary sets the "summary" field if the given value is not nil.
+func (_u *AuditEventUpdate) SetNillableSummary(v *string) *AuditEventUpdate {
+	if v != nil {
+		_u.SetSummary(*v)
+	}
+	return _u
+}
+
+// ClearSummary clears the value of the "summary" field.
+func (_u *AuditEventUpdate) ClearSummary() *AuditEventUpdate {
+	_u.mutation.ClearSummary()
+	return _u
+}
+
+// SetBefore sets the "before" field.
+func (_u *AuditEventUpdate) SetBefore(v map[string]interface{}) *AuditEventUpdate {
+	_u.mutation.SetBefore(v)
+	return _u
+}
+
+// ClearBefore clears the value of the "before" field.
+func (_u *AuditEventUpdate) ClearBefore() *AuditEventUpdate {
+	_u.mutation.ClearBefore()
+	return _u
+}
+
+// SetAfter sets the "after" field.
+func (_u *AuditEventUpdate) SetAfter(v map[string]interface{}) *AuditEventUpdate {
+	_u.mutation.SetAfter(v)
+	return _u
+}
+
+// ClearAfter clears the value of the "after" field.
+func (_u *AuditEventUpdate) ClearAfter() *AuditEventUpdate {
+	_u.mutation.ClearAfter()
+	return _u
+}
+
+// SetIP sets the "ip" field.
+func (_u *AuditEventUpdate) SetIP(v string) *AuditEventUpdate {
+	_u.mutation.SetIP(v)
+	return _u
+}
+
+// SetNillableIP sets the "ip" field if the given value is not nil.
+func (_u *AuditEventUpdate) SetNillableIP(v *string) *AuditEventUpdate {
+	if v != nil {
+		_u.SetIP(*v)
+	}
+	return _u
+}
+
+// ClearIP clears the value of the "ip" field.
+func (_u *AuditEventUpdate) ClearIP() *AuditEventUpdate {
+	_u.mutation.ClearIP()
+	return _u
+}
+
 // Mutation returns the AuditEventMutation object of the builder.
 func (_u *AuditEventUpdate) Mutation() *AuditEventMutation {
 	return _u.mutation
@@ -196,6 +340,54 @@ func (_u *AuditEventUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if _u.mutation.ActorSubjectCleared() {
 		_spec.ClearField(auditevent.FieldActorSubject, field.TypeString)
+	}
+	if value, ok := _u.mutation.Action(); ok {
+		_spec.SetField(auditevent.FieldAction, field.TypeString, value)
+	}
+	if _u.mutation.ActionCleared() {
+		_spec.ClearField(auditevent.FieldAction, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResourceType(); ok {
+		_spec.SetField(auditevent.FieldResourceType, field.TypeString, value)
+	}
+	if _u.mutation.ResourceTypeCleared() {
+		_spec.ClearField(auditevent.FieldResourceType, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResourceID(); ok {
+		_spec.SetField(auditevent.FieldResourceID, field.TypeString, value)
+	}
+	if _u.mutation.ResourceIDCleared() {
+		_spec.ClearField(auditevent.FieldResourceID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResourceName(); ok {
+		_spec.SetField(auditevent.FieldResourceName, field.TypeString, value)
+	}
+	if _u.mutation.ResourceNameCleared() {
+		_spec.ClearField(auditevent.FieldResourceName, field.TypeString)
+	}
+	if value, ok := _u.mutation.Summary(); ok {
+		_spec.SetField(auditevent.FieldSummary, field.TypeString, value)
+	}
+	if _u.mutation.SummaryCleared() {
+		_spec.ClearField(auditevent.FieldSummary, field.TypeString)
+	}
+	if value, ok := _u.mutation.Before(); ok {
+		_spec.SetField(auditevent.FieldBefore, field.TypeJSON, value)
+	}
+	if _u.mutation.BeforeCleared() {
+		_spec.ClearField(auditevent.FieldBefore, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.After(); ok {
+		_spec.SetField(auditevent.FieldAfter, field.TypeJSON, value)
+	}
+	if _u.mutation.AfterCleared() {
+		_spec.ClearField(auditevent.FieldAfter, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.IP(); ok {
+		_spec.SetField(auditevent.FieldIP, field.TypeString, value)
+	}
+	if _u.mutation.IPCleared() {
+		_spec.ClearField(auditevent.FieldIP, field.TypeString)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -319,6 +511,150 @@ func (_u *AuditEventUpdateOne) ClearActorSubject() *AuditEventUpdateOne {
 	return _u
 }
 
+// SetAction sets the "action" field.
+func (_u *AuditEventUpdateOne) SetAction(v string) *AuditEventUpdateOne {
+	_u.mutation.SetAction(v)
+	return _u
+}
+
+// SetNillableAction sets the "action" field if the given value is not nil.
+func (_u *AuditEventUpdateOne) SetNillableAction(v *string) *AuditEventUpdateOne {
+	if v != nil {
+		_u.SetAction(*v)
+	}
+	return _u
+}
+
+// ClearAction clears the value of the "action" field.
+func (_u *AuditEventUpdateOne) ClearAction() *AuditEventUpdateOne {
+	_u.mutation.ClearAction()
+	return _u
+}
+
+// SetResourceType sets the "resource_type" field.
+func (_u *AuditEventUpdateOne) SetResourceType(v string) *AuditEventUpdateOne {
+	_u.mutation.SetResourceType(v)
+	return _u
+}
+
+// SetNillableResourceType sets the "resource_type" field if the given value is not nil.
+func (_u *AuditEventUpdateOne) SetNillableResourceType(v *string) *AuditEventUpdateOne {
+	if v != nil {
+		_u.SetResourceType(*v)
+	}
+	return _u
+}
+
+// ClearResourceType clears the value of the "resource_type" field.
+func (_u *AuditEventUpdateOne) ClearResourceType() *AuditEventUpdateOne {
+	_u.mutation.ClearResourceType()
+	return _u
+}
+
+// SetResourceID sets the "resource_id" field.
+func (_u *AuditEventUpdateOne) SetResourceID(v string) *AuditEventUpdateOne {
+	_u.mutation.SetResourceID(v)
+	return _u
+}
+
+// SetNillableResourceID sets the "resource_id" field if the given value is not nil.
+func (_u *AuditEventUpdateOne) SetNillableResourceID(v *string) *AuditEventUpdateOne {
+	if v != nil {
+		_u.SetResourceID(*v)
+	}
+	return _u
+}
+
+// ClearResourceID clears the value of the "resource_id" field.
+func (_u *AuditEventUpdateOne) ClearResourceID() *AuditEventUpdateOne {
+	_u.mutation.ClearResourceID()
+	return _u
+}
+
+// SetResourceName sets the "resource_name" field.
+func (_u *AuditEventUpdateOne) SetResourceName(v string) *AuditEventUpdateOne {
+	_u.mutation.SetResourceName(v)
+	return _u
+}
+
+// SetNillableResourceName sets the "resource_name" field if the given value is not nil.
+func (_u *AuditEventUpdateOne) SetNillableResourceName(v *string) *AuditEventUpdateOne {
+	if v != nil {
+		_u.SetResourceName(*v)
+	}
+	return _u
+}
+
+// ClearResourceName clears the value of the "resource_name" field.
+func (_u *AuditEventUpdateOne) ClearResourceName() *AuditEventUpdateOne {
+	_u.mutation.ClearResourceName()
+	return _u
+}
+
+// SetSummary sets the "summary" field.
+func (_u *AuditEventUpdateOne) SetSummary(v string) *AuditEventUpdateOne {
+	_u.mutation.SetSummary(v)
+	return _u
+}
+
+// SetNillableSummary sets the "summary" field if the given value is not nil.
+func (_u *AuditEventUpdateOne) SetNillableSummary(v *string) *AuditEventUpdateOne {
+	if v != nil {
+		_u.SetSummary(*v)
+	}
+	return _u
+}
+
+// ClearSummary clears the value of the "summary" field.
+func (_u *AuditEventUpdateOne) ClearSummary() *AuditEventUpdateOne {
+	_u.mutation.ClearSummary()
+	return _u
+}
+
+// SetBefore sets the "before" field.
+func (_u *AuditEventUpdateOne) SetBefore(v map[string]interface{}) *AuditEventUpdateOne {
+	_u.mutation.SetBefore(v)
+	return _u
+}
+
+// ClearBefore clears the value of the "before" field.
+func (_u *AuditEventUpdateOne) ClearBefore() *AuditEventUpdateOne {
+	_u.mutation.ClearBefore()
+	return _u
+}
+
+// SetAfter sets the "after" field.
+func (_u *AuditEventUpdateOne) SetAfter(v map[string]interface{}) *AuditEventUpdateOne {
+	_u.mutation.SetAfter(v)
+	return _u
+}
+
+// ClearAfter clears the value of the "after" field.
+func (_u *AuditEventUpdateOne) ClearAfter() *AuditEventUpdateOne {
+	_u.mutation.ClearAfter()
+	return _u
+}
+
+// SetIP sets the "ip" field.
+func (_u *AuditEventUpdateOne) SetIP(v string) *AuditEventUpdateOne {
+	_u.mutation.SetIP(v)
+	return _u
+}
+
+// SetNillableIP sets the "ip" field if the given value is not nil.
+func (_u *AuditEventUpdateOne) SetNillableIP(v *string) *AuditEventUpdateOne {
+	if v != nil {
+		_u.SetIP(*v)
+	}
+	return _u
+}
+
+// ClearIP clears the value of the "ip" field.
+func (_u *AuditEventUpdateOne) ClearIP() *AuditEventUpdateOne {
+	_u.mutation.ClearIP()
+	return _u
+}
+
 // Mutation returns the AuditEventMutation object of the builder.
 func (_u *AuditEventUpdateOne) Mutation() *AuditEventMutation {
 	return _u.mutation
@@ -416,6 +752,54 @@ func (_u *AuditEventUpdateOne) sqlSave(ctx context.Context) (_node *AuditEvent, 
 	}
 	if _u.mutation.ActorSubjectCleared() {
 		_spec.ClearField(auditevent.FieldActorSubject, field.TypeString)
+	}
+	if value, ok := _u.mutation.Action(); ok {
+		_spec.SetField(auditevent.FieldAction, field.TypeString, value)
+	}
+	if _u.mutation.ActionCleared() {
+		_spec.ClearField(auditevent.FieldAction, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResourceType(); ok {
+		_spec.SetField(auditevent.FieldResourceType, field.TypeString, value)
+	}
+	if _u.mutation.ResourceTypeCleared() {
+		_spec.ClearField(auditevent.FieldResourceType, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResourceID(); ok {
+		_spec.SetField(auditevent.FieldResourceID, field.TypeString, value)
+	}
+	if _u.mutation.ResourceIDCleared() {
+		_spec.ClearField(auditevent.FieldResourceID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ResourceName(); ok {
+		_spec.SetField(auditevent.FieldResourceName, field.TypeString, value)
+	}
+	if _u.mutation.ResourceNameCleared() {
+		_spec.ClearField(auditevent.FieldResourceName, field.TypeString)
+	}
+	if value, ok := _u.mutation.Summary(); ok {
+		_spec.SetField(auditevent.FieldSummary, field.TypeString, value)
+	}
+	if _u.mutation.SummaryCleared() {
+		_spec.ClearField(auditevent.FieldSummary, field.TypeString)
+	}
+	if value, ok := _u.mutation.Before(); ok {
+		_spec.SetField(auditevent.FieldBefore, field.TypeJSON, value)
+	}
+	if _u.mutation.BeforeCleared() {
+		_spec.ClearField(auditevent.FieldBefore, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.After(); ok {
+		_spec.SetField(auditevent.FieldAfter, field.TypeJSON, value)
+	}
+	if _u.mutation.AfterCleared() {
+		_spec.ClearField(auditevent.FieldAfter, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.IP(); ok {
+		_spec.SetField(auditevent.FieldIP, field.TypeString, value)
+	}
+	if _u.mutation.IPCleared() {
+		_spec.ClearField(auditevent.FieldIP, field.TypeString)
 	}
 	_node = &AuditEvent{config: _u.config}
 	_spec.Assign = _node.assignValues

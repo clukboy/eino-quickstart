@@ -89,7 +89,7 @@ func (c *Client) SearchExact(ctx context.Context, query string, topK int) ([]Chu
 		return nil, nil
 	}
 
-	terms := exactTerms(query)
+	terms := ExactTerms(query)
 	if len(terms) == 0 {
 		return nil, errEmptyQuery
 	}
@@ -100,7 +100,7 @@ func (c *Client) SearchExact(ctx context.Context, query string, topK int) ([]Chu
 			boost := float32(field.Boost)
 			should = append(should, types.Query{
 				Term: map[string]types.TermQuery{
-					field.Name: {Value: term, Boost: &boost},
+					field.Name: {Value: NormalizeExactValue(term), Boost: &boost},
 				},
 			})
 		}
@@ -129,13 +129,13 @@ func (c *Client) SearchExact(ctx context.Context, query string, topK int) ([]Chu
 // 处理。取前几个词就够覆盖「型号 + 几个修饰词」这种实际输入。
 const maxExactTerms = 8
 
-// exactTerms 把查询切成用于逐字比较的词。
+// ExactTerms 把查询切成用于逐字比较的词。
 //
 // 只按非字母数字的边界切（空白、标点、连字符），不做中文 2-gram：结构化字段的
 // 值是「图冠系列」「铰链」这种完整词，拆成 2-gram 之后「铰链」会退化成「铰」
 // 和「链」，反而比不中任何东西。这与 rag 包里那个用于子串匹配的 Tokenize 是
 // 两个不同用途的切法，不要合并。
-func exactTerms(query string) []string {
+func ExactTerms(query string) []string {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil
@@ -144,12 +144,21 @@ func exactTerms(query string) []string {
 	seen := make(map[string]struct{}, maxExactTerms)
 	out := make([]string, 0, maxExactTerms)
 
+	// 保留规范化后的整串作为第一候选，保证 ACC-H105P 这类带连接符的
+	// 结构化值可以真正逐字相等；随后再补词元，支持「H105P 铰链」这类
+	// 混合查询从句子里命中一个结构化值。短语整串不命中时不会放宽字段值，
+	// 因为每个候选仍然走 keyword/metadata 的完全相等比较。
+	if whole := NormalizeExactValue(query); whole != "" {
+		seen[whole] = struct{}{}
+		out = append(out, whole)
+	}
+
 	var current []rune
 	flush := func() {
 		if len(current) == 0 {
 			return
 		}
-		term := string(current)
+		term := NormalizeExactValue(string(current))
 		current = current[:0]
 		if _, exists := seen[term]; exists {
 			return

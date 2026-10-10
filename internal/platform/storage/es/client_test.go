@@ -406,14 +406,14 @@ func TestSearchExactUsesTermOnKeywordSubfields(t *testing.T) {
 			seen[term.Value][name] = term.Boost
 		}
 	}
-	for _, word := range []string{"H105P", "铰链"} {
+	for _, word := range []string{"h105p", "铰链"} {
 		if len(seen[word]) != len(exact) {
 			t.Errorf("词 %q 的 term 子句有 %d 条，期望每个精确字段一条（共 %d）",
 				word, len(seen[word]), len(exact))
 		}
 	}
 	for _, field := range exact {
-		if got, ok := seen["H105P"][field.Name]; !ok || got != field.Boost {
+		if got, ok := seen["h105p"][field.Name]; !ok || got != field.Boost {
 			t.Errorf("字段 %s 的权重是 %v，期望 %v", field.Name, got, field.Boost)
 		}
 	}
@@ -810,9 +810,9 @@ func TestChunkDocJSONShape(t *testing.T) {
 		`"chunk_id":"12"`, `"document_id":"3"`, `"dataset_id":"8"`, `"chunk_index":1`,
 		`"source":"H11_二段力滑入式铰链.md"`, `"title":"H11 铰链"`, `"heading_path":"规格"`,
 		`"content":"H105G 的安装孔距"`, `"visibility":"private"`, `"owner":"developer-1"`,
-		`"product_id":"H105P"`, `"model":"H105P"`, `"product_name":"二段力小角度偏心轮快装缓冲铰链"`,
-		`"series_name":"图冠系列"`, `"family_prefix":"H105"`, `"category_l1":"铰链"`,
-		`"category_l2":"缓冲铰链"`, `"variants":["H105P-白","H105P-黑"]`,
+		`"product_id":"h105p"`, `"model":"h105p"`, `"product_name":"二段力小角度偏心轮快装缓冲铰链"`,
+		`"series_name":"图冠系列"`, `"family_prefix":"h105"`, `"category_l1":"铰链"`,
+		`"category_l2":"缓冲铰链"`, `"variants":["h105p-白","h105p-黑"]`,
 		`"mapping_rev":"` + client.rev + `"`,
 	} {
 		if !strings.Contains(body, want) {

@@ -1,0 +1,3 @@
+// P21 synthetic, non-empty privacy corpus. Sources are intentionally stable and contain no real user data.
+{"id":"subject-a-can-read-own-private-document","query":"subject A unique hinge specification","expected_sources":["private/subject-a/hinge.md"],"forbidden_sources":["private/subject-b/hinge.md"],"min_results":1,"scene":"private-positive","note":"Subject A must see its own document and never subject B's document."}
+{"id":"subject-b-can-read-own-private-document","query":"subject B unique hinge specification","expected_sources":["private/subject-b/hinge.md"],"forbidden_sources":["private/subject-a/hinge.md"],"min_results":1,"scene":"private-positive","note":"Subject B must see its own document and never subject A's document."}

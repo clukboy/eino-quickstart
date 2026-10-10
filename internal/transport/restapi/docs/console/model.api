@@ -1,0 +1,39 @@
+syntax = "v1"
+
+// model 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/model
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListModelProviders
+	get /model-providers (ModelProviderListReq) returns (ModelProviderListResp)
+
+	@handler UpsertModelProvider
+	put /model-providers/:key (UpsertModelProviderReq) returns (ModelProviderResp)
+
+	@handler DeleteModelProvider
+	delete /model-providers/:key (ModelProviderKeyReq) returns (StatusResp)
+
+	@handler ListModels
+	get /models (ModelListReq) returns (ModelListResp)
+
+	@handler UpsertModel
+	put /models/:key (UpsertModelReq) returns (ModelResp)
+
+	@handler DeleteModel
+	delete /models/:key (ModelProviderKeyReq) returns (StatusResp)
+
+	@handler EnableModel
+	patch /models/:key/enabled (EnableModelReq) returns (ModelResp)
+
+	@handler GetModelRouting
+	get /model-routing returns (ModelRoutingResp)
+
+	@handler PutModelRouting
+	put /model-routing (PutModelRoutingReq) returns (ModelRoutingResp)
+
+}

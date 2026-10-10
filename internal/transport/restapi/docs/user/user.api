@@ -31,8 +31,9 @@ syntax = "v1"
 //
 // ── 与「同步」的关系 ────────────────────────────────────────────────
 //
-// /users/sync 是预留给「从外部数据源批量拉账号」的占位接口。它与上面两条
-// 路由共用同一组、同一个中间件，前端也照常调用 —— 只是后端当前恒返回 501。
+// /users/sync 从 provider-neutral 外部数据源批量同步账号。它与上面两条
+// 路由共用同一组、同一个中间件；未启用外部 source 时由业务层返回 503，
+// dryRun、稳定 external_id 匹配和 no-delete 边界由实现与验收文档共同定义。
 type UserResp {
 	ID      uint64 `json:"id"`
 	Subject string `json:"subject"`
@@ -42,7 +43,7 @@ type UserResp {
 	// Nickname 是**显示名**，与 Username 分工不同：这一个给人看（可中文、
 	// 可重名），那一个用来登录（唯一、ASCII）。建号时必填，之后没有修改接口。
 	//
-	// 本字段是后加的列，比它更早建的账号由 entx.Open 里的启动回填按 username
+	// 本字段是后加的列，比它更早建的账号由 显式 db-migrate 里的迁移步骤按 username
 	// 补上（见 persistence/account 与 ent/schema/user.go 的说明），所以正常
 	// 状态下它不会是空串；真拿到空串说明有人绕过接口直接写了库。
 	Nickname string `json:"nickname"`
@@ -110,6 +111,51 @@ type CreateUserReq {
 	Password string `json:"password"`
 }
 
+type UserPathReq {
+	ID uint64 `path:"id"`
+}
+
+type UpdateUserReq {
+	ID       uint64 `path:"id"`
+	Nickname string `json:"nickname,optional"`
+	Role     string `json:"role,optional"`
+	Status   string `json:"status,optional"`
+}
+
+type ResetUserPasswordReq {
+	ID       uint64 `path:"id"`
+	Password string `json:"password"`
+}
+
+type SyncUsersReq {
+	DryRun bool `json:"dryRun,optional"`
+}
+
+// SyncUsersResp 是一次同步的可审计摘要。errors 只包含外部用户键与可操作原因，
+// 不包含上游令牌、密码或原始响应。created 的 initialPassword 仅在本次响应返回。
+type SyncUsersResp {
+	DryRun bool `json:"dryRun"`
+	Total int `json:"total"`
+	Created int `json:"created"`
+	Updated int `json:"updated"`
+	Skipped int `json:"skipped"`
+	Failed int `json:"failed"`
+	CreatedUsers []SyncCreatedUser `json:"createdUsers,omitempty"`
+	Errors []SyncUserError `json:"errors,omitempty"`
+}
+
+type SyncCreatedUser {
+	ExternalID string `json:"externalId"`
+	Username string `json:"username"`
+	InitialPassword string `json:"initialPassword"`
+}
+
+type SyncUserError {
+	ExternalID string `json:"externalId,omitempty"`
+	Username string `json:"username,omitempty"`
+	Reason string `json:"reason"`
+}
+
 // 账号创建与查看全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
@@ -125,14 +171,15 @@ service restapi {
 	@handler CreateUser
 	post /users (CreateUserReq) returns (UserResp)
 
-	// returns 的类型在这条路由上**当前永远不会被用到**：handler 恒返回
-	// 501 not_implemented。这里借用 StatusResp（定义在 common/types.api）
-	// 而不是新造一个 SyncUsersResp，是为了不在数据源定下来之前先编一个形状 ——
-	// 同步结果里该有哪些计数（created/updated/skipped…）取决于还没定的上游，
-	// 现在编一个等于凭空造契约，客户端会照着它写代码。
-	//
-	// 真接入时：把 returns 换成按实际结果定义的类型，前端那时补一次展示逻辑。
-	@doc "从外部数据源同步账号（占位：当前恒返回 501 not_implemented）"
+	// 同步只新增或更新，不删除本地账号。dryRun=true 只拉取并计算差异，不写库；
+	// 创建的新账号会返回一次性初始密码，服务端不会把它写入日志。
+	@doc "从已配置的外部数据源同步账号（只新增/更新，不删除；支持 dry-run）"
 	@handler SyncUsers
-	post /users/sync returns (StatusResp)
+	post /users/sync (SyncUsersReq) returns (SyncUsersResp)
+
+	@handler UpdateUser
+	patch /users/:id (UpdateUserReq) returns (UserResp)
+
+	@handler ResetUserPassword
+	post /users/:id/password (ResetUserPasswordReq) returns (StatusResp)
 }

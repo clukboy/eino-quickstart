@@ -126,6 +126,11 @@ auth:
     # 每加 1 就把单次哈希耗时翻倍，而 /auth/login 没有限流，别配高。
     bcryptCost: 0
 
+  userSync:
+    enabled: false
+    endpoint: ""
+    apiKeyEnv: ""
+    timeoutMS: 5000
 runtime:
   readTimeoutSeconds: 600
   writeTimeoutSeconds: 120
@@ -159,6 +164,10 @@ execution:
 
 knowledge:
   maxDocumentBytes: 5242880
+  # multipart 上传的请求总上限（含 multipart 边界与字段开销）。
+  maxUploadRequestBytes: 52428800
+  # 单次最多接收的 file 字段数量；每个 file 仍受 maxDocumentBytes 限制。
+  maxUploadFiles: 10
   defaultTopK: 5
   maxTopK: 200
   maxQueryCharacters: 2000
@@ -166,6 +175,15 @@ knowledge:
   recallGrouping:
     default: document
     product: document
+  # 可选：产品型录没有 front-matter 时，API 请求期调用一个结构化拆分模型。
+  # 默认关闭；开启前必须准备可重复的输出约束与标注样例。
+  productSplitEnabled: false
+  productSplitEndpoint: ""
+  productSplitApiKeyEnv: "EINO_PRODUCT_SPLIT_API_KEY"
+  productSplitModel: ""
+  productSplitParserVersion: "p16-v1"
+  productSplitTimeoutMS: 30000
+  productSplitMaxProducts: 100
 
 embedding:
   baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -213,6 +231,11 @@ retrieval:
   vectorCandidateLimit: 300
   enableRerank: false
   maxRerankCandidates: 20
+  # Provider-neutral HTTP contract; enable only after endpoint/model are provisioned.
+  rerankEndpoint: ""
+  rerankApiKeyEnv: "EINO_RERANK_API_KEY"
+  rerankModel: ""
+  rerankTimeoutMS: 2000
 
 # Producer only: queue name "index" is part of the task contract.
 asynq:

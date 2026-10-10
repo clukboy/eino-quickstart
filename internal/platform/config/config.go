@@ -2,12 +2,14 @@ package config
 
 import (
 	"bytes"
+	"eino-quickstart/internal/platform/im/wechat"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,12 +22,6 @@ type ESConfig struct {
 	PasswordEnv string   `yaml:"passwordEnv"`
 	CaCertPath  string   `yaml:"caCertPath"`
 	BulkSize    int      `yaml:"bulkSize"`
-
-	// MappingFile 是检索面的声明文件（JSON 或 YAML），一个索引一份。
-	//
-	// 独立成文件而不是内联在这里，是因为它描述的是字段名、类型、权重与取值
-	// 路径 —— 这些必须与 internal/rag/parser 产出的元数据对齐，改动也常常和
-	// 「换了一套产品线」同时发生，值得单独评审与对照。
 	MappingFile string `yaml:"mappingFile"`
 }
 
@@ -54,10 +50,10 @@ type Config struct {
 	Retrieval   RetrievalConfig   `yaml:"retrieval"`
 	Indexer     IndexerConfig     `yaml:"indexer"`
 
-	// Asynq 是文档索引的异步队列。它取代了早期的 queue 段：那时 AsynqConf
-	// 只有连接参数，而队列名、重试上限、关闭超时都散在别处，两套配置只有
-	// 一套在生效。现在连接参数与队列语义收在同一个段里，见 validateAsynq。
 	Asynq AsynqConfig `yaml:"asynq"`
+
+	Redis redis.UniversalOptions `yaml:"redis"`
+
 }
 
 type ServerConfig struct {
@@ -113,24 +109,8 @@ type Storage struct {
 	MaxOpenConn int    `yaml:"maxOpenConn"`
 }
 
-// maxAnonymousTTLHours 是匿名令牌有效期上限（一年）。
-//
-// 匿名令牌是**无状态**的：签出去就收不回，服务端没有吊销名单（见
-// internal/platform/auth 的 AnonymousIssuer）。所以有效期是这个身份唯一的
-// 兜底 —— 配成一个几乎不过期的值时，一个泄漏的令牌就是永久可用的身份，
-// 而运维没有任何手段收回。
 const maxAnonymousTTLHours = 24 * 365
 
-// maxAccountTTLHours 是账号令牌有效期上限（30 天）。
-//
-// 比匿名令牌的上限（一年）紧得多，因为两者失效的代价不一样：匿名令牌泄漏的
-// 后果是「别人能看到这个访客的会话」，而账号令牌泄漏的后果是「别人能以这个
-// 人的身份操作」。账号令牌同样是无状态的，改密码与停用账号都挡不住它
-// （见 internal/platform/auth 的 AccountIssuer），所以有效期是唯一兜底。
-//
-// 30 天是这样选的：比「用户可能连续使用同一台设备」的间隔长，又不至于让一个
-// 泄漏的令牌长期有效。真需要更长的会话时长，正确的做法是加刷新机制，而不是
-// 把这个上限调大。
 const maxAccountTTLHours = 24 * 30
 
 // 管理员初始密码的 bcrypt 成本上下界（0 表示不配、走 bcrypt.DefaultCost）。
@@ -147,6 +127,14 @@ type Auth struct {
 	APIKeys   []APIKeyConfig      `yaml:"apiKeys"`
 	Anonymous AnonymousAuthConfig `yaml:"anonymous"`
 	Accounts  AccountsAuthConfig  `yaml:"accounts"`
+	UserSync  UserSyncConfig      `yaml:"userSync"`
+}
+
+// the indexing process.
+type UserSyncConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	Type 	 string `yaml:"type"`
+	WechatConfig map[string]*wechat.Config `yaml:"wechatConfig"`
 }
 type APIKeyConfig struct {
 	Subject string `yaml:"subject"`
@@ -154,15 +142,6 @@ type APIKeyConfig struct {
 	KeyEnv  string `yaml:"keyEnv"`
 }
 
-// AnonymousAuthConfig 是匿名身份（用户端）的配置。
-//
-// 与 apiKeys 的区别在于「身份从哪来」：静态 key 的身份是运维写死的 subject，
-// 一个 key 对应一个固定的人，天然无法给每个访客一个独立身份；匿名令牌的身份
-// 由服务端在运行时签发（见 internal/platform/auth 的 AnonymousIssuer），
-// 所以用户端拿到的每个令牌都是一个不同的 subject，会话因此天然隔离。
-//
-// Role 决定匿名身份能进哪些组。默认 agent：匿名用户要能对话，但绝不该碰到
-// admin 的 dataset 组或 approver 的审批决策。
 type AnonymousAuthConfig struct {
 	Enabled       bool   `yaml:"enabled"`
 	Role          string `yaml:"role"`
@@ -170,39 +149,15 @@ type AnonymousAuthConfig struct {
 	TTLHours      int    `yaml:"ttlHours"`
 	SubjectPrefix string `yaml:"subjectPrefix"`
 
-	// Secret 从 SecretEnv 指向的环境变量读入，口径与 storage.password 一致：
-	// 密钥不进配置文件。yaml:"-" 表示配置文件里写这个字段无效（也提示后来者
-	// 不要把它写进去）。
 	Secret string `yaml:"-"`
 }
 
-// AccountsAuthConfig 是账号登录（后台建号 + 登录 + 强制改密）的配置。
-//
-// ── 为什么没有 role 字段 ──────────────────────────────────────────
-// 账号的角色存在 users.role 里、随令牌签发。这里再放一个 role 只会制造一个
-// 能一次性把所有账号提权成 admin 的开关，而且它没有任何正当用途 —— 匿名
-// 需要一个默认角色是因为它没有数据库记录，账号不需要。
-//
-// ── 密钥必须与匿名密钥不同 ────────────────────────────────────────
-// 两个 issuer 用的是同一套 HMAC 实现，唯一区分它们的是密钥与前缀。若两个
-// 密钥配成同一个值，`anon.` 与 `user.` 前缀仍然挡得住串用（前缀不同验不过
-// 第一关），所以这不是一个安全洞；但它会让「密钥轮换」变成不可能只轮换一半
-// 的操作。configs/config.yaml 的注释里写明了这一点。
 type AccountsAuthConfig struct {
 	Enabled bool `yaml:"enabled"`
 
-	// SecretEnv 指向的环境变量名。与匿名同一口径：密钥不进配置文件。
 	SecretEnv string `yaml:"secretEnv"`
 	TTLHours  int    `yaml:"ttlHours"`
-
-	// BcryptCost 是管理员初始密码的哈希成本。0 表示用 bcrypt.DefaultCost。
-	//
-	// 做成配置项是因为它有真实的取舍：调高更抗离线爆破，但每次登录要多花
-	// 几十到几百毫秒的 CPU，而这个开销是**可以被匿名接口放大的**（登录接口
-	// 没有限流，见 docs/known-gaps.md）。
 	BcryptCost int `yaml:"bcryptCost"`
-
-	// Secret 从 SecretEnv 读入，理由同 AnonymousAuthConfig.Secret。
 	Secret string `yaml:"-"`
 }
 
@@ -256,29 +211,19 @@ type ExecutionConfig struct {
 	AllowLocalRunner bool   `yaml:"allowLocalRunner"`
 }
 type KnowledgeConfig struct {
-	Root                string `yaml:"root"`
-	MaxDocumentBytes    int    `yaml:"maxDocumentBytes"`
-	ChunkSizeCharacters int    `yaml:"chunkSizeCharacters"`
-	ChunkOverlapChars   int    `yaml:"chunkOverlapCharacters"`
-	MaxChunksPerDoc     int    `yaml:"maxChunksPerDocument"`
-	DefaultTopK         int    `yaml:"defaultTopK"`
-	MaxTopK             int    `yaml:"maxTopK"`
-	MaxQueryCharacters  int    `yaml:"maxQueryCharacters"`
-
-	// MaxResultBytes 是单条结果的正文上限（字节）。
-	//
-	// document 粒度下正文是**整篇文档**（见 internal/rag/grouping），一篇长型录
-	// 几万字：没有上限时一次 top_k=20 就能带出几百 KB。超过上限按 rune 边界截断，
-	// 并在响应的 content_truncated 上标记 —— 截断本身不是问题，悄悄截断才是。
+	Root                  string `yaml:"root"`
+	MaxDocumentBytes      int    `yaml:"maxDocumentBytes"`
+	MaxUploadRequestBytes int    `yaml:"maxUploadRequestBytes"`
+	MaxUploadFiles        int    `yaml:"maxUploadFiles"`
+	ChunkSizeCharacters   int    `yaml:"chunkSizeCharacters"`
+	ChunkOverlapChars     int    `yaml:"chunkOverlapCharacters"`
+	MaxChunksPerDoc       int    `yaml:"maxChunksPerDocument"`
+	DefaultTopK           int    `yaml:"defaultTopK"`
+	MaxTopK               int    `yaml:"maxTopK"`
+	MaxQueryCharacters    int    `yaml:"maxQueryCharacters"`
 	MaxResultBytes int `yaml:"maxResultBytes"`
-
-	// RecallGrouping 按数据集类型指定召回结果的归并粒度。键是 dataset.type，
-	// "default" 是兜底；取值 chunk / document，见 internal/rag/grouping。
-	//
-	// 放在配置里而不是写死：产品型录一篇文档就是一个产品，召回要归并成文档；
-	// 普通文档库一篇长文切成几百块，归并成一条就什么都拿不到了。同一套检索链路
-	// 服务两类库时，粒度只能是每个库自己说。
 	RecallGrouping map[string]string `yaml:"recallGrouping"`
+
 }
 
 type EmbeddingConfig struct {
@@ -286,18 +231,6 @@ type EmbeddingConfig struct {
 	APIKeyEnv  string `yaml:"apiKeyEnv"`
 	Model      string `yaml:"model"`
 	Dimensions int    `yaml:"dimensions"`
-
-	// BatchSize 是单次 embedding 请求最多带几段文本，由服务方（provider）的
-	// 上限决定，不是性能调优旋钮。
-	//
-	// 超过上限时服务方直接回 400（DashScope：batch size ... larger than 10），
-	// 而这发生在向量写入与检索索引写入**之前**，所以症状是「整篇文档什么都没
-	// 索引上」，与「检索质量差」完全不像。DashScope 的 text-embedding-v3/v4 上限
-	// 是 10，qwen3.7-text-embedding 是 20；保守取 10。
-	//
-	// 它与 indexer.batchSize 是两件事：后者是「一轮处理多少分块」，前者是
-	// 「一次请求能塞多少」。Embedder 会按本值自动切分请求，所以调大
-	// indexer.batchSize 不会踩到服务方上限。
 	BatchSize int `yaml:"batchSize"`
 }
 
@@ -328,8 +261,13 @@ type RetrievalConfig struct {
 	KeywordCandidateLimit int `yaml:"keywordCandidateLimit"`
 	ExactCandidateLimit   int `yaml:"exactCandidateLimit"`
 
-	EnableRerank        bool `yaml:"enableRerank"`
-	MaxRerankCandidates int  `yaml:"maxRerankCandidates"`
+	EnableRerank        bool   `yaml:"enableRerank"`
+	MaxRerankCandidates int    `yaml:"maxRerankCandidates"`
+	RerankEndpoint      string `yaml:"rerankEndpoint"`
+	RerankAPIKeyEnv     string `yaml:"rerankApiKeyEnv"`
+	RerankAPIKey        string `yaml:"-"`
+	RerankModel         string `yaml:"rerankModel"`
+	RerankTimeoutMS     int    `yaml:"rerankTimeoutMS"`
 }
 
 type IndexerConfig struct {
@@ -428,6 +366,9 @@ func load(path string, profile configProfile) (*Config, error) {
 	// 与 storage / asynq 同一口径：集群口令只从环境变量读，不进配置文件。
 	if cfg.ES.PasswordEnv != "" {
 		cfg.ES.Password = os.Getenv(cfg.ES.PasswordEnv)
+	}
+	if cfg.Retrieval.RerankAPIKeyEnv != "" {
+		cfg.Retrieval.RerankAPIKey = os.Getenv(cfg.Retrieval.RerankAPIKeyEnv)
 	}
 	if profile != profileWorker {
 		// 匿名令牌的签名密钥同理：它一旦泄漏，任何人都能伪造任意 subject。
@@ -599,6 +540,15 @@ func load(path string, profile configProfile) (*Config, error) {
 			}
 		}
 
+		if cfg.Auth.UserSync.Enabled {
+			if !cfg.Auth.Accounts.Enabled {
+				return nil, fmt.Errorf("auth.userSync requires auth.accounts.enabled")
+			}
+			if cfg.Auth.UserSync.Type == "" {
+				return nil, fmt.Errorf("auth.userSync.type is required when user sync is enabled")
+			}
+		}
+
 		if cfg.Runtime.ReadTimeoutSeconds <= 0 {
 			return nil, fmt.Errorf("runtime.readTimeoutSeconds must be greater than zero")
 		}
@@ -620,6 +570,21 @@ func load(path string, profile configProfile) (*Config, error) {
 		if cfg.Runtime.MaxRequestBodyBytes < cfg.Knowledge.MaxDocumentBytes {
 			return nil, fmt.Errorf(
 				"runtime.maxRequestBodyBytes must be at least knowledge.maxDocumentBytes",
+			)
+		}
+		if cfg.Knowledge.MaxUploadRequestBytes <= 0 {
+			return nil, fmt.Errorf(
+				"knowledge.maxUploadRequestBytes must be greater than zero",
+			)
+		}
+		if cfg.Knowledge.MaxUploadRequestBytes < cfg.Knowledge.MaxDocumentBytes {
+			return nil, fmt.Errorf(
+				"knowledge.maxUploadRequestBytes must be at least knowledge.maxDocumentBytes",
+			)
+		}
+		if cfg.Knowledge.MaxUploadFiles <= 0 {
+			return nil, fmt.Errorf(
+				"knowledge.maxUploadFiles must be greater than zero",
 			)
 		}
 	}
@@ -791,37 +756,37 @@ func load(path string, profile configProfile) (*Config, error) {
 		)
 	}
 
+	if cfg.Maintenance.CleanupIntervalSeconds <= 0 {
+		return nil, fmt.Errorf(
+			"maintenance.cleanupIntervalSeconds must be greater than zero",
+		)
+	}
+
+	if cfg.Maintenance.ApprovalRetentionHours <= 0 {
+		return nil, fmt.Errorf(
+			"maintenance.approvalRetentionHours must be greater than zero",
+		)
+	}
+
+	if cfg.Maintenance.CheckpointRetentionHours <= 0 {
+		return nil, fmt.Errorf(
+			"maintenance.checkpointRetentionHours must be greater than zero",
+		)
+	}
+
+	if cfg.Maintenance.TurnRetentionHours <= 0 {
+		return nil, fmt.Errorf(
+			"maintenance.turnRetentionHours must be greater than zero",
+		)
+	}
+
+	if cfg.Maintenance.CleanupBatchSize <= 0 {
+		return nil, fmt.Errorf(
+			"maintenance.cleanupBatchSize must be greater than zero",
+		)
+	}
+
 	if profile != profileWorker {
-		if cfg.Maintenance.CleanupIntervalSeconds <= 0 {
-			return nil, fmt.Errorf(
-				"maintenance.cleanupIntervalSeconds must be greater than zero",
-			)
-		}
-
-		if cfg.Maintenance.ApprovalRetentionHours <= 0 {
-			return nil, fmt.Errorf(
-				"maintenance.approvalRetentionHours must be greater than zero",
-			)
-		}
-
-		if cfg.Maintenance.CheckpointRetentionHours <= 0 {
-			return nil, fmt.Errorf(
-				"maintenance.checkpointRetentionHours must be greater than zero",
-			)
-		}
-
-		if cfg.Maintenance.TurnRetentionHours <= 0 {
-			return nil, fmt.Errorf(
-				"maintenance.turnRetentionHours must be greater than zero",
-			)
-		}
-
-		if cfg.Maintenance.CleanupBatchSize <= 0 {
-			return nil, fmt.Errorf(
-				"maintenance.cleanupBatchSize must be greater than zero",
-			)
-		}
-
 		if cfg.Retrieval.VectorWeight < 0 ||
 			cfg.Retrieval.KeywordWeight < 0 ||
 			(cfg.Retrieval.VectorWeight == 0 &&
@@ -859,11 +824,20 @@ func load(path string, profile configProfile) (*Config, error) {
 			)
 		}
 
-		if cfg.Retrieval.EnableRerank &&
-			cfg.Retrieval.MaxRerankCandidates <= 0 {
-			return nil, fmt.Errorf(
-				"retrieval.maxRerankCandidates must be greater than zero when rerank is enabled",
-			)
+		if cfg.Retrieval.EnableRerank {
+			if cfg.Retrieval.MaxRerankCandidates <= 0 {
+				return nil, fmt.Errorf(
+					"retrieval.maxRerankCandidates must be greater than zero when rerank is enabled",
+				)
+			}
+			if strings.TrimSpace(cfg.Retrieval.RerankEndpoint) == "" {
+				return nil, fmt.Errorf(
+					"retrieval.rerankEndpoint is required when rerank is enabled",
+				)
+			}
+			if cfg.Retrieval.RerankTimeoutMS < 0 {
+				return nil, fmt.Errorf("retrieval.rerankTimeoutMS must not be negative")
+			}
 		}
 	}
 

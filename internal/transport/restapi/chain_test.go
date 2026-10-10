@@ -8,9 +8,13 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/platform/auth"
@@ -24,6 +28,7 @@ import (
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/prometheus"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -72,11 +77,12 @@ func ensureSetUp(t *testing.T) {
 			setupErr = err
 			return
 		}
-		cfg.DevServer.Host = "127.0.0.1"
-		cfg.DevServer.Port = port
+		cfg.Prometheus.Host = "127.0.0.1"
+		cfg.Prometheus.Port = port
+		cfg.Prometheus.Path = "/metrics"
 		cfg.Log.Level = "severe"
 
-		metricsURL = fmt.Sprintf("http://127.0.0.1:%d%s", port, cfg.DevServer.MetricsPath)
+		metricsURL = fmt.Sprintf("http://127.0.0.1:%d%s", port, cfg.Prometheus.Path)
 		setupErr = cfg.SetUp()
 	})
 
@@ -281,6 +287,52 @@ func TestMetricsIsNoLongerARoute(t *testing.T) {
 	}
 }
 
+// TestPrometheusDisabledConfigDoesNotListen uses a subprocess because go-zero's
+// Prometheus agent is process-global and intentionally starts at most once.
+// The child exercises both sides of the contract: an empty Host must not open
+// a listener, while a configured Host must serve the scrape endpoint.
+func TestPrometheusDisabledConfigDoesNotListen(t *testing.T) {
+	if os.Getenv("EINO_PROMETHEUS_CHILD") == "1" {
+		port, err := strconv.Atoi(os.Getenv("EINO_PROMETHEUS_PORT"))
+		if err != nil || port < 1 {
+			t.Fatalf("invalid Prometheus test port: %q", os.Getenv("EINO_PROMETHEUS_PORT"))
+		}
+		if os.Getenv("EINO_PROMETHEUS_MODE") == "enabled" {
+			prometheus.StartAgent(prometheus.Config{Host: "127.0.0.1", Port: port, Path: "/metrics"})
+			deadline := time.Now().Add(2 * time.Second)
+			for time.Now().Before(deadline) {
+				response, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/metrics", port))
+				if err == nil {
+					response.Body.Close()
+					return
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			t.Fatalf("enabled Prometheus agent did not listen")
+		}
+
+		prometheus.StartAgent(prometheus.Config{})
+		client := http.Client{Timeout: 200 * time.Millisecond}
+		if response, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/metrics", port)); err == nil {
+			response.Body.Close()
+			t.Fatalf("disabled Prometheus config unexpectedly opened a listener")
+		}
+		return
+	}
+
+	for _, mode := range []string{"disabled", "enabled"} {
+		port, err := freePort()
+		if err != nil {
+			t.Fatalf("reserve Prometheus test port: %v", err)
+		}
+		cmd := exec.Command(os.Args[0], "-test.run=^TestPrometheusDisabledConfigDoesNotListen$")
+		cmd.Env = append(os.Environ(), "EINO_PROMETHEUS_CHILD=1", "EINO_PROMETHEUS_MODE="+mode, "EINO_PROMETHEUS_PORT="+strconv.Itoa(port))
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("Prometheus %s subprocess: %v\n%s", mode, err, output)
+		}
+	}
+}
+
 // TestPrometheusAgentServesGoZeroMetrics closes the loop end to end: drive one
 // request through the engine so go-zero's PrometheusHandler records it, then
 // scrape the agent's own port and find the metric family there. This is what
@@ -294,9 +346,18 @@ func TestPrometheusAgentServesGoZeroMetrics(t *testing.T) {
 		t.Fatalf("warm-up request failed: %d", recorder.Code)
 	}
 
-	response, err := http.Get(metricsURL)
-	if err != nil {
-		t.Fatalf("scrape %s: %v", metricsURL, err)
+	var response *http.Response
+	var err error
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		response, err = http.Get(metricsURL)
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("scrape %s: %v", metricsURL, err)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 	defer response.Body.Close()
 

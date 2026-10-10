@@ -5,9 +5,9 @@ package ent
 import (
 	"context"
 	"eino-quickstart/ent/agentdataset"
+	"eino-quickstart/ent/agentdefdataset"
 	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgefolder"
 	"errors"
 	"fmt"
 	"time"
@@ -127,21 +127,6 @@ func (_c *DatasetCreate) SetNillableUpdatedAt(v *time.Time) *DatasetCreate {
 	return _c
 }
 
-// AddFolderIDs adds the "folders" edge to the KnowledgeFolder entity by IDs.
-func (_c *DatasetCreate) AddFolderIDs(ids ...uint64) *DatasetCreate {
-	_c.mutation.AddFolderIDs(ids...)
-	return _c
-}
-
-// AddFolders adds the "folders" edges to the KnowledgeFolder entity.
-func (_c *DatasetCreate) AddFolders(v ...*KnowledgeFolder) *DatasetCreate {
-	ids := make([]uint64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddFolderIDs(ids...)
-}
-
 // AddDocumentIDs adds the "documents" edge to the Document entity by IDs.
 func (_c *DatasetCreate) AddDocumentIDs(ids ...uint64) *DatasetCreate {
 	_c.mutation.AddDocumentIDs(ids...)
@@ -170,6 +155,21 @@ func (_c *DatasetCreate) AddAgentDatasets(v ...*AgentDataset) *DatasetCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddAgentDatasetIDs(ids...)
+}
+
+// AddAgentDefDatasetIDs adds the "agent_def_datasets" edge to the AgentDefDataset entity by IDs.
+func (_c *DatasetCreate) AddAgentDefDatasetIDs(ids ...uint64) *DatasetCreate {
+	_c.mutation.AddAgentDefDatasetIDs(ids...)
+	return _c
+}
+
+// AddAgentDefDatasets adds the "agent_def_datasets" edges to the AgentDefDataset entity.
+func (_c *DatasetCreate) AddAgentDefDatasets(v ...*AgentDefDataset) *DatasetCreate {
+	ids := make([]uint64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentDefDatasetIDs(ids...)
 }
 
 // Mutation returns the DatasetMutation object of the builder.
@@ -324,22 +324,6 @@ func (_c *DatasetCreate) createSpec() (*Dataset, *sqlgraph.CreateSpec) {
 		_spec.SetField(dataset.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
-	if nodes := _c.mutation.FoldersIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   dataset.FoldersTable,
-			Columns: []string{dataset.FoldersColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(knowledgefolder.FieldID, field.TypeUint64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
 	if nodes := _c.mutation.DocumentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -365,6 +349,22 @@ func (_c *DatasetCreate) createSpec() (*Dataset, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentdataset.FieldID, field.TypeUint64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentDefDatasetsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   dataset.AgentDefDatasetsTable,
+			Columns: []string{dataset.AgentDefDatasetsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentdefdataset.FieldID, field.TypeUint64),
 			},
 		}
 		for _, k := range nodes {

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"eino-quickstart/ent/auditevent"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -31,6 +32,22 @@ type AuditEvent struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// ActorSubject holds the value of the "actor_subject" field.
 	ActorSubject *string `json:"actor_subject,omitempty"`
+	// Action holds the value of the "action" field.
+	Action *string `json:"action,omitempty"`
+	// ResourceType holds the value of the "resource_type" field.
+	ResourceType *string `json:"resource_type,omitempty"`
+	// ResourceID holds the value of the "resource_id" field.
+	ResourceID *string `json:"resource_id,omitempty"`
+	// ResourceName holds the value of the "resource_name" field.
+	ResourceName *string `json:"resource_name,omitempty"`
+	// Summary holds the value of the "summary" field.
+	Summary *string `json:"summary,omitempty"`
+	// Before holds the value of the "before" field.
+	Before map[string]interface{} `json:"before,omitempty"`
+	// After holds the value of the "after" field.
+	After map[string]interface{} `json:"after,omitempty"`
+	// IP holds the value of the "ip" field.
+	IP           *string `json:"ip,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -39,9 +56,11 @@ func (*AuditEvent) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case auditevent.FieldBefore, auditevent.FieldAfter:
+			values[i] = new([]byte)
 		case auditevent.FieldID:
 			values[i] = new(sql.NullInt64)
-		case auditevent.FieldSessionID, auditevent.FieldApprovalID, auditevent.FieldEventType, auditevent.FieldTool, auditevent.FieldPayload, auditevent.FieldActorSubject:
+		case auditevent.FieldSessionID, auditevent.FieldApprovalID, auditevent.FieldEventType, auditevent.FieldTool, auditevent.FieldPayload, auditevent.FieldActorSubject, auditevent.FieldAction, auditevent.FieldResourceType, auditevent.FieldResourceID, auditevent.FieldResourceName, auditevent.FieldSummary, auditevent.FieldIP:
 			values[i] = new(sql.NullString)
 		case auditevent.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -109,6 +128,64 @@ func (_m *AuditEvent) assignValues(columns []string, values []any) error {
 				_m.ActorSubject = new(string)
 				*_m.ActorSubject = value.String
 			}
+		case auditevent.FieldAction:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field action", values[i])
+			} else if value.Valid {
+				_m.Action = new(string)
+				*_m.Action = value.String
+			}
+		case auditevent.FieldResourceType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field resource_type", values[i])
+			} else if value.Valid {
+				_m.ResourceType = new(string)
+				*_m.ResourceType = value.String
+			}
+		case auditevent.FieldResourceID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field resource_id", values[i])
+			} else if value.Valid {
+				_m.ResourceID = new(string)
+				*_m.ResourceID = value.String
+			}
+		case auditevent.FieldResourceName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field resource_name", values[i])
+			} else if value.Valid {
+				_m.ResourceName = new(string)
+				*_m.ResourceName = value.String
+			}
+		case auditevent.FieldSummary:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field summary", values[i])
+			} else if value.Valid {
+				_m.Summary = new(string)
+				*_m.Summary = value.String
+			}
+		case auditevent.FieldBefore:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field before", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Before); err != nil {
+					return fmt.Errorf("unmarshal field before: %w", err)
+				}
+			}
+		case auditevent.FieldAfter:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field after", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.After); err != nil {
+					return fmt.Errorf("unmarshal field after: %w", err)
+				}
+			}
+		case auditevent.FieldIP:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ip", values[i])
+			} else if value.Valid {
+				_m.IP = new(string)
+				*_m.IP = value.String
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -165,6 +242,42 @@ func (_m *AuditEvent) String() string {
 	builder.WriteString(", ")
 	if v := _m.ActorSubject; v != nil {
 		builder.WriteString("actor_subject=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.Action; v != nil {
+		builder.WriteString("action=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.ResourceType; v != nil {
+		builder.WriteString("resource_type=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.ResourceID; v != nil {
+		builder.WriteString("resource_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.ResourceName; v != nil {
+		builder.WriteString("resource_name=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.Summary; v != nil {
+		builder.WriteString("summary=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("before=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Before))
+	builder.WriteString(", ")
+	builder.WriteString("after=")
+	builder.WriteString(fmt.Sprintf("%v", _m.After))
+	builder.WriteString(", ")
+	if v := _m.IP; v != nil {
+		builder.WriteString("ip=")
 		builder.WriteString(*v)
 	}
 	builder.WriteByte(')')

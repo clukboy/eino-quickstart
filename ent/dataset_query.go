@@ -6,9 +6,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"eino-quickstart/ent/agentdataset"
+	"eino-quickstart/ent/agentdefdataset"
 	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
-	"eino-quickstart/ent/knowledgefolder"
 	"eino-quickstart/ent/predicate"
 	"fmt"
 	"math"
@@ -22,13 +22,13 @@ import (
 // DatasetQuery is the builder for querying Dataset entities.
 type DatasetQuery struct {
 	config
-	ctx               *QueryContext
-	order             []dataset.OrderOption
-	inters            []Interceptor
-	predicates        []predicate.Dataset
-	withFolders       *KnowledgeFolderQuery
-	withDocuments     *DocumentQuery
-	withAgentDatasets *AgentDatasetQuery
+	ctx                  *QueryContext
+	order                []dataset.OrderOption
+	inters               []Interceptor
+	predicates           []predicate.Dataset
+	withDocuments        *DocumentQuery
+	withAgentDatasets    *AgentDatasetQuery
+	withAgentDefDatasets *AgentDefDatasetQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -63,28 +63,6 @@ func (_q *DatasetQuery) Unique(unique bool) *DatasetQuery {
 func (_q *DatasetQuery) Order(o ...dataset.OrderOption) *DatasetQuery {
 	_q.order = append(_q.order, o...)
 	return _q
-}
-
-// QueryFolders chains the current query on the "folders" edge.
-func (_q *DatasetQuery) QueryFolders() *KnowledgeFolderQuery {
-	query := (&KnowledgeFolderClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(dataset.Table, dataset.FieldID, selector),
-			sqlgraph.To(knowledgefolder.Table, knowledgefolder.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, dataset.FoldersTable, dataset.FoldersColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
 }
 
 // QueryDocuments chains the current query on the "documents" edge.
@@ -124,6 +102,28 @@ func (_q *DatasetQuery) QueryAgentDatasets() *AgentDatasetQuery {
 			sqlgraph.From(dataset.Table, dataset.FieldID, selector),
 			sqlgraph.To(agentdataset.Table, agentdataset.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, dataset.AgentDatasetsTable, dataset.AgentDatasetsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAgentDefDatasets chains the current query on the "agent_def_datasets" edge.
+func (_q *DatasetQuery) QueryAgentDefDatasets() *AgentDefDatasetQuery {
+	query := (&AgentDefDatasetClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dataset.Table, dataset.FieldID, selector),
+			sqlgraph.To(agentdefdataset.Table, agentdefdataset.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, dataset.AgentDefDatasetsTable, dataset.AgentDefDatasetsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -318,29 +318,18 @@ func (_q *DatasetQuery) Clone() *DatasetQuery {
 		return nil
 	}
 	return &DatasetQuery{
-		config:            _q.config,
-		ctx:               _q.ctx.Clone(),
-		order:             append([]dataset.OrderOption{}, _q.order...),
-		inters:            append([]Interceptor{}, _q.inters...),
-		predicates:        append([]predicate.Dataset{}, _q.predicates...),
-		withFolders:       _q.withFolders.Clone(),
-		withDocuments:     _q.withDocuments.Clone(),
-		withAgentDatasets: _q.withAgentDatasets.Clone(),
+		config:               _q.config,
+		ctx:                  _q.ctx.Clone(),
+		order:                append([]dataset.OrderOption{}, _q.order...),
+		inters:               append([]Interceptor{}, _q.inters...),
+		predicates:           append([]predicate.Dataset{}, _q.predicates...),
+		withDocuments:        _q.withDocuments.Clone(),
+		withAgentDatasets:    _q.withAgentDatasets.Clone(),
+		withAgentDefDatasets: _q.withAgentDefDatasets.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
-}
-
-// WithFolders tells the query-builder to eager-load the nodes that are connected to
-// the "folders" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *DatasetQuery) WithFolders(opts ...func(*KnowledgeFolderQuery)) *DatasetQuery {
-	query := (&KnowledgeFolderClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withFolders = query
-	return _q
 }
 
 // WithDocuments tells the query-builder to eager-load the nodes that are connected to
@@ -362,6 +351,17 @@ func (_q *DatasetQuery) WithAgentDatasets(opts ...func(*AgentDatasetQuery)) *Dat
 		opt(query)
 	}
 	_q.withAgentDatasets = query
+	return _q
+}
+
+// WithAgentDefDatasets tells the query-builder to eager-load the nodes that are connected to
+// the "agent_def_datasets" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *DatasetQuery) WithAgentDefDatasets(opts ...func(*AgentDefDatasetQuery)) *DatasetQuery {
+	query := (&AgentDefDatasetClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAgentDefDatasets = query
 	return _q
 }
 
@@ -444,9 +444,9 @@ func (_q *DatasetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Data
 		nodes       = []*Dataset{}
 		_spec       = _q.querySpec()
 		loadedTypes = [3]bool{
-			_q.withFolders != nil,
 			_q.withDocuments != nil,
 			_q.withAgentDatasets != nil,
+			_q.withAgentDefDatasets != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -467,13 +467,6 @@ func (_q *DatasetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Data
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withFolders; query != nil {
-		if err := _q.loadFolders(ctx, query, nodes,
-			func(n *Dataset) { n.Edges.Folders = []*KnowledgeFolder{} },
-			func(n *Dataset, e *KnowledgeFolder) { n.Edges.Folders = append(n.Edges.Folders, e) }); err != nil {
-			return nil, err
-		}
-	}
 	if query := _q.withDocuments; query != nil {
 		if err := _q.loadDocuments(ctx, query, nodes,
 			func(n *Dataset) { n.Edges.Documents = []*Document{} },
@@ -488,39 +481,16 @@ func (_q *DatasetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Data
 			return nil, err
 		}
 	}
+	if query := _q.withAgentDefDatasets; query != nil {
+		if err := _q.loadAgentDefDatasets(ctx, query, nodes,
+			func(n *Dataset) { n.Edges.AgentDefDatasets = []*AgentDefDataset{} },
+			func(n *Dataset, e *AgentDefDataset) { n.Edges.AgentDefDatasets = append(n.Edges.AgentDefDatasets, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
-func (_q *DatasetQuery) loadFolders(ctx context.Context, query *KnowledgeFolderQuery, nodes []*Dataset, init func(*Dataset), assign func(*Dataset, *KnowledgeFolder)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[uint64]*Dataset)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(knowledgefolder.FieldDatasetID)
-	}
-	query.Where(predicate.KnowledgeFolder(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(dataset.FoldersColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.DatasetID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "dataset_id" returned %v for node %v`, fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
 func (_q *DatasetQuery) loadDocuments(ctx context.Context, query *DocumentQuery, nodes []*Dataset, init func(*Dataset), assign func(*Dataset, *Document)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[uint64]*Dataset)
@@ -531,7 +501,6 @@ func (_q *DatasetQuery) loadDocuments(ctx context.Context, query *DocumentQuery,
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
 	if len(query.ctx.Fields) > 0 {
 		query.ctx.AppendFieldOnce(document.FieldDatasetID)
 	}
@@ -567,6 +536,36 @@ func (_q *DatasetQuery) loadAgentDatasets(ctx context.Context, query *AgentDatas
 	}
 	query.Where(predicate.AgentDataset(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(dataset.AgentDatasetsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.DatasetID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "dataset_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *DatasetQuery) loadAgentDefDatasets(ctx context.Context, query *AgentDefDatasetQuery, nodes []*Dataset, init func(*Dataset), assign func(*Dataset, *AgentDefDataset)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uint64]*Dataset)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(agentdefdataset.FieldDatasetID)
+	}
+	query.Where(predicate.AgentDefDataset(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(dataset.AgentDefDatasetsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

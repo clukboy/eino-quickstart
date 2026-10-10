@@ -70,6 +70,25 @@ type DatasetListResp {
 	Data []*DatasetResp `json:"data"`
 }
 
+type DatasetTypeOption {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+type DatasetTypeListResp {
+	Data []*DatasetTypeOption `json:"data"`
+}
+
+type DatasetModelOption {
+	Value string `json:"value"`
+	Label string `json:"label"`
+	Kind string `json:"kind,optional"`
+}
+
+type DatasetModelListResp {
+	Data []*DatasetModelOption `json:"data"`
+}
+
 type DatasetIDReq {
 	ID uint64 `path:"id"`
 }
@@ -79,6 +98,14 @@ type DatasetIDReq {
 type DocumentIDReq {
 	ID    uint64 `path:"id"`
 	DocID uint64 `path:"docId"`
+}
+
+// DocumentEnabledReq uses a pointer so an omitted enabled field cannot be
+// silently interpreted as false during a retried request.
+type DocumentEnabledReq {
+	ID      uint64 `path:"id"`
+	DocID   uint64 `path:"docId"`
+	Enabled *bool  `json:"enabled"`
 }
 
 // CreateDocumentReq 的 Content 必须是非空正文，直接写入 documents.content。
@@ -130,6 +157,26 @@ type DocumentResp {
 
 type DocumentListResp {
 	Data []*DocumentResp `json:"data"`
+}
+
+// DocumentUploadResp 保留 data 兼容旧客户端，并用 files 报告每个 multipart
+// 文件的结果。partial_failure=true 时只重传 files.status=failed 的文件。
+type DocumentUploadResp {
+	Data           []*DocumentResp           `json:"data"`
+	Files          []*DocumentUploadFileResp `json:"files"`
+	PartialFailure bool                       `json:"partial_failure"`
+}
+
+type DocumentUploadFileResp {
+	Filename  string                  `json:"filename"`
+	Status    string                  `json:"status"`
+	Documents []*DocumentResp         `json:"documents,optional"`
+	Error     *DocumentUploadError    `json:"error,optional"`
+}
+
+type DocumentUploadError {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 // ReindexResp 是整库重建索引的受理结果。
@@ -238,6 +285,14 @@ service restapi {
 	@handler ListDatasets
 	get /dataset (ListDatasetsReq) returns (DatasetListResp)
 
+	@doc "列出数据集类型"
+	@handler ListDatasetTypes
+	get /dataset/types returns (DatasetTypeListResp)
+
+	@doc "列出可用于知识库的模型"
+	@handler ListDatasetModels
+	get /dataset/models returns (DatasetModelListResp)
+
 	@doc "获取数据集详情"
 	@handler GetDataset
 	get /dataset/:id (DatasetIDReq) returns (DatasetResp)
@@ -274,9 +329,9 @@ service restapi {
 	@handler ReindexDataset
 	post /dataset/:id/reindex (DatasetIDReq) returns (ReindexResp)
 
-	@doc "上传文档"
+	@doc "上传文档（支持多个 file；files 报告逐文件结果）"
 	@handler UploadDocument
-	post /dataset/:id/documents/upload (DocumentUploadReq) returns (DocumentListResp)
+	post /dataset/:id/documents/upload (DocumentUploadReq) returns (DocumentUploadResp)
 
 	@doc "数据召回"
 	@handler SearchDataset
@@ -284,7 +339,7 @@ service restapi {
 
 	@doc "禁用启用文档"
 	@handler EnableDocument
-	patch /dataset/:id/documents/:docId/enabled (DocumentIDReq) returns (DocumentResp)
+	patch /dataset/:id/documents/:docId/enabled (DocumentEnabledReq) returns (DocumentResp)
 
 	@doc "获取文档内容"
 	@handler GetDocumentContent

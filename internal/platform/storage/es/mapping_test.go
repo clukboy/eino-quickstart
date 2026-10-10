@@ -321,8 +321,31 @@ func TestExactFieldsOnlyCoversDeclaredKeyword(t *testing.T) {
 	}
 	// 权重沿用字段自身的值：「精确比词元更值钱」由检索策略里那条独立通道的
 	// 权重表达，这里再放大一遍等于把同一个判断算两次。
-	if got[0].Name != "model.keyword" || got[0].Boost != 5 {
+	if got[0].Name != "model.keyword" || got[0].From != "model" || got[0].Multi || got[0].Boost != 5 {
 		t.Errorf("精确字段是 %+v，期望 model.keyword 权重 5", got[0])
+	}
+}
+
+func TestNormalizeExactValueAndExtractKeywordValues(t *testing.T) {
+	if got := NormalizeExactValue("  ACC-H105P   "); got != "acc-h105p" {
+		t.Fatalf("scalar normalization = %q", got)
+	}
+	if got := NormalizeExactValue("图冠   系列"); got != "图冠 系列" {
+		t.Fatalf("internal whitespace normalization = %q", got)
+	}
+	mapping := &Mapping{Fields: []FieldSpec{
+		{Name: "model", From: "model", Type: FieldText, Keyword: true, Boost: 5},
+		{Name: "variants", From: "variants", Type: FieldText, Keyword: true, Multi: true, Boost: 2},
+	}}
+	values := mapping.Extract(map[string]any{
+		"model":    " ACC-H105P ",
+		"variants": []string{" H105P-A ", "H105P-B"},
+	})
+	if values["model"] != "acc-h105p" {
+		t.Fatalf("normalized model = %#v", values["model"])
+	}
+	if got := values["variants"].([]any); len(got) != 2 || got[0] != "h105p-a" || got[1] != "h105p-b" {
+		t.Fatalf("normalized variants = %#v", got)
 	}
 }
 

@@ -116,7 +116,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 | `GET` | `/api/v1/dataset/{id}/subjects` | `admin` | 分页反查某个数据集已授权的主体 |
 | `GET` | `/api/v1/users` | `admin` | 列出账号（按创建时间倒序，暂不分页） |
 | `POST` | `/api/v1/users` | `admin` | 创建账号；角色固定 `agent`，初始密码由管理员设定 |
-| `POST` | `/api/v1/users/sync` | `admin` | 从外部数据源同步账号；**占位**，当前恒返回 501 `not_implemented` |
+| `POST` | `/api/v1/users/sync` | `admin` | 从 provider-neutral 外部数据源同步账号；支持 `dryRun`、稳定 `external_id` 幂等匹配、创建/更新/跳过/失败台账；未启用 source 时返回 503 |
 
 会话与消息是**真的持久化**的，读侧与写侧都在这一组里：
 
@@ -160,8 +160,8 @@ SSE 帧是 goctl 生成器的原生形态 —— 只有 `data: {...}` 行、没�
 （含「必填字段缺失仍是 400」）见 `docs/stream/stream.api`。
 
 指标不再暴露在同端口：go-zero 自带 Prometheus agent 在
-`configs/api/restapi.yaml` 的 `Prometheus.Host/Port` 上独立监听
-（当前该段是注释状态，即指标未暴露）。
+`configs/api/restapi.yaml` 的 `Prometheus.Host/Port` 上独立监听，默认是
+`127.0.0.1:9091/metrics`；业务 HTTP 端口不提供 `/metrics` 路由。
 
 ## 身份与账号
 
@@ -303,7 +303,7 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 | `platform/queue.Producer` | 把「这篇文档要索引」投进 Redis 队列（HTTP 侧持有的抽象） | 决定索引策略、写向量、消费 |
 | `platform/queue/asynq.IndexQueue` | 把 `Producer` 适配成应用层的 `knowledge.IndexTaskQueue` 端口 | 业务决策 |
 | `platform/queue/asynq.AsynqClient` | 同时是 asynq 的 Producer 与 Consumer（后者实现 `service.Service`，由 `cmd/worker` 单独启停） | 业务处理与存储访问 |
-| `rag.Store` | 检索的三个通道：精确通道（结构化字段逐字相等，走 ES `term`；未配 ES 返回空并标记降级）、关键字通道（配了 ES 走 BM25，没配回落 PG 词元子串匹配）、向量通道（Milvus 取 chunk_id → 回 PostgreSQL 补齐正文与 provenance）；词法/精确通道不再要求 `vector_status=indexed`，向量通道仍只召回已索引分块 | 融合排序、授权决策 |
+| `rag.Store` | 检索的三个通道：精确通道（结构化字段逐字相等，走 ES `term`；未配 ES 使用同一 mapping 在 PostgreSQL metadata 上相等匹配）、关键字通道（配了 ES 走 BM25，没配回落 PG 词元子串匹配）、向量通道（Milvus 取 chunk_id → 回 PostgreSQL 补齐正文与 provenance）；词法/精确通道不再要求 `vector_status=indexed`，向量通道仍只召回已索引分块 | 融合排序、授权决策 |
 | `rag.HybridRetriever` | 把三个通道的结果做**加权** RRF 融合（`Σ weight/(k+rank)`，权重见配置 `retrieval`），按名次而非原始分数量纲定序，套用 `Filter`（数据集范围 + 可见性 + 启用状态）；返回 `Report` 记录各通道成败与降级。**输出恒为分块**，归并按库类型由用例层做 | 决定结果粒度、直接对外格式化回答 |
 | `rag/grouping` | 按 `dataset.type` 解析召回结果的归并粒度（`chunk` / `document`），并把「要 N 条结果」折算成「向检索侧要多少分块」（`FetchPlan`）—— 见「召回结果的归并粒度」与「条数的单位」 | 判定命中的口径、RRF 融合 |
 | `platform/storage/es` | 关键词索引的读写：索引生命周期（建/校验/演进）、按 `_id=chunk_id` 的幂等批量写入、按文档清理、多字段 BM25 查询（`bool.should` 组合 `multi_match` 与各字段 `.keyword` 子字段的 `term`）；精确查走 `SearchExact` | 权限判定、正文存储、向量检索 |
@@ -320,7 +320,7 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 
 | 通道 | 实现 | 排序依据 | 依赖 |
 | --- | --- | --- | --- |
-| 精确 | ES `term` 打在挂 `keyword` 子字段的业务字段上 —— 当前是 `model`、`product_id`、`product_name`、`series_name`、`family_prefix`、`category_l1`、`category_l2`、`variants` | 逐字相等 | ES；**未配 ES 时该通道返回空并标记降级** |
+| 精确 | ES `term` 打在挂 `keyword` 子字段的业务字段上 —— 当前是 `model`、`product_id`、`product_name`、`series_name`、`family_prefix`、`category_l1`、`category_l2`、`variants` | 逐字相等 | ES；未配 ES 时回落 PostgreSQL metadata exact |
 | 关键字 | 配了 ES 走 `platform/storage/es` 的多字段 BM25（`bool.should`：`multi_match` + 精确 `term`）；没配回落 `rag.Store.searchBySubstring` 的 PostgreSQL 词元子串匹配 | 词频 + IDF + 字段长度归一化 / 命中词元比例 | PostgreSQL，可选 ES |
 | 向量 | Milvus 取 `chunk_id` → 回 PostgreSQL 补齐正文与 provenance | 向量距离 | Milvus + embedding 服务 |
 
@@ -354,9 +354,10 @@ BM25 分、`term` 分与向量距离量纲完全不同，按名次求和天然�
 稳定也不可解释；而这些串恰恰是用户最在意的召回目标。所以权重上精确 > 关键字 > 向量，
 向量更多负责「用自然语言描述需求」那一类查询的兜底。
 
-`exactTerms` 把查询按非字母数字边界切成至多 8 个词（不做中文 2-gram），每个词单独对
-`.keyword` 子字段发 `term` —— 这样一个「H105P 图冠」的查询可以分别命中型号与系列，
-而不是要求整串相等。
+`ExactTerms` 保留规范化整串并补充按非字母数字边界切出的至多 8 个词（不做中文 2-gram），
+每个候选对 `.keyword` 子字段发 `term`；因此 `ACC-H105P` 能完整相等命中，`H105P 图冠`
+仍可分别命中型号与系列。ES 不可用时，PostgreSQL 使用同一组字段与规范化规则扫描 metadata，
+不会把 LIKE 子串改名为 exact。
 
 **ES 不参与正确性判定。** 它只给名次：命中的分块一律回 PostgreSQL 取正文、`source`、
 `visibility`、`owner`，ACL 过滤以 PostgreSQL 现值为准。索引里那份 `visibility` 是写入

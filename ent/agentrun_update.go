@@ -28,6 +28,41 @@ func (_u *AgentRunUpdate) Where(ps ...predicate.AgentRun) *AgentRunUpdate {
 	return _u
 }
 
+// SetAgentKey sets the "agent_key" field.
+func (_u *AgentRunUpdate) SetAgentKey(v string) *AgentRunUpdate {
+	_u.mutation.SetAgentKey(v)
+	return _u
+}
+
+// SetNillableAgentKey sets the "agent_key" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableAgentKey(v *string) *AgentRunUpdate {
+	if v != nil {
+		_u.SetAgentKey(*v)
+	}
+	return _u
+}
+
+// SetAgentVersion sets the "agent_version" field.
+func (_u *AgentRunUpdate) SetAgentVersion(v int) *AgentRunUpdate {
+	_u.mutation.ResetAgentVersion()
+	_u.mutation.SetAgentVersion(v)
+	return _u
+}
+
+// SetNillableAgentVersion sets the "agent_version" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableAgentVersion(v *int) *AgentRunUpdate {
+	if v != nil {
+		_u.SetAgentVersion(*v)
+	}
+	return _u
+}
+
+// AddAgentVersion adds value to the "agent_version" field.
+func (_u *AgentRunUpdate) AddAgentVersion(v int) *AgentRunUpdate {
+	_u.mutation.AddAgentVersion(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *AgentRunUpdate) SetStatus(v agentrun.Status) *AgentRunUpdate {
 	_u.mutation.SetStatus(v)
@@ -79,6 +114,152 @@ func (_u *AgentRunUpdate) SetNillableErrorCode(v *string) *AgentRunUpdate {
 // ClearErrorCode clears the value of the "error_code" field.
 func (_u *AgentRunUpdate) ClearErrorCode() *AgentRunUpdate {
 	_u.mutation.ClearErrorCode()
+	return _u
+}
+
+// SetError sets the "error" field.
+func (_u *AgentRunUpdate) SetError(v string) *AgentRunUpdate {
+	_u.mutation.SetError(v)
+	return _u
+}
+
+// SetNillableError sets the "error" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableError(v *string) *AgentRunUpdate {
+	if v != nil {
+		_u.SetError(*v)
+	}
+	return _u
+}
+
+// ClearError clears the value of the "error" field.
+func (_u *AgentRunUpdate) ClearError() *AgentRunUpdate {
+	_u.mutation.ClearError()
+	return _u
+}
+
+// SetSteps sets the "steps" field.
+func (_u *AgentRunUpdate) SetSteps(v int) *AgentRunUpdate {
+	_u.mutation.ResetSteps()
+	_u.mutation.SetSteps(v)
+	return _u
+}
+
+// SetNillableSteps sets the "steps" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableSteps(v *int) *AgentRunUpdate {
+	if v != nil {
+		_u.SetSteps(*v)
+	}
+	return _u
+}
+
+// AddSteps adds value to the "steps" field.
+func (_u *AgentRunUpdate) AddSteps(v int) *AgentRunUpdate {
+	_u.mutation.AddSteps(v)
+	return _u
+}
+
+// SetToolCalls sets the "tool_calls" field.
+func (_u *AgentRunUpdate) SetToolCalls(v int) *AgentRunUpdate {
+	_u.mutation.ResetToolCalls()
+	_u.mutation.SetToolCalls(v)
+	return _u
+}
+
+// SetNillableToolCalls sets the "tool_calls" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableToolCalls(v *int) *AgentRunUpdate {
+	if v != nil {
+		_u.SetToolCalls(*v)
+	}
+	return _u
+}
+
+// AddToolCalls adds value to the "tool_calls" field.
+func (_u *AgentRunUpdate) AddToolCalls(v int) *AgentRunUpdate {
+	_u.mutation.AddToolCalls(v)
+	return _u
+}
+
+// SetTokensIn sets the "tokens_in" field.
+func (_u *AgentRunUpdate) SetTokensIn(v int64) *AgentRunUpdate {
+	_u.mutation.ResetTokensIn()
+	_u.mutation.SetTokensIn(v)
+	return _u
+}
+
+// SetNillableTokensIn sets the "tokens_in" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableTokensIn(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetTokensIn(*v)
+	}
+	return _u
+}
+
+// AddTokensIn adds value to the "tokens_in" field.
+func (_u *AgentRunUpdate) AddTokensIn(v int64) *AgentRunUpdate {
+	_u.mutation.AddTokensIn(v)
+	return _u
+}
+
+// SetTokensOut sets the "tokens_out" field.
+func (_u *AgentRunUpdate) SetTokensOut(v int64) *AgentRunUpdate {
+	_u.mutation.ResetTokensOut()
+	_u.mutation.SetTokensOut(v)
+	return _u
+}
+
+// SetNillableTokensOut sets the "tokens_out" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableTokensOut(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetTokensOut(*v)
+	}
+	return _u
+}
+
+// AddTokensOut adds value to the "tokens_out" field.
+func (_u *AgentRunUpdate) AddTokensOut(v int64) *AgentRunUpdate {
+	_u.mutation.AddTokensOut(v)
+	return _u
+}
+
+// SetLatencyMs sets the "latency_ms" field.
+func (_u *AgentRunUpdate) SetLatencyMs(v int64) *AgentRunUpdate {
+	_u.mutation.ResetLatencyMs()
+	_u.mutation.SetLatencyMs(v)
+	return _u
+}
+
+// SetNillableLatencyMs sets the "latency_ms" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableLatencyMs(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetLatencyMs(*v)
+	}
+	return _u
+}
+
+// AddLatencyMs adds value to the "latency_ms" field.
+func (_u *AgentRunUpdate) AddLatencyMs(v int64) *AgentRunUpdate {
+	_u.mutation.AddLatencyMs(v)
+	return _u
+}
+
+// SetCostMicros sets the "cost_micros" field.
+func (_u *AgentRunUpdate) SetCostMicros(v int64) *AgentRunUpdate {
+	_u.mutation.ResetCostMicros()
+	_u.mutation.SetCostMicros(v)
+	return _u
+}
+
+// SetNillableCostMicros sets the "cost_micros" field if the given value is not nil.
+func (_u *AgentRunUpdate) SetNillableCostMicros(v *int64) *AgentRunUpdate {
+	if v != nil {
+		_u.SetCostMicros(*v)
+	}
+	return _u
+}
+
+// AddCostMicros adds value to the "cost_micros" field.
+func (_u *AgentRunUpdate) AddCostMicros(v int64) *AgentRunUpdate {
+	_u.mutation.AddCostMicros(v)
 	return _u
 }
 
@@ -191,6 +372,15 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
+	if value, ok := _u.mutation.AgentKey(); ok {
+		_spec.SetField(agentrun.FieldAgentKey, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AgentVersion(); ok {
+		_spec.SetField(agentrun.FieldAgentVersion, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAgentVersion(); ok {
+		_spec.AddField(agentrun.FieldAgentVersion, field.TypeInt, value)
+	}
 	if _u.mutation.CheckpointIDCleared() {
 		_spec.ClearField(agentrun.FieldCheckpointID, field.TypeString)
 	}
@@ -208,6 +398,48 @@ func (_u *AgentRunUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ErrorCodeCleared() {
 		_spec.ClearField(agentrun.FieldErrorCode, field.TypeString)
+	}
+	if value, ok := _u.mutation.Error(); ok {
+		_spec.SetField(agentrun.FieldError, field.TypeString, value)
+	}
+	if _u.mutation.ErrorCleared() {
+		_spec.ClearField(agentrun.FieldError, field.TypeString)
+	}
+	if value, ok := _u.mutation.Steps(); ok {
+		_spec.SetField(agentrun.FieldSteps, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSteps(); ok {
+		_spec.AddField(agentrun.FieldSteps, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ToolCalls(); ok {
+		_spec.SetField(agentrun.FieldToolCalls, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedToolCalls(); ok {
+		_spec.AddField(agentrun.FieldToolCalls, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TokensIn(); ok {
+		_spec.SetField(agentrun.FieldTokensIn, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTokensIn(); ok {
+		_spec.AddField(agentrun.FieldTokensIn, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.TokensOut(); ok {
+		_spec.SetField(agentrun.FieldTokensOut, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTokensOut(); ok {
+		_spec.AddField(agentrun.FieldTokensOut, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.LatencyMs(); ok {
+		_spec.SetField(agentrun.FieldLatencyMs, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedLatencyMs(); ok {
+		_spec.AddField(agentrun.FieldLatencyMs, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CostMicros(); ok {
+		_spec.SetField(agentrun.FieldCostMicros, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCostMicros(); ok {
+		_spec.AddField(agentrun.FieldCostMicros, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(agentrun.FieldUpdatedAt, field.TypeTime, value)
@@ -242,6 +474,41 @@ type AgentRunUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *AgentRunMutation
+}
+
+// SetAgentKey sets the "agent_key" field.
+func (_u *AgentRunUpdateOne) SetAgentKey(v string) *AgentRunUpdateOne {
+	_u.mutation.SetAgentKey(v)
+	return _u
+}
+
+// SetNillableAgentKey sets the "agent_key" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableAgentKey(v *string) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetAgentKey(*v)
+	}
+	return _u
+}
+
+// SetAgentVersion sets the "agent_version" field.
+func (_u *AgentRunUpdateOne) SetAgentVersion(v int) *AgentRunUpdateOne {
+	_u.mutation.ResetAgentVersion()
+	_u.mutation.SetAgentVersion(v)
+	return _u
+}
+
+// SetNillableAgentVersion sets the "agent_version" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableAgentVersion(v *int) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetAgentVersion(*v)
+	}
+	return _u
+}
+
+// AddAgentVersion adds value to the "agent_version" field.
+func (_u *AgentRunUpdateOne) AddAgentVersion(v int) *AgentRunUpdateOne {
+	_u.mutation.AddAgentVersion(v)
+	return _u
 }
 
 // SetStatus sets the "status" field.
@@ -295,6 +562,152 @@ func (_u *AgentRunUpdateOne) SetNillableErrorCode(v *string) *AgentRunUpdateOne 
 // ClearErrorCode clears the value of the "error_code" field.
 func (_u *AgentRunUpdateOne) ClearErrorCode() *AgentRunUpdateOne {
 	_u.mutation.ClearErrorCode()
+	return _u
+}
+
+// SetError sets the "error" field.
+func (_u *AgentRunUpdateOne) SetError(v string) *AgentRunUpdateOne {
+	_u.mutation.SetError(v)
+	return _u
+}
+
+// SetNillableError sets the "error" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableError(v *string) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetError(*v)
+	}
+	return _u
+}
+
+// ClearError clears the value of the "error" field.
+func (_u *AgentRunUpdateOne) ClearError() *AgentRunUpdateOne {
+	_u.mutation.ClearError()
+	return _u
+}
+
+// SetSteps sets the "steps" field.
+func (_u *AgentRunUpdateOne) SetSteps(v int) *AgentRunUpdateOne {
+	_u.mutation.ResetSteps()
+	_u.mutation.SetSteps(v)
+	return _u
+}
+
+// SetNillableSteps sets the "steps" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableSteps(v *int) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetSteps(*v)
+	}
+	return _u
+}
+
+// AddSteps adds value to the "steps" field.
+func (_u *AgentRunUpdateOne) AddSteps(v int) *AgentRunUpdateOne {
+	_u.mutation.AddSteps(v)
+	return _u
+}
+
+// SetToolCalls sets the "tool_calls" field.
+func (_u *AgentRunUpdateOne) SetToolCalls(v int) *AgentRunUpdateOne {
+	_u.mutation.ResetToolCalls()
+	_u.mutation.SetToolCalls(v)
+	return _u
+}
+
+// SetNillableToolCalls sets the "tool_calls" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableToolCalls(v *int) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetToolCalls(*v)
+	}
+	return _u
+}
+
+// AddToolCalls adds value to the "tool_calls" field.
+func (_u *AgentRunUpdateOne) AddToolCalls(v int) *AgentRunUpdateOne {
+	_u.mutation.AddToolCalls(v)
+	return _u
+}
+
+// SetTokensIn sets the "tokens_in" field.
+func (_u *AgentRunUpdateOne) SetTokensIn(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetTokensIn()
+	_u.mutation.SetTokensIn(v)
+	return _u
+}
+
+// SetNillableTokensIn sets the "tokens_in" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableTokensIn(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetTokensIn(*v)
+	}
+	return _u
+}
+
+// AddTokensIn adds value to the "tokens_in" field.
+func (_u *AgentRunUpdateOne) AddTokensIn(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddTokensIn(v)
+	return _u
+}
+
+// SetTokensOut sets the "tokens_out" field.
+func (_u *AgentRunUpdateOne) SetTokensOut(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetTokensOut()
+	_u.mutation.SetTokensOut(v)
+	return _u
+}
+
+// SetNillableTokensOut sets the "tokens_out" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableTokensOut(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetTokensOut(*v)
+	}
+	return _u
+}
+
+// AddTokensOut adds value to the "tokens_out" field.
+func (_u *AgentRunUpdateOne) AddTokensOut(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddTokensOut(v)
+	return _u
+}
+
+// SetLatencyMs sets the "latency_ms" field.
+func (_u *AgentRunUpdateOne) SetLatencyMs(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetLatencyMs()
+	_u.mutation.SetLatencyMs(v)
+	return _u
+}
+
+// SetNillableLatencyMs sets the "latency_ms" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableLatencyMs(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetLatencyMs(*v)
+	}
+	return _u
+}
+
+// AddLatencyMs adds value to the "latency_ms" field.
+func (_u *AgentRunUpdateOne) AddLatencyMs(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddLatencyMs(v)
+	return _u
+}
+
+// SetCostMicros sets the "cost_micros" field.
+func (_u *AgentRunUpdateOne) SetCostMicros(v int64) *AgentRunUpdateOne {
+	_u.mutation.ResetCostMicros()
+	_u.mutation.SetCostMicros(v)
+	return _u
+}
+
+// SetNillableCostMicros sets the "cost_micros" field if the given value is not nil.
+func (_u *AgentRunUpdateOne) SetNillableCostMicros(v *int64) *AgentRunUpdateOne {
+	if v != nil {
+		_u.SetCostMicros(*v)
+	}
+	return _u
+}
+
+// AddCostMicros adds value to the "cost_micros" field.
+func (_u *AgentRunUpdateOne) AddCostMicros(v int64) *AgentRunUpdateOne {
+	_u.mutation.AddCostMicros(v)
 	return _u
 }
 
@@ -437,6 +850,15 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 			}
 		}
 	}
+	if value, ok := _u.mutation.AgentKey(); ok {
+		_spec.SetField(agentrun.FieldAgentKey, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AgentVersion(); ok {
+		_spec.SetField(agentrun.FieldAgentVersion, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAgentVersion(); ok {
+		_spec.AddField(agentrun.FieldAgentVersion, field.TypeInt, value)
+	}
 	if _u.mutation.CheckpointIDCleared() {
 		_spec.ClearField(agentrun.FieldCheckpointID, field.TypeString)
 	}
@@ -454,6 +876,48 @@ func (_u *AgentRunUpdateOne) sqlSave(ctx context.Context) (_node *AgentRun, err 
 	}
 	if _u.mutation.ErrorCodeCleared() {
 		_spec.ClearField(agentrun.FieldErrorCode, field.TypeString)
+	}
+	if value, ok := _u.mutation.Error(); ok {
+		_spec.SetField(agentrun.FieldError, field.TypeString, value)
+	}
+	if _u.mutation.ErrorCleared() {
+		_spec.ClearField(agentrun.FieldError, field.TypeString)
+	}
+	if value, ok := _u.mutation.Steps(); ok {
+		_spec.SetField(agentrun.FieldSteps, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSteps(); ok {
+		_spec.AddField(agentrun.FieldSteps, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ToolCalls(); ok {
+		_spec.SetField(agentrun.FieldToolCalls, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedToolCalls(); ok {
+		_spec.AddField(agentrun.FieldToolCalls, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TokensIn(); ok {
+		_spec.SetField(agentrun.FieldTokensIn, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTokensIn(); ok {
+		_spec.AddField(agentrun.FieldTokensIn, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.TokensOut(); ok {
+		_spec.SetField(agentrun.FieldTokensOut, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedTokensOut(); ok {
+		_spec.AddField(agentrun.FieldTokensOut, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.LatencyMs(); ok {
+		_spec.SetField(agentrun.FieldLatencyMs, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedLatencyMs(); ok {
+		_spec.AddField(agentrun.FieldLatencyMs, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.CostMicros(); ok {
+		_spec.SetField(agentrun.FieldCostMicros, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedCostMicros(); ok {
+		_spec.AddField(agentrun.FieldCostMicros, field.TypeInt64, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(agentrun.FieldUpdatedAt, field.TypeTime, value)

@@ -41,30 +41,21 @@ type Dataset struct {
 
 // DatasetEdges holds the relations/edges for other nodes in the graph.
 type DatasetEdges struct {
-	// Folders holds the value of the folders edge.
-	Folders []*KnowledgeFolder `json:"folders,omitempty"`
 	// Documents holds the value of the documents edge.
 	Documents []*Document `json:"documents,omitempty"`
 	// AgentDatasets holds the value of the agent_datasets edge.
 	AgentDatasets []*AgentDataset `json:"agent_datasets,omitempty"`
+	// AgentDefDatasets holds the value of the agent_def_datasets edge.
+	AgentDefDatasets []*AgentDefDataset `json:"agent_def_datasets,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [3]bool
 }
 
-// FoldersOrErr returns the Folders value or an error if the edge
-// was not loaded in eager-loading.
-func (e DatasetEdges) FoldersOrErr() ([]*KnowledgeFolder, error) {
-	if e.loadedTypes[0] {
-		return e.Folders, nil
-	}
-	return nil, &NotLoadedError{edge: "folders"}
-}
-
 // DocumentsOrErr returns the Documents value or an error if the edge
 // was not loaded in eager-loading.
 func (e DatasetEdges) DocumentsOrErr() ([]*Document, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[0] {
 		return e.Documents, nil
 	}
 	return nil, &NotLoadedError{edge: "documents"}
@@ -73,10 +64,19 @@ func (e DatasetEdges) DocumentsOrErr() ([]*Document, error) {
 // AgentDatasetsOrErr returns the AgentDatasets value or an error if the edge
 // was not loaded in eager-loading.
 func (e DatasetEdges) AgentDatasetsOrErr() ([]*AgentDataset, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[1] {
 		return e.AgentDatasets, nil
 	}
 	return nil, &NotLoadedError{edge: "agent_datasets"}
+}
+
+// AgentDefDatasetsOrErr returns the AgentDefDatasets value or an error if the edge
+// was not loaded in eager-loading.
+func (e DatasetEdges) AgentDefDatasetsOrErr() ([]*AgentDefDataset, error) {
+	if e.loadedTypes[2] {
+		return e.AgentDefDatasets, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_def_datasets"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -172,11 +172,6 @@ func (_m *Dataset) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// QueryFolders queries the "folders" edge of the Dataset entity.
-func (_m *Dataset) QueryFolders() *KnowledgeFolderQuery {
-	return NewDatasetClient(_m.config).QueryFolders(_m)
-}
-
 // QueryDocuments queries the "documents" edge of the Dataset entity.
 func (_m *Dataset) QueryDocuments() *DocumentQuery {
 	return NewDatasetClient(_m.config).QueryDocuments(_m)
@@ -185,6 +180,11 @@ func (_m *Dataset) QueryDocuments() *DocumentQuery {
 // QueryAgentDatasets queries the "agent_datasets" edge of the Dataset entity.
 func (_m *Dataset) QueryAgentDatasets() *AgentDatasetQuery {
 	return NewDatasetClient(_m.config).QueryAgentDatasets(_m)
+}
+
+// QueryAgentDefDatasets queries the "agent_def_datasets" edge of the Dataset entity.
+func (_m *Dataset) QueryAgentDefDatasets() *AgentDefDatasetQuery {
+	return NewDatasetClient(_m.config).QueryAgentDefDatasets(_m)
 }
 
 // Update returns a builder for updating this Dataset.

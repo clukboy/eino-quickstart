@@ -77,7 +77,9 @@ func NewHarness(
 		return nil, err
 	}
 
-	workspaceTools, err := registry.Require("read_file", "list_dir")
+	// Skills are read-only guidance for the workspace specialist. Grant them here
+	// (rather than globally) so loading a Skill never expands write/execute powers.
+	workspaceTools, err := registry.Require("read_file", "list_dir", "list_skills", "load_skill")
 	if err != nil {
 		return nil, err
 	}

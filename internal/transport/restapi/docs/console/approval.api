@@ -1,0 +1,18 @@
+syntax = "v1"
+
+// approval 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+import "types.api"
+
+@server (
+	prefix: /api/v1
+	group: console/approval
+	middleware: RoleAdmin
+)
+service restapi {
+	@handler ListApprovalPolicies
+	get /approval-policies returns (ApprovalPolicyListResp)
+
+	@handler PutApprovalPolicies
+	put /approval-policies (PutApprovalPoliciesReq) returns (ApprovalPolicyListResp)
+
+}

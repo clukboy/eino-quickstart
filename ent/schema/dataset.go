@@ -30,8 +30,8 @@ func (Dataset) Fields() []ent.Field {
 // Edges of the Dataset.
 func (Dataset) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("folders", KnowledgeFolder.Type),
 		edge.To("documents", Document.Type),
 		edge.To("agent_datasets", AgentDataset.Type),
+		edge.To("agent_def_datasets", AgentDefDataset.Type),
 	}
 }

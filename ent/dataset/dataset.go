@@ -31,21 +31,14 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
-	// EdgeFolders holds the string denoting the folders edge name in mutations.
-	EdgeFolders = "folders"
 	// EdgeDocuments holds the string denoting the documents edge name in mutations.
 	EdgeDocuments = "documents"
 	// EdgeAgentDatasets holds the string denoting the agent_datasets edge name in mutations.
 	EdgeAgentDatasets = "agent_datasets"
+	// EdgeAgentDefDatasets holds the string denoting the agent_def_datasets edge name in mutations.
+	EdgeAgentDefDatasets = "agent_def_datasets"
 	// Table holds the table name of the dataset in the database.
 	Table = "datasets"
-	// FoldersTable is the table that holds the folders relation/edge.
-	FoldersTable = "knowledge_folders"
-	// FoldersInverseTable is the table name for the KnowledgeFolder entity.
-	// It exists in this package in order to avoid circular dependency with the "knowledgefolder" package.
-	FoldersInverseTable = "knowledge_folders"
-	// FoldersColumn is the table column denoting the folders relation/edge.
-	FoldersColumn = "dataset_id"
 	// DocumentsTable is the table that holds the documents relation/edge.
 	DocumentsTable = "documents"
 	// DocumentsInverseTable is the table name for the Document entity.
@@ -60,6 +53,13 @@ const (
 	AgentDatasetsInverseTable = "agent_datasets"
 	// AgentDatasetsColumn is the table column denoting the agent_datasets relation/edge.
 	AgentDatasetsColumn = "dataset_id"
+	// AgentDefDatasetsTable is the table that holds the agent_def_datasets relation/edge.
+	AgentDefDatasetsTable = "agent_def_datasets"
+	// AgentDefDatasetsInverseTable is the table name for the AgentDefDataset entity.
+	// It exists in this package in order to avoid circular dependency with the "agentdefdataset" package.
+	AgentDefDatasetsInverseTable = "agent_def_datasets"
+	// AgentDefDatasetsColumn is the table column denoting the agent_def_datasets relation/edge.
+	AgentDefDatasetsColumn = "dataset_id"
 )
 
 // Columns holds all SQL columns for dataset fields.
@@ -198,20 +198,6 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
-// ByFoldersCount orders the results by folders count.
-func ByFoldersCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newFoldersStep(), opts...)
-	}
-}
-
-// ByFolders orders the results by folders terms.
-func ByFolders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newFoldersStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByDocumentsCount orders the results by documents count.
 func ByDocumentsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -239,12 +225,19 @@ func ByAgentDatasets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newAgentDatasetsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
-func newFoldersStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(FoldersInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, FoldersTable, FoldersColumn),
-	)
+
+// ByAgentDefDatasetsCount orders the results by agent_def_datasets count.
+func ByAgentDefDatasetsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentDefDatasetsStep(), opts...)
+	}
+}
+
+// ByAgentDefDatasets orders the results by agent_def_datasets terms.
+func ByAgentDefDatasets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentDefDatasetsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
 }
 func newDocumentsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
@@ -258,5 +251,12 @@ func newAgentDatasetsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentDatasetsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentDatasetsTable, AgentDatasetsColumn),
+	)
+}
+func newAgentDefDatasetsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentDefDatasetsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentDefDatasetsTable, AgentDefDatasetsColumn),
 	)
 }

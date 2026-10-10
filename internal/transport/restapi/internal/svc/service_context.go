@@ -9,9 +9,12 @@ import (
 	"eino-quickstart/ent"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/knowledge"
+	"eino-quickstart/internal/application/usersync"
 	"eino-quickstart/internal/platform/auth"
+	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/platform/persistence/approval"
+	consoleStore "eino-quickstart/internal/platform/persistence/console"
 	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
@@ -46,6 +49,7 @@ type Deps struct {
 	// 因此组合根（cmd/restapi）按同一个开关构造它们，见 Options.Accounts。
 	Accounts     *auth.AccountIssuer
 	AccountStore *account.Store
+	UserSync     *usersync.Service
 
 	// PasswordHashCost 是哈希「管理员设定的初始密码」时用的 bcrypt 成本，
 	// 0 表示用 bcrypt.DefaultCost。
@@ -56,8 +60,17 @@ type Deps struct {
 	// 没有限流（见 docs/known-gaps.md），慢机器上需要能调低。
 	PasswordHashCost int
 
+	// Upload limits are copied from the API business configuration at the
+	// composition root. Keeping them explicit prevents the upload handler from
+	// silently using the larger go-zero transport limit.
+	UploadMaxRequestBodyBytes int64
+	UploadMaxDocumentBytes    int64
+	UploadMaxFiles            int
+
 	Logger    *slog.Logger
 	EntClient *ent.Client
+	Metrics   *observability.Metrics
+	Console   *consoleStore.Store
 }
 
 // ServiceContext is what goctl passes to every handler and logic. goctl owns the
@@ -74,12 +87,19 @@ type ServiceContext struct {
 	Anonymous    *auth.AnonymousIssuer
 	Accounts     *auth.AccountIssuer
 	AccountStore *account.Store
+	UserSync     *usersync.Service
 
 	// PasswordHashCost 的语义同 Deps.PasswordHashCost。
 	PasswordHashCost int
 
+	UploadMaxRequestBodyBytes int64
+	UploadMaxDocumentBytes    int64
+	UploadMaxFiles            int
+
 	Logger       *slog.Logger
 	EntClient    *ent.Client
+	Metrics      *observability.Metrics
+	Console      *consoleStore.Store
 	RoleAdmin    rest.Middleware
 	RoleAgent    rest.Middleware
 	RoleApprover rest.Middleware
@@ -87,22 +107,32 @@ type ServiceContext struct {
 
 // NewServiceContext wires the dependency set into a ServiceContext.
 func NewServiceContext(c config.Config, deps Deps) *ServiceContext {
+	if deps.Console == nil {
+		deps.Console = consoleStore.NewStore("")
+	}
+
 	return &ServiceContext{
-		Config:           c,
-		Agent:            deps.Agent,
-		Knowledge:        deps.Knowledge,
-		Sessions:         deps.Sessions,
-		Approvals:        deps.Approvals,
-		Runs:             deps.Runs,
-		Turns:            deps.Turns,
-		Anonymous:        deps.Anonymous,
-		Accounts:         deps.Accounts,
-		AccountStore:     deps.AccountStore,
-		PasswordHashCost: deps.PasswordHashCost,
-		Logger:           deps.Logger,
-		EntClient:        deps.EntClient,
-		RoleAdmin:        middleware.NewRoleAdminMiddleware().Handle,
-		RoleAgent:        middleware.NewRoleAgentMiddleware().Handle,
-		RoleApprover:     middleware.NewRoleApproverMiddleware().Handle,
+		Config:                    c,
+		Agent:                     deps.Agent,
+		Knowledge:                 deps.Knowledge,
+		Sessions:                  deps.Sessions,
+		Approvals:                 deps.Approvals,
+		Runs:                      deps.Runs,
+		Turns:                     deps.Turns,
+		Anonymous:                 deps.Anonymous,
+		Accounts:                  deps.Accounts,
+		AccountStore:              deps.AccountStore,
+		UserSync:                  deps.UserSync,
+		PasswordHashCost:          deps.PasswordHashCost,
+		UploadMaxRequestBodyBytes: deps.UploadMaxRequestBodyBytes,
+		UploadMaxDocumentBytes:    deps.UploadMaxDocumentBytes,
+		UploadMaxFiles:            deps.UploadMaxFiles,
+		Logger:                    deps.Logger,
+		EntClient:                 deps.EntClient,
+		Metrics:                   deps.Metrics,
+		Console:                   deps.Console,
+		RoleAdmin:                 middleware.NewRoleAdminMiddleware().Handle,
+		RoleAgent:                 middleware.NewRoleAgentMiddleware().Handle,
+		RoleApprover:              middleware.NewRoleApproverMiddleware().Handle,
 	}
 }

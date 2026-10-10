@@ -419,6 +419,14 @@ func (s *Store) ResetResuming(ctx context.Context, approvalID string) error {
 	return err
 }
 
+func (s *Store) CountExpiredPending(ctx context.Context, now time.Time) (int, error) {
+	return s.client.Approval.Query().Where(approval.StatusEQ(StatusPending), approval.ExpiresAtLT(now)).Count(ctx)
+}
+
+func (s *Store) CountTerminalBefore(ctx context.Context, before time.Time) (int, error) {
+	return s.client.Approval.Query().Where(approval.StatusIn(StatusRejected, StatusExpired, StatusExecuted), approval.DecidedAtLT(before)).Count(ctx)
+}
+
 func (s *Store) ExpirePending(ctx context.Context, now time.Time, limit int) ([]string, error) {
 	records, err := s.client.Approval.
 		Query().Where(

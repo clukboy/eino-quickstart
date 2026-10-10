@@ -10,7 +10,7 @@
 | P04 生命周期 | 真实应用服务 + Ent 内存数据库 + Markdown Pipeline 的生命周期回归；实际 HTTP handler 契约回归；真实 HTTP 执行器与资源台账 | 隔离 PostgreSQL/Redis/Milvus/embedding 的正常路径与故障演练；外部存储/SQL 核对 |
 
 **本轮没有启动真实 API/worker，也没有往共享数据库写入验收数据。**
-配置文件已有模板不代表依赖已经就绪。P01 的两个指标测试仍是独立待办，不在这里跳过或改成假通过。
+配置文件已有模板不代表依赖已经就绪。P01 已于 2026-10-07 完成指标配置和全量回归；本指南仍不把 P01 的结果冒充为真实外部依赖端到端验收。
 
 ## 2. 不知道切入点？先运行这两条
 
@@ -254,13 +254,12 @@ SELECT count(*) FROM document_chunks WHERE document_id = <DELETED_DOC_ID>;
 | P03 临时生成、差异检查、编译及 Swagger 回归 | PASS | `logs/acceptance/P03/20261006-162749-82831/check.log` |
 | P04 本地回归（8 个生命周期测试、HTTP handler 契约、11 个 Python 测试） | PASS | `logs/acceptance/P04/20261006-162752-82886-local/tests.log` |
 | Go 生命周期及 HTTP handler 竞态检测 | PASS | `logs/acceptance/regression/lifecycle-race.log` |
-| 全量 `go test -count=1 ./...` | FAIL：仅原有 2 项 P01 指标测试 | `logs/acceptance/regression/full-go-test.log`、`full-go-test-exit.txt` |
+| 全量 `go test -count=1 ./...`（P01 修复前历史记录） | FAIL：仅原有 2 项 P01 指标测试 | `logs/acceptance/regression/full-go-test.log`、`full-go-test-exit.txt` |
 | 缺少隔离确认的真实模式前置检查 | BLOCKED，退出码 2；未发 HTTP 请求 | `logs/acceptance/P04/20261006-162820-1ead2eb8/summary.json` |
 | 不支持的 P99 编号 | BLOCKED，退出码 2 | 终端检查；未连接任何依赖 |
 | 真实 HTTP E2E / 外部存储核对 | **未执行** | 等待隔离资源与有效凭据 |
 
-原有失败为 `TestShippedConfigKeepsAgentsConfigurable` 与
-`TestPrometheusAgentServesGoZeroMetrics`；本轮没有跳过测试或修改 P01 指标配置。
+上述失败是 P01 修复前的历史结果；2026-10-07 已通过 `bash scripts/acceptance/run.sh P01` 重新执行全量回归。P01 当前结果见 `docs/p01-metrics-acceptance.md`。
 Python 测试只验证执行器断言、清理边界及 Swagger 扩展，未对真实数据库执行清理。
 报告可能含本轮测试正文，应在分享前检查；它们默认在忽略的 `logs/` 下，不自动提交。
 因此不能因本地 P03/P04 通过，宣称全仓库全绿或真实依赖验收已通过。

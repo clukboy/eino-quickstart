@@ -27,7 +27,6 @@ type DocumentQuery struct {
 	predicates  []predicate.Document
 	withDataset *DatasetQuery
 	withChunks  *DocumentChunkQuery
-	withFKs     bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -407,16 +406,12 @@ func (_q *DocumentQuery) prepareQuery(ctx context.Context) error {
 func (_q *DocumentQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Document, error) {
 	var (
 		nodes       = []*Document{}
-		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
 		loadedTypes = [2]bool{
 			_q.withDataset != nil,
 			_q.withChunks != nil,
 		}
 	)
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, document.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Document).scanValues(nil, columns)
 	}

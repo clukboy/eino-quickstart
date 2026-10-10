@@ -38,17 +38,98 @@ var (
 			},
 		},
 	}
+	// AgentDefsColumns holds the columns for the "agent_defs" table.
+	AgentDefsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "owner_subject", Type: field.TypeString},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"DRAFT", "PUBLISHED", "ARCHIVED"}, Default: "DRAFT"},
+		{Name: "current_version", Type: field.TypeInt, Default: 0},
+		{Name: "published_version", Type: field.TypeInt, Default: 0},
+		{Name: "model", Type: field.TypeString, Default: ""},
+		{Name: "risk_tier", Type: field.TypeString, Default: "T1"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// AgentDefsTable holds the schema information for the "agent_defs" table.
+	AgentDefsTable = &schema.Table{
+		Name:       "agent_defs",
+		Columns:    AgentDefsColumns,
+		PrimaryKey: []*schema.Column{AgentDefsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agentdef_status",
+				Unique:  false,
+				Columns: []*schema.Column{AgentDefsColumns[4]},
+			},
+			{
+				Name:    "agentdef_owner_subject_status",
+				Unique:  false,
+				Columns: []*schema.Column{AgentDefsColumns[3], AgentDefsColumns[4]},
+			},
+		},
+	}
+	// AgentDefDatasetsColumns holds the columns for the "agent_def_datasets" table.
+	AgentDefDatasetsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "agent_def_id", Type: field.TypeUint64},
+		{Name: "dataset_id", Type: field.TypeUint64},
+	}
+	// AgentDefDatasetsTable holds the schema information for the "agent_def_datasets" table.
+	AgentDefDatasetsTable = &schema.Table{
+		Name:       "agent_def_datasets",
+		Columns:    AgentDefDatasetsColumns,
+		PrimaryKey: []*schema.Column{AgentDefDatasetsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_def_datasets_agent_defs_datasets",
+				Columns:    []*schema.Column{AgentDefDatasetsColumns[3]},
+				RefColumns: []*schema.Column{AgentDefsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "agent_def_datasets_datasets_agent_def_datasets",
+				Columns:    []*schema.Column{AgentDefDatasetsColumns[4]},
+				RefColumns: []*schema.Column{DatasetsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agentdefdataset_agent_def_id_dataset_id",
+				Unique:  true,
+				Columns: []*schema.Column{AgentDefDatasetsColumns[3], AgentDefDatasetsColumns[4]},
+			},
+			{
+				Name:    "agentdefdataset_dataset_id",
+				Unique:  false,
+				Columns: []*schema.Column{AgentDefDatasetsColumns[4]},
+			},
+		},
+	}
 	// AgentRunsColumns holds the columns for the "agent_runs" table.
 	AgentRunsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "run_id", Type: field.TypeString, Unique: true},
 		{Name: "session_id", Type: field.TypeString},
 		{Name: "requested_by", Type: field.TypeString},
+		{Name: "agent_key", Type: field.TypeString, Default: ""},
+		{Name: "agent_version", Type: field.TypeInt, Default: 0},
 		{Name: "user_message", Type: field.TypeString, Size: 2147483647},
 		{Name: "checkpoint_id", Type: field.TypeString, Nullable: true},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"RUNNING", "INTERRUPTED", "RESUMING", "COMPLETED", "FAILED", "EXPIRED"}, Default: "RUNNING"},
 		{Name: "approval_id", Type: field.TypeString, Nullable: true},
 		{Name: "error_code", Type: field.TypeString, Nullable: true},
+		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "steps", Type: field.TypeInt, Default: 0},
+		{Name: "tool_calls", Type: field.TypeInt, Default: 0},
+		{Name: "tokens_in", Type: field.TypeInt64, Default: 0},
+		{Name: "tokens_out", Type: field.TypeInt64, Default: 0},
+		{Name: "latency_ms", Type: field.TypeInt64, Default: 0},
+		{Name: "cost_micros", Type: field.TypeInt64, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
@@ -63,17 +144,69 @@ var (
 			{
 				Name:    "agentrun_session_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[2], AgentRunsColumns[6]},
+				Columns: []*schema.Column{AgentRunsColumns[2], AgentRunsColumns[8]},
+			},
+			{
+				Name:    "agentrun_requested_by_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentRunsColumns[3], AgentRunsColumns[18]},
+			},
+			{
+				Name:    "agentrun_agent_key_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AgentRunsColumns[4], AgentRunsColumns[18]},
 			},
 			{
 				Name:    "agentrun_checkpoint_id",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[5]},
+				Columns: []*schema.Column{AgentRunsColumns[7]},
 			},
 			{
 				Name:    "agentrun_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[12]},
+				Columns: []*schema.Column{AgentRunsColumns[21]},
+			},
+		},
+	}
+	// AgentVersionsColumns holds the columns for the "agent_versions" table.
+	AgentVersionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "version", Type: field.TypeInt},
+		{Name: "system_prompt", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "model", Type: field.TypeString, Default: ""},
+		{Name: "temperature", Type: field.TypeFloat64, Default: 0.7},
+		{Name: "max_iterations", Type: field.TypeInt, Default: 6},
+		{Name: "tool_keys", Type: field.TypeJSON},
+		{Name: "dataset_ids", Type: field.TypeJSON},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"DRAFT", "PUBLISHED", "RETIRED"}, Default: "DRAFT"},
+		{Name: "change_note", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "agent_def_id", Type: field.TypeUint64},
+	}
+	// AgentVersionsTable holds the schema information for the "agent_versions" table.
+	AgentVersionsTable = &schema.Table{
+		Name:       "agent_versions",
+		Columns:    AgentVersionsColumns,
+		PrimaryKey: []*schema.Column{AgentVersionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "agent_versions_agent_defs_versions",
+				Columns:    []*schema.Column{AgentVersionsColumns[12]},
+				RefColumns: []*schema.Column{AgentDefsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "agentversion_agent_def_id_version",
+				Unique:  true,
+				Columns: []*schema.Column{AgentVersionsColumns[12], AgentVersionsColumns[1]},
+			},
+			{
+				Name:    "agentversion_agent_def_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{AgentVersionsColumns[12], AgentVersionsColumns[8]},
 			},
 		},
 	}
@@ -115,6 +248,37 @@ var (
 			},
 		},
 	}
+	// ApprovalPoliciesColumns holds the columns for the "approval_policies" table.
+	ApprovalPoliciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "tool_key", Type: field.TypeString},
+		{Name: "risk_tier", Type: field.TypeString},
+		{Name: "mode", Type: field.TypeEnum, Enums: []string{"auto", "notify", "inline", "multi"}},
+		{Name: "approver_roles", Type: field.TypeJSON},
+		{Name: "quorum", Type: field.TypeInt, Default: 1},
+		{Name: "timeout_seconds", Type: field.TypeInt, Default: 0},
+		{Name: "on_timeout", Type: field.TypeString, Default: "reject"},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ApprovalPoliciesTable holds the schema information for the "approval_policies" table.
+	ApprovalPoliciesTable = &schema.Table{
+		Name:       "approval_policies",
+		Columns:    ApprovalPoliciesColumns,
+		PrimaryKey: []*schema.Column{ApprovalPoliciesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "approvalpolicy_tool_key_risk_tier",
+				Unique:  true,
+				Columns: []*schema.Column{ApprovalPoliciesColumns[1], ApprovalPoliciesColumns[2]},
+			},
+			{
+				Name:    "approvalpolicy_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{ApprovalPoliciesColumns[8]},
+			},
+		},
+	}
 	// AuditEventsColumns holds the columns for the "audit_events" table.
 	AuditEventsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -125,12 +289,37 @@ var (
 		{Name: "payload", Type: field.TypeString, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "actor_subject", Type: field.TypeString, Nullable: true},
+		{Name: "action", Type: field.TypeString, Nullable: true},
+		{Name: "resource_type", Type: field.TypeString, Nullable: true},
+		{Name: "resource_id", Type: field.TypeString, Nullable: true},
+		{Name: "resource_name", Type: field.TypeString, Nullable: true},
+		{Name: "summary", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "before", Type: field.TypeJSON, Nullable: true},
+		{Name: "after", Type: field.TypeJSON, Nullable: true},
+		{Name: "ip", Type: field.TypeString, Nullable: true},
 	}
 	// AuditEventsTable holds the schema information for the "audit_events" table.
 	AuditEventsTable = &schema.Table{
 		Name:       "audit_events",
 		Columns:    AuditEventsColumns,
 		PrimaryKey: []*schema.Column{AuditEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "auditevent_actor_subject_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuditEventsColumns[7], AuditEventsColumns[6]},
+			},
+			{
+				Name:    "auditevent_action_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuditEventsColumns[8], AuditEventsColumns[6]},
+			},
+			{
+				Name:    "auditevent_resource_type_resource_id",
+				Unique:  false,
+				Columns: []*schema.Column{AuditEventsColumns[9], AuditEventsColumns[10]},
+			},
+		},
 	}
 	// ChatTurnsColumns holds the columns for the "chat_turns" table.
 	ChatTurnsColumns = []*schema.Column{
@@ -223,7 +412,6 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "dataset_id", Type: field.TypeUint64, Default: 0},
-		{Name: "knowledge_folder_documents", Type: field.TypeUint64, Nullable: true},
 	}
 	// DocumentsTable holds the schema information for the "documents" table.
 	DocumentsTable = &schema.Table{
@@ -236,12 +424,6 @@ var (
 				Columns:    []*schema.Column{DocumentsColumns[13]},
 				RefColumns: []*schema.Column{DatasetsColumns[0]},
 				OnDelete:   schema.NoAction,
-			},
-			{
-				Symbol:     "documents_knowledge_folders_documents",
-				Columns:    []*schema.Column{DocumentsColumns[14]},
-				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
-				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
@@ -305,65 +487,419 @@ var (
 			},
 		},
 	}
-	// KnowledgeFoldersColumns holds the columns for the "knowledge_folders" table.
-	KnowledgeFoldersColumns = []*schema.Column{
+	// EvalCasesColumns holds the columns for the "eval_cases" table.
+	EvalCasesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "name", Type: field.TypeString},
-		{Name: "path", Type: field.TypeString},
-		{Name: "sort", Type: field.TypeInt, Default: 0},
+		{Name: "question", Type: field.TypeString, Size: 2147483647},
+		{Name: "expected_answer", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "tags", Type: field.TypeJSON},
 		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "dataset_id", Type: field.TypeUint64},
-		{Name: "parent_id", Type: field.TypeUint64, Nullable: true},
+		{Name: "eval_set_id", Type: field.TypeUint64},
 	}
-	// KnowledgeFoldersTable holds the schema information for the "knowledge_folders" table.
-	KnowledgeFoldersTable = &schema.Table{
-		Name:       "knowledge_folders",
-		Columns:    KnowledgeFoldersColumns,
-		PrimaryKey: []*schema.Column{KnowledgeFoldersColumns[0]},
+	// EvalCasesTable holds the schema information for the "eval_cases" table.
+	EvalCasesTable = &schema.Table{
+		Name:       "eval_cases",
+		Columns:    EvalCasesColumns,
+		PrimaryKey: []*schema.Column{EvalCasesColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "knowledge_folders_datasets_folders",
-				Columns:    []*schema.Column{KnowledgeFoldersColumns[6]},
-				RefColumns: []*schema.Column{DatasetsColumns[0]},
+				Symbol:     "eval_cases_eval_sets_cases",
+				Columns:    []*schema.Column{EvalCasesColumns[5]},
+				RefColumns: []*schema.Column{EvalSetsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "evalcase_eval_set_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{EvalCasesColumns[5], EvalCasesColumns[4]},
+			},
+		},
+	}
+	// EvalCaseResultsColumns holds the columns for the "eval_case_results" table.
+	EvalCaseResultsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "question", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "answer", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "score", Type: field.TypeFloat64, Default: 0},
+		{Name: "passed", Type: field.TypeBool, Default: false},
+		{Name: "reason", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "latency_ms", Type: field.TypeInt64, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "case_id", Type: field.TypeUint64},
+		{Name: "eval_run_id", Type: field.TypeUint64},
+	}
+	// EvalCaseResultsTable holds the schema information for the "eval_case_results" table.
+	EvalCaseResultsTable = &schema.Table{
+		Name:       "eval_case_results",
+		Columns:    EvalCaseResultsColumns,
+		PrimaryKey: []*schema.Column{EvalCaseResultsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "eval_case_results_eval_cases_results",
+				Columns:    []*schema.Column{EvalCaseResultsColumns[8]},
+				RefColumns: []*schema.Column{EvalCasesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
-				Symbol:     "knowledge_folders_knowledge_folders_children",
-				Columns:    []*schema.Column{KnowledgeFoldersColumns[7]},
-				RefColumns: []*schema.Column{KnowledgeFoldersColumns[0]},
+				Symbol:     "eval_case_results_eval_runs_results",
+				Columns:    []*schema.Column{EvalCaseResultsColumns[9]},
+				RefColumns: []*schema.Column{EvalRunsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "evalcaseresult_eval_run_id_case_id",
+				Unique:  true,
+				Columns: []*schema.Column{EvalCaseResultsColumns[9], EvalCaseResultsColumns[8]},
+			},
+			{
+				Name:    "evalcaseresult_case_id",
+				Unique:  false,
+				Columns: []*schema.Column{EvalCaseResultsColumns[8]},
+			},
+		},
+	}
+	// EvalRunsColumns holds the columns for the "eval_runs" table.
+	EvalRunsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "run_id", Type: field.TypeString, Unique: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"RUNNING", "COMPLETED", "FAILED"}, Default: "RUNNING"},
+		{Name: "total", Type: field.TypeInt, Default: 0},
+		{Name: "completed", Type: field.TypeInt, Default: 0},
+		{Name: "passed", Type: field.TypeInt, Default: 0},
+		{Name: "score", Type: field.TypeFloat64, Default: 0},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
+		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "eval_set_id", Type: field.TypeUint64},
+	}
+	// EvalRunsTable holds the schema information for the "eval_runs" table.
+	EvalRunsTable = &schema.Table{
+		Name:       "eval_runs",
+		Columns:    EvalRunsColumns,
+		PrimaryKey: []*schema.Column{EvalRunsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "eval_runs_eval_sets_runs",
+				Columns:    []*schema.Column{EvalRunsColumns[10]},
+				RefColumns: []*schema.Column{EvalSetsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "evalrun_eval_set_id_started_at",
+				Unique:  false,
+				Columns: []*schema.Column{EvalRunsColumns[10], EvalRunsColumns[7]},
+			},
+			{
+				Name:    "evalrun_status",
+				Unique:  false,
+				Columns: []*schema.Column{EvalRunsColumns[2]},
+			},
+		},
+	}
+	// EvalSetsColumns holds the columns for the "eval_sets" table.
+	EvalSetsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "agent_key", Type: field.TypeString, Nullable: true},
+		{Name: "created_by", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// EvalSetsTable holds the schema information for the "eval_sets" table.
+	EvalSetsTable = &schema.Table{
+		Name:       "eval_sets",
+		Columns:    EvalSetsColumns,
+		PrimaryKey: []*schema.Column{EvalSetsColumns[0]},
+	}
+	// FeedbacksColumns holds the columns for the "feedbacks" table.
+	FeedbacksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "run_id", Type: field.TypeString},
+		{Name: "session_id", Type: field.TypeString, Nullable: true},
+		{Name: "subject", Type: field.TypeString},
+		{Name: "rating", Type: field.TypeString},
+		{Name: "comment", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "label", Type: field.TypeString, Default: "PENDING"},
+		{Name: "note", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// FeedbacksTable holds the schema information for the "feedbacks" table.
+	FeedbacksTable = &schema.Table{
+		Name:       "feedbacks",
+		Columns:    FeedbacksColumns,
+		PrimaryKey: []*schema.Column{FeedbacksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "feedback_label_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{FeedbacksColumns[6], FeedbacksColumns[8]},
+			},
+			{
+				Name:    "feedback_subject_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{FeedbacksColumns[3], FeedbacksColumns[8]},
+			},
+			{
+				Name:    "feedback_run_id",
+				Unique:  false,
+				Columns: []*schema.Column{FeedbacksColumns[1]},
+			},
+		},
+	}
+	// ModelsColumns holds the columns for the "models" table.
+	ModelsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "key", Type: field.TypeString, Unique: true},
+		{Name: "provider_key", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"chat", "embedding", "rerank", "image"}},
+		{Name: "context_window", Type: field.TypeInt, Default: 0},
+		{Name: "max_output_tokens", Type: field.TypeInt, Default: 0},
+		{Name: "input_price_micros_per_k", Type: field.TypeInt64, Default: 0},
+		{Name: "output_price_micros_per_k", Type: field.TypeInt64, Default: 0},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "provider_id", Type: field.TypeUint64},
+	}
+	// ModelsTable holds the schema information for the "models" table.
+	ModelsTable = &schema.Table{
+		Name:       "models",
+		Columns:    ModelsColumns,
+		PrimaryKey: []*schema.Column{ModelsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "models_model_providers_models",
+				Columns:    []*schema.Column{ModelsColumns[11]},
+				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "model_provider_id_kind",
+				Unique:  false,
+				Columns: []*schema.Column{ModelsColumns[11], ModelsColumns[3]},
+			},
+			{
+				Name:    "model_provider_key_kind",
+				Unique:  false,
+				Columns: []*schema.Column{ModelsColumns[2], ModelsColumns[3]},
+			},
+			{
+				Name:    "model_enabled_kind",
+				Unique:  false,
+				Columns: []*schema.Column{ModelsColumns[8], ModelsColumns[3]},
+			},
+		},
+	}
+	// ModelProvidersColumns holds the columns for the "model_providers" table.
+	ModelProvidersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "key", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "base_url", Type: field.TypeString, Default: ""},
+		{Name: "auth_type", Type: field.TypeEnum, Enums: []string{"none", "bearer", "api_key", "oauth2"}, Default: "none"},
+		{Name: "secret_ciphertext", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ModelProvidersTable holds the schema information for the "model_providers" table.
+	ModelProvidersTable = &schema.Table{
+		Name:       "model_providers",
+		Columns:    ModelProvidersColumns,
+		PrimaryKey: []*schema.Column{ModelProvidersColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "modelprovider_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{ModelProvidersColumns[6]},
+			},
+		},
+	}
+	// ModelRoutingsColumns holds the columns for the "model_routings" table.
+	ModelRoutingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "config_key", Type: field.TypeString, Unique: true},
+		{Name: "default_chat_model", Type: field.TypeString, Default: ""},
+		{Name: "default_embedding_model", Type: field.TypeString, Default: ""},
+		{Name: "fallback_chain", Type: field.TypeJSON},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ModelRoutingsTable holds the schema information for the "model_routings" table.
+	ModelRoutingsTable = &schema.Table{
+		Name:       "model_routings",
+		Columns:    ModelRoutingsColumns,
+		PrimaryKey: []*schema.Column{ModelRoutingsColumns[0]},
+	}
+	// OrgMembersColumns holds the columns for the "org_members" table.
+	OrgMembersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "subject", Type: field.TypeString},
+		{Name: "joined_at", Type: field.TypeTime},
+		{Name: "org_unit_id", Type: field.TypeUint64},
+	}
+	// OrgMembersTable holds the schema information for the "org_members" table.
+	OrgMembersTable = &schema.Table{
+		Name:       "org_members",
+		Columns:    OrgMembersColumns,
+		PrimaryKey: []*schema.Column{OrgMembersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "org_members_org_units_members",
+				Columns:    []*schema.Column{OrgMembersColumns[3]},
+				RefColumns: []*schema.Column{OrgUnitsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "orgmember_org_unit_id_subject",
+				Unique:  true,
+				Columns: []*schema.Column{OrgMembersColumns[3], OrgMembersColumns[1]},
+			},
+			{
+				Name:    "orgmember_subject",
+				Unique:  false,
+				Columns: []*schema.Column{OrgMembersColumns[1]},
+			},
+		},
+	}
+	// OrgUnitsColumns holds the columns for the "org_units" table.
+	OrgUnitsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "path", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "parent_id", Type: field.TypeUint64, Nullable: true},
+	}
+	// OrgUnitsTable holds the schema information for the "org_units" table.
+	OrgUnitsTable = &schema.Table{
+		Name:       "org_units",
+		Columns:    OrgUnitsColumns,
+		PrimaryKey: []*schema.Column{OrgUnitsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "org_units_org_units_children",
+				Columns:    []*schema.Column{OrgUnitsColumns[5]},
+				RefColumns: []*schema.Column{OrgUnitsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "knowledgefolder_dataset_id_parent_id",
+				Name:    "orgunit_parent_id",
 				Unique:  false,
-				Columns: []*schema.Column{KnowledgeFoldersColumns[6], KnowledgeFoldersColumns[7]},
+				Columns: []*schema.Column{OrgUnitsColumns[5]},
 			},
 			{
-				Name:    "knowledgefolder_dataset_id_path",
+				Name:    "orgunit_path",
 				Unique:  true,
-				Columns: []*schema.Column{KnowledgeFoldersColumns[6], KnowledgeFoldersColumns[2]},
+				Columns: []*schema.Column{OrgUnitsColumns[2]},
 			},
 		},
 	}
-	// KnowledgeIndexesColumns holds the columns for the "knowledge_indexes" table.
-	KnowledgeIndexesColumns = []*schema.Column{
+	// PasswordPoliciesColumns holds the columns for the "password_policies" table.
+	PasswordPoliciesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "name", Type: field.TypeString, Unique: true},
-		{Name: "milvus_collection", Type: field.TypeString, Unique: true},
-		{Name: "embedding_model", Type: field.TypeString},
-		{Name: "embedding_dimensions", Type: field.TypeInt},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"BUILDING", "ACTIVE", "RETIRED", "FAILED"}, Default: "BUILDING"},
-		{Name: "activated_at", Type: field.TypeTime, Nullable: true},
+		{Name: "config_key", Type: field.TypeString, Unique: true},
+		{Name: "min_length", Type: field.TypeInt, Default: 12},
+		{Name: "require_upper", Type: field.TypeBool, Default: true},
+		{Name: "require_lower", Type: field.TypeBool, Default: true},
+		{Name: "require_digit", Type: field.TypeBool, Default: true},
+		{Name: "require_symbol", Type: field.TypeBool, Default: false},
+		{Name: "max_age_days", Type: field.TypeInt, Default: 0},
+		{Name: "history_count", Type: field.TypeInt, Default: 5},
+		{Name: "max_failed_attempts", Type: field.TypeInt, Default: 5},
+		{Name: "lockout_seconds", Type: field.TypeInt, Default: 900},
+		{Name: "session_ttl_hours", Type: field.TypeInt, Default: 24},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// PasswordPoliciesTable holds the schema information for the "password_policies" table.
+	PasswordPoliciesTable = &schema.Table{
+		Name:       "password_policies",
+		Columns:    PasswordPoliciesColumns,
+		PrimaryKey: []*schema.Column{PasswordPoliciesColumns[0]},
+	}
+	// RunRetrievalHitsColumns holds the columns for the "run_retrieval_hits" table.
+	RunRetrievalHitsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "run_id", Type: field.TypeString},
+		{Name: "chunk_id", Type: field.TypeUint64, Default: 0},
+		{Name: "document_id", Type: field.TypeUint64, Default: 0},
+		{Name: "source", Type: field.TypeString, Default: ""},
+		{Name: "title", Type: field.TypeString, Default: ""},
+		{Name: "heading_path", Type: field.TypeString, Default: ""},
+		{Name: "content", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "score", Type: field.TypeFloat64, Default: 0},
+		{Name: "content_truncated", Type: field.TypeBool, Default: false},
+		{Name: "rank", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 	}
-	// KnowledgeIndexesTable holds the schema information for the "knowledge_indexes" table.
-	KnowledgeIndexesTable = &schema.Table{
-		Name:       "knowledge_indexes",
-		Columns:    KnowledgeIndexesColumns,
-		PrimaryKey: []*schema.Column{KnowledgeIndexesColumns[0]},
+	// RunRetrievalHitsTable holds the schema information for the "run_retrieval_hits" table.
+	RunRetrievalHitsTable = &schema.Table{
+		Name:       "run_retrieval_hits",
+		Columns:    RunRetrievalHitsColumns,
+		PrimaryKey: []*schema.Column{RunRetrievalHitsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "runretrievalhit_run_id_rank",
+				Unique:  false,
+				Columns: []*schema.Column{RunRetrievalHitsColumns[1], RunRetrievalHitsColumns[10]},
+			},
+			{
+				Name:    "runretrievalhit_document_id",
+				Unique:  false,
+				Columns: []*schema.Column{RunRetrievalHitsColumns[3]},
+			},
+		},
+	}
+	// RunSpansColumns holds the columns for the "run_spans" table.
+	RunSpansColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "run_id", Type: field.TypeString},
+		{Name: "span_id", Type: field.TypeString, Unique: true},
+		{Name: "parent_id", Type: field.TypeString, Nullable: true},
+		{Name: "kind", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "status", Type: field.TypeString},
+		{Name: "latency_ms", Type: field.TypeInt64, Default: 0},
+		{Name: "tokens_in", Type: field.TypeInt64, Default: 0},
+		{Name: "tokens_out", Type: field.TypeInt64, Default: 0},
+		{Name: "input", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "output", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "input_truncated", Type: field.TypeBool, Default: false},
+		{Name: "output_truncated", Type: field.TypeBool, Default: false},
+		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
+	}
+	// RunSpansTable holds the schema information for the "run_spans" table.
+	RunSpansTable = &schema.Table{
+		Name:       "run_spans",
+		Columns:    RunSpansColumns,
+		PrimaryKey: []*schema.Column{RunSpansColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "runspan_run_id_started_at",
+				Unique:  false,
+				Columns: []*schema.Column{RunSpansColumns[1], RunSpansColumns[15]},
+			},
+			{
+				Name:    "runspan_parent_id",
+				Unique:  false,
+				Columns: []*schema.Column{RunSpansColumns[3]},
+			},
+		},
 	}
 	// SessionsColumns holds the columns for the "sessions" table.
 	SessionsColumns = []*schema.Column{
@@ -416,10 +952,46 @@ var (
 			},
 		},
 	}
+	// ToolsColumns holds the columns for the "tools" table.
+	ToolsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUint64, Increment: true},
+		{Name: "key", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"builtin", "http", "mcp", "openapi"}},
+		{Name: "description", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "risk_tier", Type: field.TypeString, Default: "T1"},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "config_schema", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "auth_type", Type: field.TypeEnum, Enums: []string{"none", "bearer", "api_key", "oauth2"}, Default: "none"},
+		{Name: "secret_ciphertext", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "endpoint", Type: field.TypeString, Nullable: true},
+		{Name: "timeout_ms", Type: field.TypeInt, Default: 30000},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ToolsTable holds the schema information for the "tools" table.
+	ToolsTable = &schema.Table{
+		Name:       "tools",
+		Columns:    ToolsColumns,
+		PrimaryKey: []*schema.Column{ToolsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "tool_kind_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{ToolsColumns[3], ToolsColumns[6]},
+			},
+			{
+				Name:    "tool_risk_tier_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{ToolsColumns[5], ToolsColumns[6]},
+			},
+		},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "username", Type: field.TypeString, Unique: true},
+		{Name: "external_id", Type: field.TypeString, Unique: true, Nullable: true},
 		{Name: "nickname", Type: field.TypeString, Default: schema.Expr("''")},
 		{Name: "password_hash", Type: field.TypeString},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"agent", "approver", "admin"}, Default: "agent"},
@@ -438,29 +1010,52 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AgentDatasetsTable,
+		AgentDefsTable,
+		AgentDefDatasetsTable,
 		AgentRunsTable,
+		AgentVersionsTable,
 		ApprovalsTable,
+		ApprovalPoliciesTable,
 		AuditEventsTable,
 		ChatTurnsTable,
 		CheckpointsTable,
 		DatasetsTable,
 		DocumentsTable,
 		DocumentChunksTable,
-		KnowledgeFoldersTable,
-		KnowledgeIndexesTable,
+		EvalCasesTable,
+		EvalCaseResultsTable,
+		EvalRunsTable,
+		EvalSetsTable,
+		FeedbacksTable,
+		ModelsTable,
+		ModelProvidersTable,
+		ModelRoutingsTable,
+		OrgMembersTable,
+		OrgUnitsTable,
+		PasswordPoliciesTable,
+		RunRetrievalHitsTable,
+		RunSpansTable,
 		SessionsTable,
 		SessionMessagesTable,
+		ToolsTable,
 		UsersTable,
 	}
 )
 
 func init() {
 	AgentDatasetsTable.ForeignKeys[0].RefTable = DatasetsTable
+	AgentDefDatasetsTable.ForeignKeys[0].RefTable = AgentDefsTable
+	AgentDefDatasetsTable.ForeignKeys[1].RefTable = DatasetsTable
+	AgentVersionsTable.ForeignKeys[0].RefTable = AgentDefsTable
 	DocumentsTable.ForeignKeys[0].RefTable = DatasetsTable
-	DocumentsTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
 	DocumentChunksTable.ForeignKeys[0].RefTable = DocumentsTable
-	KnowledgeFoldersTable.ForeignKeys[0].RefTable = DatasetsTable
-	KnowledgeFoldersTable.ForeignKeys[1].RefTable = KnowledgeFoldersTable
+	EvalCasesTable.ForeignKeys[0].RefTable = EvalSetsTable
+	EvalCaseResultsTable.ForeignKeys[0].RefTable = EvalCasesTable
+	EvalCaseResultsTable.ForeignKeys[1].RefTable = EvalRunsTable
+	EvalRunsTable.ForeignKeys[0].RefTable = EvalSetsTable
+	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
+	OrgMembersTable.ForeignKeys[0].RefTable = OrgUnitsTable
+	OrgUnitsTable.ForeignKeys[0].RefTable = OrgUnitsTable
 	SessionsTable.Annotation = &entsql.Annotation{
 		Table: "sessions",
 	}

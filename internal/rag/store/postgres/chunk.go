@@ -7,7 +7,10 @@ import (
 	"eino-quickstart/ent/documentchunk"
 	"eino-quickstart/ent/predicate"
 	"eino-quickstart/internal/platform/storage/entx"
+	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/rag/constant"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -85,6 +88,127 @@ func (l *Postgres) SearchChunks(
 		}).
 		Limit(limit).
 		All(ctx)
+}
+
+// SearchExact 在 chunk metadata 的结构化字段上执行规范化后的逐字相等匹配。
+//
+// 这是 ES 不可用时的正确性回落，不是把 LIKE 伪装成 exact：只有字段值与查询
+// 词在同一份 NormalizeExactValue 规则下完全相等才会命中。候选先按现值 ACL
+// 条件下推，再在 Go 中读取 JSON 路径；因此即使索引完全关闭，精确通道仍有
+// 明确的 exact/fused 语义。这个回落会扫描范围内的 metadata，规模化部署应
+// 使用 ES 的 keyword 子字段。
+func (l *Postgres) SearchExact(
+	ctx context.Context,
+	query string,
+	fields []es.ExactField,
+	filter ExactSearchFilter,
+	limit int,
+) ([]es.ChunkHit, error) {
+	if limit <= 0 || len(fields) == 0 {
+		return nil, nil
+	}
+	terms := es.ExactTerms(query)
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	normalizedTerms := make([]string, 0, len(terms))
+	for _, term := range terms {
+		if value := es.NormalizeExactValue(term); value != "" {
+			normalizedTerms = append(normalizedTerms, value)
+		}
+	}
+	if len(normalizedTerms) == 0 {
+		return nil, nil
+	}
+
+	where := []predicate.DocumentChunk{documentchunk.HasDocumentWith(document.EnabledEQ(true))}
+	if filter.DatasetID != 0 {
+		where = append(where, documentchunk.HasDocumentWith(document.DatasetIDEQ(filter.DatasetID)))
+	}
+	if filter.Visibility != "" {
+		where = append(where, documentchunk.HasDocumentWith(document.VisibilityEQ(document.Visibility(filter.Visibility))))
+	}
+	if filter.Owner != "" {
+		where = append(where, documentchunk.HasDocumentWith(document.OwnerSubjectEQ(filter.Owner)))
+	}
+
+	chunks, err := l.client.DocumentChunk.Query().
+		Where(documentchunk.And(where...)).
+		WithDocument(func(q *ent.DocumentQuery) { q.WithDataset() }).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	hits := make([]es.ChunkHit, 0)
+	for _, chunk := range chunks {
+		best := 0.0
+		for _, field := range fields {
+			raw, ok := lookupMetadataPath(chunk.Metadata, field.From)
+			if !ok {
+				continue
+			}
+			for _, candidate := range metadataValues(raw, field.Multi) {
+				text, ok := candidate.(string)
+				if !ok {
+					continue
+				}
+				canonical := es.NormalizeExactValue(text)
+				for termIndex, term := range normalizedTerms {
+					if canonical != term {
+						continue
+					}
+					score := field.Boost - float64(termIndex)*0.000001
+					if score > best {
+						best = score
+					}
+				}
+			}
+		}
+		if best > 0 {
+			hits = append(hits, es.ChunkHit{ChunkID: int64(chunk.ID), Score: best})
+		}
+	}
+	sort.SliceStable(hits, func(i, j int) bool {
+		if hits[i].Score != hits[j].Score {
+			return hits[i].Score > hits[j].Score
+		}
+		return hits[i].ChunkID < hits[j].ChunkID
+	})
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
+	return hits, nil
+}
+
+func lookupMetadataPath(metadata map[string]interface{}, path string) (interface{}, bool) {
+	var current interface{} = metadata
+	for _, segment := range strings.Split(path, ".") {
+		node, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		current, ok = node[segment]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func metadataValues(raw interface{}, multi bool) []interface{} {
+	if !multi {
+		return []interface{}{raw}
+	}
+	value := reflect.ValueOf(raw)
+	if !value.IsValid() || (value.Kind() != reflect.Slice && value.Kind() != reflect.Array) {
+		return []interface{}{raw}
+	}
+	values := make([]interface{}, 0, value.Len())
+	for i := 0; i < value.Len(); i++ {
+		values = append(values, value.Index(i).Interface())
+	}
+	return values
 }
 
 // metadataContainsFold keeps the PostgreSQL fallback searchable when a product

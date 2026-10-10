@@ -75,7 +75,7 @@ func main() {
 	}
 
 	// 生产替换为 milvus/postgres 实现
-	entClient, err := entx.Open(ctx, cfg.Storage)
+	entClient, err := entx.OpenWithoutMigration(ctx, cfg.Storage)
 	if err != nil {
 		log.Fatal(err)
 	}

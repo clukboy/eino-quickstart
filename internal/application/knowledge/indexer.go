@@ -58,6 +58,7 @@ type Indexer struct {
 	keywords  KeywordIndex
 	batchSize int
 	logger    *slog.Logger
+	metrics   *observability.Metrics
 
 	// legacy 是旧正文文件的只读读取器，只为存量数据的一次性导入而存在。
 	// 可以为 nil —— 那表示这批部署没有文件时代的语料。
@@ -78,6 +79,7 @@ type IndexerConfig struct {
 
 	BatchSize int
 	Logger    *slog.Logger
+	Metrics   *observability.Metrics
 }
 
 // NewIndexer 组装消费端。pipeline 与 embedder 是必需依赖：没有它们索引这件事
@@ -114,6 +116,7 @@ func NewIndexer(cfg IndexerConfig) (*Indexer, error) {
 		keywords:  cfg.Keyword,
 		batchSize: batchSize,
 		logger:    logger,
+		metrics:   cfg.Metrics,
 		legacy:    cfg.LegacyContent,
 	}, nil
 }
@@ -150,6 +153,15 @@ func (i *Indexer) IndexDocument(ctx context.Context, documentID uint64, mode tas
 		),
 	)
 	defer func() {
+		if i.metrics != nil {
+			if err == nil {
+				i.metrics.RecordIndex("success")
+			} else if queue.RetryStateFrom(ctx).Exhausted() {
+				i.metrics.RecordIndex("failure")
+			} else {
+				i.metrics.RecordIndex("retry")
+			}
+		}
 		// Every stage must settle exhausted retries, including parse/transaction
 		// and status-write failures, not only embedding/storage failures.
 		if err != nil {

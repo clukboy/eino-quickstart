@@ -226,3 +226,21 @@ func TestAPIStillRequiresAPIConfiguration(t *testing.T) {
 		t.Fatalf("API validation was bypassed: %v", err)
 	}
 }
+
+func TestUserSyncRequiresAccounts(t *testing.T) {
+	setConfigEnv(t, true)
+	t.Setenv("EINO_USER_SYNC_API_KEY", "config-test-placeholder")
+	cfg := fixture(t, "configs/acceptance/api.yaml")
+	auth := cfg["auth"].(map[string]any)
+	auth["accounts"].(map[string]any)["enabled"] = false
+	auth["userSync"] = map[string]any{
+		"enabled":   true,
+		"endpoint":  "https://directory.example.test/users",
+		"apiKeyEnv": "EINO_USER_SYNC_API_KEY",
+		"timeoutMS": 5000,
+	}
+	_, err := LoadAPI(writeFixture(t, cfg))
+	if err == nil || !strings.Contains(err.Error(), "auth.userSync requires auth.accounts.enabled") {
+		t.Fatalf("want user sync/account dependency error, got %v", err)
+	}
+}

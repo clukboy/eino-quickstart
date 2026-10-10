@@ -323,24 +323,19 @@ func TestUsersGroupRequiresAdminRole(t *testing.T) {
 	}
 }
 
-// 同步是**占位**：它必须回 501（而不是 200 + 空结果），否则管理员会以为同步成功、
-// 只是暂时没拉到人。501 与 503 的区别也要守住 —— 前者是「还没做」，后者是
-// 「不提供」。
-func TestUserSyncIsExplicitlyNotImplemented(t *testing.T) {
+// 未配置上游用户源时，同步接口必须明确返回 503，而不是伪造一次成功。
+func TestUserSyncIsUnavailableWhenSourceIsDisabled(t *testing.T) {
 	engine := newAuthTestEngine(t, true)
 
-	recorder := doJSON(t, engine, http.MethodPost, "/api/v1/users/sync", testAdminSecret, "")
+	recorder := doJSON(t, engine, http.MethodPost, "/api/v1/users/sync", testAdminSecret, `{}`)
 
-	if recorder.Code != http.StatusNotImplemented {
-		t.Fatalf("status = %d, want 501; body=%s", recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503; body=%s", recorder.Code, recorder.Body.String())
 	}
 
 	envelope := decodeError(t, recorder)
-	if envelope.Code != "not_implemented" {
-		t.Errorf("code = %q, want not_implemented", envelope.Code)
-	}
-	if envelope.Error == "" {
-		t.Error("error is empty: the front end shows this text as a hint, not a failure")
+	if envelope.Code != "service_unavailable" {
+		t.Errorf("code = %q, want service_unavailable", envelope.Code)
 	}
 }
 

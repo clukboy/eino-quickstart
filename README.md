@@ -30,7 +30,9 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 
 ## 文档
 
-- [P02 独立配置与验收准备](docs/p02-configuration.md)：API / worker 各改哪份文件、离线配置检查、隔离资源与启动步骤。
+- [P02 独立配置与验收准备](docs/p02-configuration.md)：API / worker 各改哪份文件、离线配置检查、隔离资源与启动步骤；可选 Docker 依赖栈也在这里。
+- [四个交付批次与直接验收入口](docs/delivery-batches.md)：按四个目标聚合执行 P01–P29 的本地验收，并区分真实依赖出口。
+- [P01 指标与全量测试验收](docs/p01-metrics-acceptance.md)：独立 Prometheus 端口、启用/禁用行为测试、全量回归和运行中抓取命令。
 - [架构与运行说明](docs/architecture.md)：组件、数据流、配置和 HTTP API。
 - [P03/P04 契约与生命周期验收](docs/p03-p04-acceptance.md)：只读生成检查、无需真实依赖的回归、真实联调命令及报告。
 - [RAG 本地验证](docs/rag-testing.md)：上传 Markdown、检查分块、创建索引，以及跑召回评测。
@@ -43,7 +45,9 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 1. 准备 PostgreSQL、Redis、Milvus，以及可选但强烈建议的 Elasticsearch，并按部署环境分别修改
    `configs/api/config.yaml` 和 `configs/worker/config.yaml`（对应数据源必须一致）。
    HTTP 参数单独配置在 `configs/api/restapi.yaml`；P02 隔离验收请用 `configs/acceptance/`，
-   详见 [配置指南](docs/p02-configuration.md)。配置内的地址仅是示例，不应直接用于生产。ES 留空时系统照常
+   详见 [配置指南](docs/p02-configuration.md)。如果本机使用 Docker Desktop，可先执行
+   `EINO_STORAGE_PASSWORD=... bash scripts/acceptance/dependencies.sh up` 启动本地验收依赖。
+   配置内的地址仅是示例，不应直接用于生产。ES 留空时系统照常
    运行，只是关键词通道搜不到产品型号（型号只存在于分块元数据里，见
    [待完善项](docs/known-gaps.md)）。
 2. 设置运行所需的环境变量：

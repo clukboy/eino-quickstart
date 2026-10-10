@@ -9,10 +9,12 @@ import (
 	"eino-quickstart/ent"
 	"eino-quickstart/internal/application/agent"
 	"eino-quickstart/internal/application/knowledge"
+	"eino-quickstart/internal/application/usersync"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/platform/persistence/approval"
+	consoleStore "eino-quickstart/internal/platform/persistence/console"
 	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
@@ -58,6 +60,14 @@ type Options struct {
 	// 503，而不是「登录成功但查不到账号」这种半开状态。
 	Accounts     *auth.AccountIssuer
 	AccountStore *account.Store
+	UserSync     *usersync.Service
+
+	// UploadMaxRequestBodyBytes / UploadMaxDocumentBytes / UploadMaxFiles
+	// are the API business limits for multipart uploads. They are passed from
+	// the platform config because this package only loads go-zero RestConf.
+	UploadMaxRequestBodyBytes int64
+	UploadMaxDocumentBytes    int64
+	UploadMaxFiles            int
 
 	// PasswordHashCost 是 bcrypt 成本，0 表示默认值。它属于**平台配置**
 	// （config.Auth.Accounts.BcryptCost），而本层拿到的 cfg 只有 RestConf，
@@ -66,6 +76,8 @@ type Options struct {
 
 	Logger    *slog.Logger
 	EntClient *ent.Client
+	Metrics   *observability.Metrics
+	Console   *consoleStore.Store
 }
 
 func New(opts Options) (*Server, error) {
@@ -75,19 +87,25 @@ func New(opts Options) (*Server, error) {
 	}
 
 	deps := svc.Deps{
-		Agent:            opts.Agent,
-		Knowledge:        opts.Knowledge,
-		Sessions:         opts.Sessions,
-		Approvals:        opts.Approvals,
-		Runs:             opts.Runs,
-		Turns:            opts.Turns,
-		Auth:             opts.Auth,
-		Anonymous:        opts.Anonymous,
-		Accounts:         opts.Accounts,
-		AccountStore:     opts.AccountStore,
-		PasswordHashCost: opts.PasswordHashCost,
-		Logger:           opts.Logger,
-		EntClient:        opts.EntClient,
+		Agent:                     opts.Agent,
+		Knowledge:                 opts.Knowledge,
+		Sessions:                  opts.Sessions,
+		Approvals:                 opts.Approvals,
+		Runs:                      opts.Runs,
+		Turns:                     opts.Turns,
+		Auth:                      opts.Auth,
+		Anonymous:                 opts.Anonymous,
+		Accounts:                  opts.Accounts,
+		AccountStore:              opts.AccountStore,
+		UserSync:                  opts.UserSync,
+		PasswordHashCost:          opts.PasswordHashCost,
+		UploadMaxRequestBodyBytes: opts.UploadMaxRequestBodyBytes,
+		UploadMaxDocumentBytes:    opts.UploadMaxDocumentBytes,
+		UploadMaxFiles:            opts.UploadMaxFiles,
+		Logger:                    opts.Logger,
+		EntClient:                 opts.EntClient,
+		Metrics:                   opts.Metrics,
+		Console:                   opts.Console,
 	}
 
 	if deps.Agent == nil {
