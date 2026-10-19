@@ -126,12 +126,12 @@ bash "$REPO/scripts/acceptance/run.sh" P04
 
 | 配置/资源 | 用途 | 隔离验收必须确认 |
 | --- | --- | --- |
-| `storage.host/port/dbName` | PostgreSQL 正文、状态、账号与会话 | 独立验收库，允许建表，有备份/重置边界 |
-| `asynq.redis.addr/db`、`queues` | 接收/消费索引任务 | 独立 Redis 实例或明确可隔离 DB；HTTP/worker 一致；消费队列含 `index` |
-| `milvus.address/collection` | 向量索引 | 独立 collection；维度与实际 embedding 输出一致 |
-| `es.address/index/mappingFile` | 精确与关键词索引 | 独立 index；第一轮启用 ES 跑完整链路，再单独验收无 ES |
-| `model` 与 `embedding` | 对话模型与文本向量化 | 有有效密钥、服务额度和预算；查询与入库 embedding 一致 |
-| `workspace.root/knowledge.root` | 工作区及旧文件兼容路径 | 独立验收目录；不要指向个人业务文件 |
+| `Storage.Host/Port/DBName` | PostgreSQL 正文、状态、账号与会话 | 独立验收库，允许建表，有备份/重置边界 |
+| `Asynq.Redis.Addr/DB`、`Asynq.Queues` | 接收/消费索引任务 | 独立 Redis 实例或明确可隔离 DB；HTTP/worker 一致；消费队列含 `index` |
+| `Milvus.Address/Collection` | 向量索引 | 独立 collection；维度与实际 embedding 输出一致 |
+| `ES.Address/Index/MappingFile` | 精确与关键词索引 | 独立 index；第一轮启用 ES 跑完整链路，再单独验收无 ES |
+| `Model` 与 `Embedding` | 对话模型与文本向量化 | 有有效密钥、服务额度和预算；查询与入库 embedding 一致 |
+| `Workspace.Root/Knowledge.Root` | 工作区及旧文件兼容路径 | 独立验收目录；不要指向个人业务文件 |
 | REST `Host/Port/Prometheus` | HTTP 和指标监听 | 业务端口、指标端口分别可用；避免占用其他服务 |
 | 主体/角色密钥 | admin、agent、approver 样例 | 在本地环境变量提供，不提交、不写进报告；按端点实际角色使用 |
 
@@ -259,7 +259,7 @@ go run ./cmd/restapi
 
 **2026-10-07 补充：** P02 已提供真实依赖预检、`--list`、脱敏报告、唯一 fixture 和 `P02-cleanup ... --confirm`；本地复测在依赖未启动时按预期 BLOCKED。P03/P04/P05/P06/P07/P08/P09/P20 已提供本地编号入口；这些项目的本地契约回归已通过，但真实业务环境联调仍需按报告边界复测。明确可使用自建/已有的隔离服务，不必先承诺制作所有组件的容器镜像。
 
-**卡住时找哪里：** worker 不启动→先查启动日志和依赖校验；HTTP 正常但任务无人消费→检查两份配置的 Redis 地址 / DB，及 worker 的 `asynq.queues` 是否包含 `index`；401/403→核对样例角色而非修改权限来放行。
+**卡住时找哪里：** worker 不启动→先查启动日志和依赖校验；HTTP 正常但任务无人消费→检查两份配置的 Redis 地址 / DB，及 worker 的 `Asynq.Queues` 是否包含 `index`；401/403→核对样例角色而非修改权限来放行。
 
 ### P03｜统一运行文档、API 契约与生成物
 
@@ -532,9 +532,9 @@ bash scripts/acceptance/run.sh P10
 | --- | --- |
 | multipart 文件字段 | `file`，允许重复 |
 | 支持格式 | `.md`、`.markdown`、`.txt`、`.text`；不含 PDF/Office |
-| 单文件上限 | `knowledge.maxDocumentBytes`，默认 5 MiB |
-| 请求总上限 | `knowledge.maxUploadRequestBytes`，默认 50 MiB，包含 multipart 开销 |
-| 文件数量上限 | `knowledge.maxUploadFiles`，默认 10 |
+| 单文件上限 | `Knowledge.MaxDocumentBytes`，默认 5 MiB |
+| 请求总上限 | `Knowledge.MaxUploadRequestBytes`，默认 50 MiB，包含 multipart 开销 |
+| 文件数量上限 | `Knowledge.MaxUploadFiles`，默认 10 |
 | 内存边界 | `ParseMultipartForm(8 MiB)` 仅控制内存/临时文件切换；实际文件读取再用 `max+1` 限制 |
 | 全部文件成功 | HTTP 200，`partial_failure=false`，`files[].status=succeeded` |
 | 部分失败 | HTTP 200，`partial_failure=true`；`data` 只列成功文档，`files[].error` 列失败原因 |
@@ -589,7 +589,7 @@ bash scripts/acceptance/run.sh P10
 
 #### 从哪里开始
 
-现有接缝是 [Reranker 接口和 HybridConfig.Reranker](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/rag/retriever.go)，调用发生在融合后、topK 截断前；真实入口看 [newRetrievalSearcher](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/cmd/restapi/retrieval.go)。只改 `enableRerank` 开关不会产生真实重排。
+现有接缝是 [Reranker 接口和 HybridConfig.Reranker](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/rag/retriever.go)，调用发生在融合后、topK 截断前；真实入口看 [newRetrievalSearcher](/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/cmd/restapi/retrieval.go)。只改 `Retrieval.EnableRerank` 开关不会产生真实重排。
 
 #### 按顺序做
 
@@ -617,7 +617,7 @@ bash scripts/acceptance/run.sh P10
 
 #### 按顺序做
 
-1. 用 `maxRerankCandidates` 截取重排候选，写清超过预算部分是否保留以及最终合并规则。
+1. 用 `Retrieval.MaxRerankCandidates` 截取重排候选，写清超过预算部分是否保留以及最终合并规则。
 2. 设置独立超时和调用取消，明确总检索预算与重排预算的关系。
 3. 调用前保留原融合排序，报错时回落原排序；新增可查看的降级信息与指标。
 4. 对超时、服务错误、空返回、重复/非法候选序号、调用方取消分别测试；结果合法性不能只检查 HTTP 200。
@@ -919,7 +919,7 @@ bash scripts/acceptance/run.sh P10
 5. 对新版用对应版本配置跑 P20，检查完整性、维度、mapping 和质量后才允许进入可切换状态。
 6. 中断构建恢复重跑，核对不会污染旧版本；构建数据清理另有安全台账。
 
-**用户验收产物：** 同一时段旧版持续查询、新版构建进度、版本清单、新版完整性/质量报告。不要只手改全局 `milvus.collection` 同时把旧服务切走。
+**用户验收产物：** 同一时段旧版持续查询、新版构建进度、版本清单、新版完整性/质量报告。不要只手改全局 `Milvus.Collection` 同时把旧服务切走。
 
 ### P29｜索引切换、回滚与故障恢复
 

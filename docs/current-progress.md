@@ -55,10 +55,11 @@
 
 ### 3.1 多 Agent 与工具体系
 
-- `root_agent` 负责请求分派，不直接承担专项工具操作。
+- `root_agent` 只做路由：每条请求必须委派一个专项 Agent，不直接回答；不直接承担专项工具操作。
 - `knowledge_agent` 使用 `search_knowledge` 获取知识库内容并保留引用。
-- `workspace_agent` 被授予 `read_file`、`list_dir`。
+- `workspace_agent` 被授予 `read_file`、`list_dir`、`list_skills`、`load_skill`。
 - `automation_agent` 被授予 `write_file`，执行模式非 disabled 时增加 `shell`。
+- `general_agent` 是兜底专员：无工具、纯直答，处理不匹配其余三个专员的一切请求；模型可来自数据库配置的外部平台。除路由层兜底外，`ChatLogic` 还在一轮无产出时用它补跑一次，保证不会只回一个 `done`。
 - 已实现工具注册、工具策略中间件、工具输出大小限制和会话上下文裁剪。
 - `list_skills`、`load_skill` 已在启动时注册，但默认 Agent 的工具集合中没有它们，不能把“已注册”当成“默认 Agent 已使用 Skill”。
 
@@ -81,7 +82,7 @@
 - 数据集已有创建、列表、详情与删除；文档已有创建、读取、更新、删除、正文查询、启停、重建索引。
 - 文档正文以 PostgreSQL 的 `documents.content` 为准，`source` 是逻辑溯源信息，不应当作为当前正文文件路径使用。
 - multipart 上传**已经实现**，文件字段为 `file`，支持同一请求携带多个 Markdown/纯文本文件（`.md`、`.markdown`、`.txt`、`.text`）。
-- P12 已将 `knowledge.maxUploadRequestBytes`、`knowledge.maxDocumentBytes`、`knowledge.maxUploadFiles` 注入 API；读取使用 `max+1` 限制，不会无界 `io.ReadAll`。multipart 临时文件在成功和失败路径均 `RemoveAll`。
+- P12 已将 `Knowledge.MaxUploadRequestBytes`、`Knowledge.MaxDocumentBytes`、`Knowledge.MaxUploadFiles` 注入 API；读取使用 `max+1` 限制，不会无界 `io.ReadAll`。multipart 临时文件在成功和失败路径均 `RemoveAll`。
 - 上传响应保留扁平 `data`，并增加 `files[]` 逐文件 `succeeded/failed` 台账；`partial_failure=true` 时调用方只重传失败文件。
 - 产品型数据集会在写入请求阶段按 front-matter 拆为多条产品文档；worker 对单条产品正文再切 chunk。
 - 产品以数据集内型号键查重，用正文 + 元数据指纹判断变化，返回 `created`、`updated`、`unchanged`。
@@ -254,7 +255,7 @@ HTTP 创建/更新/上传/重建
 | 部分说明把产品拆分与 chunk 切分都写在 worker | 产品数据集写入时拆产品，worker 对单条正文切 chunk | 区分请求期产品拆分与后台 chunk 切分 |
 | 总契约注释称返回时 chunk_count 已是最终值 | 实际切块发生在后台，统计聚合分块行 | 初次响应数量不是最终索引完成量 |
 | README 称默认 HTTP 端口为 8080 | 随仓库提供的 REST 配置为 8090 | 实际使用以运行时传入的 REST 配置为准 |
-| 配置存在 enableRerank | 无实现或入口注入 | 不计为已完成重排 |
+| 配置存在 `Retrieval.EnableRerank` | 无实现或入口注入 | 不计为已完成重排 |
 | 说明中提到前端页面已完成 | 本次仅审阅当前后端仓库 | 不把前端完成度计入本次验证范围 |
 
 上述差异说明：后续评估进度应优先核对业务实现、入口接线与测试结果，而不能只依据历史 README 或 TODO 描述。
@@ -419,7 +420,7 @@ P11 已完成本地契约实现与验收，入口为 `bash scripts/acceptance/ru
 本轮继续推进第三批的 `P14 → P15`：
 
 - 新增 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/internal/rag/rerank/http.go`，提供供应商中立的 HTTP Rerank 适配器；请求携带 model/query/documents，响应按 index + relevance_score 返回排序，非法/重复/越界结果拒绝。
-- `RetrievalConfig` 新增 `rerankEndpoint`、`rerankApiKeyEnv`、`rerankModel`、`rerankTimeoutMS`；密钥只从环境变量读取。API 组合根在 `enableRerank=true` 时才注入适配器，未配置 endpoint 会在配置校验阶段明确失败。
+- `RetrievalConfig` 新增 `Retrieval.RerankEndpoint`、`Retrieval.RerankAPIKeyEnv`、`Retrieval.RerankModel`、`Retrieval.RerankTimeoutMS`；密钥只从环境变量读取。API 组合根在 `Retrieval.EnableRerank=true` 时才注入适配器，未配置 endpoint 会在配置校验阶段明确失败。
 - `HybridRetriever` 对重排候选数、超时、取消和返回子集做约束；重排故障不会丢弃已完成的融合召回，`Report.Rerank` 记录 enabled/candidates/applied/error，`Degraded()` 暴露 `rerank`。
 - 本地验收已通过：
   - `bash scripts/acceptance/run.sh P14` → `logs/acceptance/P14/20261007-123739-73238-local/`
@@ -461,7 +462,7 @@ P11 已完成本地契约实现与验收，入口为 `bash scripts/acceptance/ru
 
 ## 23. P16/P17 LLM 产品拆分与重放边界交付（2026-10-07）
 
-- P16 新增 `internal/rag/parser/llmsplit/` provider-neutral HTTP 适配器：请求带模型/解析版本/原文，响应必须是有稳定产品键的结构化产品数组；数量、空正文、缺键和重复键在写库前拒绝。API 配置增加 `productSplitEnabled` 等字段，默认关闭；worker 配置明确禁止这些 API 专属字段。
+- P16 新增 `internal/rag/parser/llmsplit/` provider-neutral HTTP 适配器：请求带模型/解析版本/原文，响应必须是有稳定产品键的结构化产品数组；数量、空正文、缺键和重复键在写库前拒绝。当时计划的 `Knowledge.ProductSplitEnabled` 等 API 配置字段最终没有落到 `internal/platform/config`（拆分器只有组合根注入点）；验收模板里残留的死键已在 2026-10 的配置迁移中删除。
 - 产品数据集在无 front-matter 时才调用可选拆分器；结构化 front-matter 路径保持原样。LLM 失败不会静默退回整份成功文档。转换后复用现有产品文档 upsert、索引队列和可见性规则。
 - P17 将输入摘要、模型、解析版本纳入重放指纹，并把解析版本/输入摘要写入 metadata；`external_key` 唯一约束与冲突重查继续保护并发同型号上传，版本变化触发明确 update。
 - 本地验收已通过：P16 报告 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P16/20261007-134920-91122-local`；P17 报告 `/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/P17/20261007-135003-91121-local`。
@@ -470,7 +471,7 @@ P11 已完成本地契约实现与验收，入口为 `bash scripts/acceptance/ru
 
 ## 24. P19 外部用户同步本地契约交付（2026-10-07）
 
-- P19 已去掉原先恒定 501 的占位：新增 provider-neutral HTTP 用户源、`external_id` 稳定匹配键、API-only `auth.userSync` 配置，以及管理员同步请求的 `dryRun` 与结果台账。
+- P19 已去掉原先恒定 501 的占位：新增 provider-neutral HTTP 用户源、`external_id` 稳定匹配键、API-only `Auth.UserSync` 配置，以及管理员同步请求的 `dryRun` 与结果台账。
 - 同步只新增/更新/跳过，不因上游缺人删除本地账号；同名手工账号不会被自动认领。新账号随机生成一次性初始密码，保持 `must_change_password=true`，上游不能覆盖本地角色、状态或密码。
 - 用户表新增可空唯一 `external_id`，配套显式迁移 `0003_user_external_id`；worker 不读取用户同步配置。
 - 本地验收入口：`bash scripts/acceptance/run.sh P19 --local`。真实上游仍待 source endpoint、协议/分页、稳定 ID、验收凭据和密码下发方案确认，本轮没有把 fake source 冒充真实上游完成。
@@ -486,7 +487,7 @@ P11 已完成本地契约实现与验收，入口为 `bash scripts/acceptance/ru
 报告根目录：`/Users/clukboy/WorkBuddy/Worktrees/eino-quickstart/main-1f5054f2/logs/acceptance/`。这些是本地确定性/契约验收；真实 PostgreSQL、Redis、worker、模型、Milvus、ES、Prometheus/OTLP 和多实例故障演练仍需隔离环境。
 ## 26. P24 周期维护入口补齐（2026-10-07）
 
-- worker 配置现在显式包含 `maintenance` 段；`LoadWorker` 会校验周期、保留期和批大小，避免维护命令以零值运行并误删数据。
+- worker 配置现在显式包含 `Maintenance` 段；`LoadWorker` 会校验周期、保留期和批大小，避免维护命令以零值运行并误删数据。
 - `cmd/maintenance` 新增 `-periodic`，启动后立即清理一次，再按配置周期执行；每次成功运行通过 `OnReport` 覆盖/输出最新 JSON 报告。
 - 维护 Worker 增加无效周期/批大小保护、空 logger 兜底和取消信号优雅退出测试。
 - 本地验证：`GOCACHE=/tmp/eino-go-cache go test ./internal/maintenance ./internal/platform/config -count=1` 已通过；真实数据库清理仍需在隔离数据库执行。

@@ -75,7 +75,18 @@ func (s *Store) Create(ctx context.Context, params CreateParams) (*Record, error
 }
 
 
-func (s *Store) List(ctx context.Context, keyword string) ([]*Record, error) {
+// List 按创建时间倒序分页列出账号。
+//
+// keyword 非空时按用户名或昵称做大小写不敏感的子串匹配；匹配走 ent 的 ContainsFold，
+// 它会转义用户输入里的 % 与 _，所以搜 "a_b" 不会命中 "axb"。
+//
+// ⚠️ page / pageSize 由调用方归一（口径见 transport 层的 httpx.NormalizePage）：
+// 这里只负责按给定值算 offset，不再兜底一次。单页条数上限是 HTTP 层的约束，
+// 仓储层不该有自己的第二套默认值。
+//
+// 返回的 total 是**过滤后**的命中总数（keyword 生效之后还有多少条），与
+// len(records) 只有在「一页装得下」时才相等；拿 len(records) 去算页数会少算。
+func (s *Store) List(ctx context.Context, keyword string, page, pageSize int) ([]*Record, int, error) {
 	query := s.client.User.Query()
 	if keyword != "" {
 		query = query.Where(
@@ -86,14 +97,22 @@ func (s *Store) List(ctx context.Context, keyword string) ([]*Record, error) {
 		)
 	}
 
+	// Count 必须在加 Order / Offset 之前问：那两者会改到查询上，而总数与排序无关。
+	total, err := query.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	records, err := query.
 		Order(
 			ent.Desc(entUser.FieldCreatedAt),
 			ent.Desc(entUser.FieldID),
 		).
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
 		All(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	list := make([]*Record, 0, len(records))
@@ -101,7 +120,7 @@ func (s *Store) List(ctx context.Context, keyword string) ([]*Record, error) {
 		list = append(list, fromEnt(record))
 	}
 
-	return list, nil
+	return list, total, nil
 }
 
 func (s *Store) ByExternalID(ctx context.Context, externalID string) (*Record, error) {

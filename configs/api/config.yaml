@@ -2,46 +2,49 @@
 # Shared service addresses below preserve the old development examples.
 # For isolated acceptance, use configs/acceptance/api.yaml instead.
 # Business server settings retained for executor checks; HTTP Host/Port are in restapi.yaml.
-server:
-  host: "0.0.0.0"
-  port: 8080
+Server:
+  Host: "0.0.0.0"
+  Port: 8080
 
-agent:
-  name: "eino-harness"
-  instruction: |
+Agent:
+  Name: "eino-harness"
+  Instruction: |
     You are an autonomous software engineering assistant.
     Use tools when you need to inspect or modify the workspace.
     Never claim that a command succeeded unless you actually ran it.
     Prefer filesystem tools for inspecting files and shell for build/test commands.
     Keep destructive operations to the minimum necessary.
-  max_iterations: 20
+  MaxIterations: 20
 
-model:
-  provider: "qwen"
-  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  apiKey: ""
-  model: "qwen3.8-max"
-  temperature: 0.2
+Model:
+  Provider: "qwen"
+  BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  APIKey: ""
+  Model: "qwen3.8-max"
+  Temperature: 0.2
 
-workspace:
-  root: "./workspace"
-  shellTimeoutSeconds: 30
-  maxOutputBytes: 65536
+Workspace:
+  Root: "./workspace"
+  ShellTimeoutSeconds: 30
+  MaxOutputBytes: 65536
 
-skills:
-  root: "./skills"
-  maxReadBytes: 32768
-security:
-  allowedTools:
+Skills:
+  Root: "./skills"
+  MaxReadBytes: 32768
+Security:
+  AllowedTools:
     - read_file
     - list_dir
     - write_file
     - search_knowledge
-  requireApprovalForShell: true
-  requireApprovalForWrite: false
-  maxApprovalArgumentBytes: 65536
-  approvalTTLSeconds: 1800
-  sensitiveArgumentKeys:
+  RequireApprovalForShell: true
+  RequireApprovalForWrite: false
+  MaxApprovalArgumentBytes: 65536
+  ApprovalTTLSeconds: 1800
+  # base64 编码的 32 字节主密钥，用于加解密 ModelProvider.secret_ciphertext。
+  # 不配置时数据库里的供应商密钥不可用，兜底专员回落统一配置的 Model 段。
+  SecretKeyEnv: "EINO_SECRET_KEY"
+  SensitiveArgumentKeys:
     - apiKey
     - api_key
     - authorization
@@ -52,41 +55,41 @@ security:
     - access_token
     - refresh_token
     - private_key
-context:
-  maxHistoryMessages: 40
-  maxToolOutputBytes: 131072
+Context:
+  MaxHistoryMessages: 40
+  MaxToolOutputBytes: 131072
 
-storage:
-  host: 10.10.2.181
-  port: 5432
-  dbName: eino
-  username: postgres
-  passwordEnv: "EINO_STORAGE_PASSWORD"
-  maxOpenConn: 100
-  sslMode: disable
+Storage:
+  Host: 10.10.2.181
+  Port: 5432
+  DBName: eino
+  Username: postgres
+  PasswordEnv: "EINO_STORAGE_PASSWORD"
+  MaxOpenConn: 100
+  SSLMode: disable
 
-auth:
-  enabled: true
-  apiKeys:
-    - subject: "developer-1"
-      role: "agent"
-      keyEnv: "EINO_API_KEY_DEVELOPER"
-    - subject: "reviewer-1"
-      role: "approver"
-      keyEnv: "EINO_API_KEY_APPROVER"
-    - subject: "platform-admin"
-      role: "admin"
-      keyEnv: "EINO_API_KEY_ADMIN"
+Auth:
+  Enabled: true
+  APIKeys:
+    - Subject: "developer-1"
+      Role: "agent"
+      KeyEnv: "EINO_API_KEY_DEVELOPER"
+    - Subject: "reviewer-1"
+      Role: "approver"
+      KeyEnv: "EINO_API_KEY_APPROVER"
+    - Subject: "platform-admin"
+      Role: "admin"
+      KeyEnv: "EINO_API_KEY_ADMIN"
 
-  anonymous:
-    enabled: true
-    role: "agent"
-    secretEnv: "EINO_ANONYMOUS_SECRET"
+  Anonymous:
+    Enabled: true
+    Role: "agent"
+    SecretEnv: "EINO_ANONYMOUS_SECRET"
     # 令牌有效期。无状态令牌签出去收不回，有效期是唯一的兜底期限，上限一年。
-    ttlHours: 720
+    TTLHours: 720
     # 归属字符串的前缀，最终形如 anon:8f14e45f-...。别改：存量会话的归属
     # 就是靠它认出来的（日后接入账号登录，要按这个前缀把匿名历史迁到账号名下）。
-    subjectPrefix: "anon:"
+    SubjectPrefix: "anon:"
 
   # 账号登录（管理后台建号 + 登录 + 首次强制改密）。
   #
@@ -101,142 +104,142 @@ auth:
   # 配成同一个值不会导致令牌串用（两者的令牌前缀是 user. / anon.，验签第一关就
   # 分开了），但会让「只轮换一半密钥」变成不可能的操作。这一点不做启动校验，
   # 免得本地图省事只配一个密钥时启动失败。
-  accounts:
-    enabled: true
-    secretEnv: "EINO_ACCOUNT_SECRET"
+  Accounts:
+    Enabled: true
+    SecretEnv: "EINO_ACCOUNT_SECRET"
     # 令牌有效期。上限 30 天（config.maxAccountTTLHours），比匿名的上限紧得多：
     # 账号令牌泄漏的后果是「别人能以这个人的身份操作」，而它同样是无状态的
     # —— 改密码、停用账号都挡不住已签发的令牌，有效期是唯一兜底。
-    ttlHours: 720
+    TTLHours: 720
     # 管理员初始密码的 bcrypt 成本。0 表示用默认值（10），可配区间 10~16。
     # 每加 1 就把单次哈希耗时翻倍，而 /auth/login 没有限流，别配高。
-    bcryptCost: 0
+    BcryptCost: 0
 
-  userSync:
-    enabled: true
-    type: "wechat"
-    wechatConfig:
+  UserSync:
+    Enabled: true
+    Type: "wechat"
+    WechatConfig:
       contact:
-        appId: "wwd342688f274e37bd"
-        secret: "00jGyS2ho2YdL2W9B1LC3WmkXrlG1hkuPHpVzs9IZ04"
-        httpDebug: false
+        AppID: "wwd342688f274e37bd"
+        Secret: "00jGyS2ho2YdL2W9B1LC3WmkXrlG1hkuPHpVzs9IZ04"
+        HttpDebug: false
       work:
-        appId: "wwd342688f274e37bd"
-        secret: "Yi0BXHu7M2P1QGgPe_4HcU4zc-ZcaHnNNiK9B4u1mKA"
-        agentId: 1000057
-        httpDebug: false
+        AppID: "wwd342688f274e37bd"
+        Secret: "Yi0BXHu7M2P1QGgPe_4HcU4zc-ZcaHnNNiK9B4u1mKA"
+        AgentID: 1000057
+        HttpDebug: false
 
-runtime:
-  readTimeoutSeconds: 600
-  writeTimeoutSeconds: 120
-  idleTimeoutSeconds: 60
-  maxRequestBodyBytes: 5242880
+Runtime:
+  ReadTimeoutSeconds: 600
+  WriteTimeoutSeconds: 120
+  IdleTimeoutSeconds: 60
+  MaxRequestBodyBytes: 5242880
 
-observability:
-  logLevel: "info"
-  metricsEnabled: true
-  serviceName: "eino-harness-server"
-  environment: "development"
-  otlpEndpoint: "10.10.2.90:4317"
-  otlpInsecure: true
-  traceSampleRatio: 1.0
-  logFilePath: "logs/eino/server.json"
-  logMaxSizeMB: 100
-  logMaxBackups: 5
-  logMaxAgeDays: 14
+Observability:
+  LogLevel: "info"
+  MetricsEnabled: true
+  ServiceName: "eino-harness-server"
+  Environment: "development"
+  OTLPEndpoint: "10.10.2.90:4317"
+  OTLPInsecure: true
+  TraceSampleRatio: 1.0
+  LogFilePath: "logs/eino/server.json"
+  LogMaxSizeMB: 100
+  LogMaxBackups: 5
+  LogMaxAgeDays: 14
 
-execution:
-  mode: "docker"
-  dockerBinary: "docker"
-  image: "eino-harness-executor:0.1.0"
-  user: "10001:10001"
-  memoryLimit: "512m"
-  cpuLimit: "1.0"
-  pidsLimit: 128
-  tmpFSSize: "64m"
-  allowNetwork: false
-  allowLocalRunner: false
+Execution:
+  Mode: "docker"
+  DockerBinary: "docker"
+  Image: "eino-harness-executor:0.1.0"
+  User: "10001:10001"
+  MemoryLimit: "512m"
+  CPULimit: "1.0"
+  PIDsLimit: 128
+  TmpFSSize: "64m"
+  AllowNetwork: false
+  AllowLocalRunner: false
 
-knowledge:
-  maxDocumentBytes: 5242880
+Knowledge:
+  MaxDocumentBytes: 5242880
   # multipart 上传的请求总上限（含 multipart 边界与字段开销）。
-  maxUploadRequestBytes: 52428800
-  # 单次最多接收的 file 字段数量；每个 file 仍受 maxDocumentBytes 限制。
-  maxUploadFiles: 10
-  defaultTopK: 5
-  maxTopK: 200
-  maxQueryCharacters: 2000
-  maxResultBytes: 32768
-  recallGrouping:
+  MaxUploadRequestBytes: 52428800
+  # 单次最多接收的 file 字段数量；每个 file 仍受 MaxDocumentBytes 限制。
+  MaxUploadFiles: 10
+  DefaultTopK: 5
+  MaxTopK: 200
+  MaxQueryCharacters: 2000
+  MaxResultBytes: 32768
+  RecallGrouping:
     default: document
     product: document
 
-embedding:
-  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  apiKeyEnv: "EINO_EMBEDDING_API_KEY"
-  model: "qwen3.7-text-embedding"
-  dimensions: 1024
+Embedding:
+  BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  APIKeyEnv: "EINO_EMBEDDING_API_KEY"
+  Model: "qwen3.7-text-embedding"
+  Dimensions: 1024
   # 单次 embedding 请求最多带几段文本 —— 服务方的硬上限，不是调优项。
   # 超了会回 400「batch size is invalid, it should not be larger than 10」，
   # 而那一刻向量还没写、检索索引也还没写，整篇文档会什么都索引不上。
   # DashScope：text-embedding-v3/v4 上限 10，qwen3.7-text-embedding 上限 20。
-  batchSize: 10
+  BatchSize: 10
 
-milvus:
-  address: "10.10.2.90:19530"
-  collection: "eino_document_chunks_v1"
-  metricType: "COSINE"
-  topKCandidate: 30
-  searchTimeoutMS: 3000
+Milvus:
+  Address: "10.10.2.90:19530"
+  Collection: "eino_document_chunks_v1"
+  MetricType: "COSINE"
+  TopKCandidate: 30
+  SearchTimeoutMS: 3000
 
-es:
-  address:
+ES:
+  Address:
     - https://10.4.99.100:30920
-  index: "eino_document_chunks_v1"
-  analyzer: "ik_max_word"
-  username: "elastic"
-  passwordEnv: "EINO_ES_PASSWORD"
-  caCertPath: "configs/http_ca.crt"
-  bulkSize: 500
+  Index: "eino_document_chunks_v1"
+  Analyzer: "ik_max_word"
+  Username: "elastic"
+  PasswordEnv: "EINO_ES_PASSWORD"
+  CaCertPath: "configs/http_ca.crt"
+  BulkSize: 500
   # 检索面声明：字段、类型、权重、从元数据的哪个路径取值。
   # 路径相对进程的工作目录（在仓库根启动时就是仓库根）。
-  mappingFile: "configs/es/chunk_mapping.yaml"
+  MappingFile: "configs/es/chunk_mapping.yaml"
 
-maintenance:
-  cleanupIntervalSeconds: 300
-  approvalRetentionHours: 168
-  checkpointRetentionHours: 24
-  turnRetentionHours: 720
-  cleanupBatchSize: 100
+Maintenance:
+  CleanupIntervalSeconds: 300
+  ApprovalRetentionHours: 168
+  CheckpointRetentionHours: 24
+  TurnRetentionHours: 720
+  CleanupBatchSize: 100
 
-retrieval:
-  exactWeight: 3.0
-  keywordWeight: 1.5
-  vectorWeight: 1.0
-  rrfSmoothing: 60
-  exactCandidateLimit: 200
-  keywordCandidateLimit: 300
-  vectorCandidateLimit: 300
-  enableRerank: false
-  maxRerankCandidates: 20
+Retrieval:
+  ExactWeight: 3.0
+  KeywordWeight: 1.5
+  VectorWeight: 1.0
+  RRFSmoothing: 60
+  ExactCandidateLimit: 200
+  KeywordCandidateLimit: 300
+  VectorCandidateLimit: 300
+  EnableRerank: false
+  MaxRerankCandidates: 20
   # Provider-neutral HTTP contract; enable only after endpoint/model are provisioned.
-  rerankEndpoint: ""
-  rerankApiKeyEnv: "EINO_RERANK_API_KEY"
-  rerankModel: ""
-  rerankTimeoutMS: 2000
+  RerankEndpoint: ""
+  RerankAPIKeyEnv: "EINO_RERANK_API_KEY"
+  RerankModel: ""
+  RerankTimeoutMS: 2000
 
 # Producer only: queue name "index" is part of the task contract.
-asynq:
-  enabled: true
-  redis:
-    addr: "10.10.2.90:6379"
-    username: ""
-    passwordEnv: ""
-    db: 0
-  maxRetries: 5
+Asynq:
+  Enabled: true
+  Redis:
+    Addr: "10.10.2.90:6379"
+    Username: ""
+    PasswordEnv: ""
+    DB: 0
+  MaxRetries: 5
 
-redis:
-  addr:
+Redis:
+  Addrs:
     - "10.10.2.90:6379"
-  username: ""
-  passwordEnv: ""
+  Username: ""
+  PasswordEnv: ""

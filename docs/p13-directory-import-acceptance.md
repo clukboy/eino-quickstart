@@ -22,7 +22,7 @@ export DATASET_ID=2
 export CFG=configs/acceptance/api.yaml
 ```
 
-确保 `DATASET_ID` 已存在，并且 API 配置中的 PostgreSQL 可用。正式导入还需要 `asynq.enabled=true`、Redis 可用；worker 由另一进程消费索引任务。
+确保 `DATASET_ID` 已存在，并且 API 配置中的 PostgreSQL 可用。正式导入还需要 `Asynq.Enabled=true`、Redis 可用；worker 由另一进程消费索引任务。
 
 ### 2. dry-run：确认只计划、不写库
 

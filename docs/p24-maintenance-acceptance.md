@@ -2,7 +2,7 @@
 
 ## 已交付
 
-新增 `cmd/maintenance` 独立入口和 `maintenance.Worker.Preview`：dry-run 只调用计数查询，不执行删除或状态修改；正式执行返回审批过期、审批删除、checkpoint 删除和 turn 删除的逐类计数。持久化 store 增加对应只读计数接口。维护周期、保留期和批大小现在明确属于 worker 配置；`-periodic` 会先执行一次，再按 `maintenance.cleanupIntervalSeconds` 周期执行，并持续写入最新报告。
+新增 `cmd/maintenance` 独立入口和 `maintenance.Worker.Preview`：dry-run 只调用计数查询，不执行删除或状态修改；正式执行返回审批过期、审批删除、checkpoint 删除和 turn 删除的逐类计数。持久化 store 增加对应只读计数接口。维护周期、保留期和批大小现在明确属于 worker 配置；`-periodic` 会先执行一次，再按 `Maintenance.CleanupIntervalSeconds` 周期执行，并持续写入最新报告。
 
 ## 本地直接验证
 

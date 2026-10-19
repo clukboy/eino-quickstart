@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"strings"
 
 	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/platform/usersource"
@@ -67,8 +66,7 @@ func (s *Service) Sync(ctx context.Context, dryRun bool) (*Report, error) {
 	}
 	report := &Report{DryRun: dryRun, Total: len(upstream)}
 	seen := make(map[string]struct{}, len(upstream))
-	for _, raw := range upstream {
-		u := normalize(raw)
+	for _, u := range upstream {
 		if u.ExternalID == "" {
 			report.Failed++
 			report.Errors = append(report.Errors, UserError{ExternalID: u.ExternalID, Username: u.Username, Reason: "external_id is required"})
@@ -103,12 +101,20 @@ func (s *Service) Sync(ctx context.Context, dryRun bool) (*Report, error) {
 			continue
 		}
 
-		
-		u, err := s.source.FetchByExternalID(ctx, u.ExternalID)
+		// FetchByExternalID 只做「补全」：源能给就换成更完整的用户名/昵称，
+		// 给不了（(nil, nil)）就继续用 Fetch 返回的那份。
+		//
+		// 不要写成 `u, err = ...`：那会在出错时把 u 覆盖成 nil，下面错误分支里的
+		// u.ExternalID 直接解引用崩溃（线上表现是 400 + RecoverHandler 打栈，
+		// 且整次同步在这里中断）。
+		detail, err := s.source.FetchByExternalID(ctx, u.ExternalID)
 		if err != nil {
 			report.Failed++
 			report.Errors = append(report.Errors, UserError{ExternalID: u.ExternalID, Username: u.Username, Reason: fmt.Sprintf("failed to fetch user by external ID: %v", err)})
 			continue
+		}
+		if detail != nil {
+			u = detail
 		}
 		record, err := s.store.ByUsername(ctx, u.Username)
 		if err == nil {
@@ -143,13 +149,6 @@ func (s *Service) Sync(ctx context.Context, dryRun bool) (*Report, error) {
 		report.CreatedUsers = append(report.CreatedUsers, CreatedUser{ExternalID: u.ExternalID, Username: u.Username, InitialPassword: password})
 	}
 	return report, nil
-}
-
-func normalize(u *usersource.User) *usersource.User {
-	u.ExternalID = strings.TrimSpace(u.ExternalID)
-	u.Username = strings.TrimSpace(u.Username)
-	u.Nickname = strings.TrimSpace(u.Nickname)
-	return u
 }
 
 func effectiveCost(cost int) int {

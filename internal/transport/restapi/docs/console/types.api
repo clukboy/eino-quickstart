@@ -251,7 +251,17 @@ type AgentVersionResp {
 	CreatedAt int64 `json:"created_at"`
 }
 
-type AgentVersionListResp { Data []*AgentVersionResp `json:"data"` }
+// AgentVersionListResp **刻意不分页**，全量返回（倒序，最新在前）。
+//
+// 它看起来是个列表，实际是智能体详情页的数据源：同一份数组同时喂给三个地方 ——
+// 「提示词与参数」页签要按 def.current_version 找出当前版本、版本表的展开区要拿
+// 「上一版」当对比基准、新建版本弹窗要以当前版本为基线。后两者是**跨行**依赖：
+// 分页之后当前版本可能不在这一页（页签会显示成「还没有任何版本」）、相邻版本可能
+// 落在上一页（对比会错报成「这是第一个版本」）—— 两处都是静默错误，不是报错。
+// 一个 def 的版本也确实是人工逐次创建的，量级远小于文档/日志那类列表。
+type AgentVersionListResp {
+	Data []*AgentVersionResp `json:"data"`
+}
 
 type AgentVersionPathReq {
 	ID uint64 `path:"id"`
@@ -472,6 +482,11 @@ type PutPasswordPolicyReq {
 
 // ---------- 组织 ----------
 
+// OrgUnitListResp 返回的是**扁平**的部门表，前端按 parent_id 把它拼成树
+// （components/org/org-tree）—— 所以这里**不分页**：分了页就会拿到只有子节点、
+// 没有父节点的半棵树，前端拼出来的结构是错的，而不是「少几条」那么明显。
+// 部门是组织架构，量级与账号同级（人工维护、几十条），没有翻页场景。
+// 真要分页，前端得先改成扁平表格，或后端提供「按子树」接口。
 type OrgUnitListResp {
 	Data []*OrgUnitResp `json:"data"`
 }
@@ -502,9 +517,20 @@ type OrgMemberResp {
 	Role string `json:"role"`
 	JoinedAt int64 `json:"joined_at"`
 }
+// OrgMemberListResp 的 Total 是成员总数（过滤后），分页后 len(Data) 通常小于它。
 type OrgMemberListResp {
 	Data []*OrgMemberResp `json:"data"`
 	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+// OrgMemberListReq 在 OrgUnitIDReq 之外加分页参数。没有直接往 OrgUnitIDReq 上加：
+// 它还被 PUT/DELETE /org-units/:id[/members/:subject] 复用。
+type OrgMemberListReq {
+	ID uint64 `path:"id"`
+	// page 从 1 开始；page_size<=0 或 >200 时后端按 20 兜底。都不传 = 第一页 20 条。
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
 }
 type AddOrgMemberReq {
 	ID uint64 `path:"id"`
@@ -553,11 +579,22 @@ type EvalCaseResp {
 	Tags []string `json:"tags"`
 	CreatedAt int64 `json:"created_at"`
 }
+// EvalCaseListResp 的 Total 是用例总数。（此前的注释说「请求无分页参数但响应带
+// page/page_size，不要据此渲染分页器」—— 现在请求侧补上了 EvalCaseListReq，
+// 那句话作废，前端应当按 total 渲染分页器。）
 type EvalCaseListResp {
 	Data []*EvalCaseResp `json:"data"`
 	Total int `json:"total"`
 	Page int `json:"page"`
 	PageSize int `json:"page_size"`
+}
+// EvalCaseListReq 在 EvalSetIDReq 之外加分页参数；EvalSetIDReq 还被
+// GET/DELETE /eval-sets/:id 复用，故不直接往它上面加。
+type EvalCaseListReq {
+	ID uint64 `path:"id"`
+	// page 从 1 开始；page_size<=0 或 >200 时后端按 20 兜底。都不传 = 第一页 20 条。
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
 }
 type CreateEvalCaseReq {
 	ID uint64 `path:"id"`
@@ -586,9 +623,20 @@ type EvalRunResp {
 	FinishedAt int64 `json:"finished_at,optional"`
 	Error string `json:"error,optional"`
 }
+// EvalRunListResp 的 Total 是跑批次数（不是 EvalRunResp.Total —— 那个字段是「这一轮
+// 跑了几条用例」，同名不同义，别混）。分页后 len(Data) 通常小于它。
 type EvalRunListResp {
 	Data []*EvalRunResp `json:"data"`
 	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+// EvalRunListReq 在 EvalSetIDReq 之外加分页参数。
+type EvalRunListReq {
+	ID uint64 `path:"id"`
+	// page 从 1 开始；page_size<=0 或 >200 时后端按 20 兜底。都不传 = 第一页 20 条。
+	Page int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
 }
 type EvalRunIDReq {
 	RunID string `path:"runId"`

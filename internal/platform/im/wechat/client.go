@@ -15,17 +15,16 @@ type Client struct {
 	official map[string]*officialAccount.OfficialAccount
 	work     map[string]*work.Work
 	cfg      map[string]*Config
-	cache kernel.CacheInterface
-	mu sync.Mutex
+	cache    kernel.CacheInterface
+	mu       sync.Mutex
 }
 type Config struct {
-	AppID     string `yaml:"appId"`
-	Secret    string `yaml:"secret"`
-	AgentID   int    `yaml:"agentId"`
-	Token     string `yaml:"token"`
-	AESKey    string `yaml:"aesKey"`
-	HttpDebug bool   `yaml:"httpDebug"`
-	
+	AppID     string `json:"AppID,optional"`
+	Secret    string `json:"Secret,optional"`
+	AgentID   int    `json:"AgentID,optional"`
+	Token     string `json:"Token,optional"`
+	AESKey    string `json:"AESKey,optional"`
+	HttpDebug bool   `json:"HttpDebug,optional"`
 }
 
 func NewClient(config map[string]*Config, cacheCfg *kernel.UniversalOptions) *Client {
@@ -35,7 +34,7 @@ func NewClient(config map[string]*Config, cacheCfg *kernel.UniversalOptions) *Cl
 		official: make(map[string]*officialAccount.OfficialAccount),
 		work:     make(map[string]*work.Work),
 		cfg:      config,
-		cache: kernel.NewInteractsWithCache(kernel.NewRedisClient(cacheCfg)).GetCache(),
+		cache:    kernel.NewInteractsWithCache(kernel.NewRedisClient(cacheCfg)).GetCache(),
 	}
 
 }

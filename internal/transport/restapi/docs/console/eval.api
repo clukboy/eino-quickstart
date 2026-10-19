@@ -22,7 +22,7 @@ service restapi {
 	delete /eval-sets/:id (EvalSetIDReq) returns (StatusResp)
 
 	@handler ListEvalCases
-	get /eval-sets/:id/cases (EvalSetIDReq) returns (EvalCaseListResp)
+	get /eval-sets/:id/cases (EvalCaseListReq) returns (EvalCaseListResp)
 
 	@handler CreateEvalCase
 	post /eval-sets/:id/cases (CreateEvalCaseReq) returns (EvalCaseResp)
@@ -34,7 +34,7 @@ service restapi {
 	post /eval-sets/:id/runs (EvalRunStartReq) returns (StartEvalRunResp)
 
 	@handler ListEvalRuns
-	get /eval-sets/:id/runs (EvalSetIDReq) returns (EvalRunListResp)
+	get /eval-sets/:id/runs (EvalRunListReq) returns (EvalRunListResp)
 
 	@handler GetEvalRun
 	get /eval-runs/:runId (EvalRunIDReq) returns (EvalRunDetailResp)

@@ -13,8 +13,10 @@ syntax = "v1"
 // 单一功能组专用的类型一律放该组自己的 .api，不要图省事堆到 common，
 // 否则这个文件会退化成新的「大杂烩」。
 //
-// DatasetListResp 在 dataset.api 定义、被 admin 组引用。goctl 会先合并所有
-// import，因此跨文件引用有效。DocumentListResp 仅由 dataset 组使用。
+// DatasetListResp / DocumentListResp 都归 dataset 组所有（定义在 dataset.api）。
+// goctl 会先合并所有 import，所以跨文件引用有效，但「能被引用」不等于「该被引用」：
+// 分页后的 DatasetListResp 带 total/page/page_size，被「按主体列举授权」这种只有
+// 一页的列表引用就会把分页字段读成 0，故 admin 组那边自持 AgentDatasetListResp。
 
 type StatusResp {
 	Status string `json:"status"`

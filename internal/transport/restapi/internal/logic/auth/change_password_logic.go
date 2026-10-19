@@ -127,10 +127,7 @@ func (l *ChangePasswordLogic) ChangePassword(
 
 	return tokenResponse(
 		token,
-		subject,
-		role,
-		credentials.Username,
-		false,
+		credentials,
 		time.Now(),
 		expiresAt,
 	), nil

@@ -18,6 +18,7 @@ import (
 	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
+	"eino-quickstart/internal/platform/secretbox"
 	"eino-quickstart/internal/transport/restapi/internal/config"
 	"eino-quickstart/internal/transport/restapi/internal/handler"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
@@ -78,6 +79,10 @@ type Options struct {
 	EntClient *ent.Client
 	Metrics   *observability.Metrics
 	Console   *consoleStore.Store
+
+	// SecretBox 可选：为 nil 表示这次部署没配主密钥，此时 console 写入模型
+	// 供应商密钥会被明确拒绝，而不是明文落库。
+	SecretBox *secretbox.Box
 }
 
 func New(opts Options) (*Server, error) {
@@ -106,6 +111,7 @@ func New(opts Options) (*Server, error) {
 		EntClient:                 opts.EntClient,
 		Metrics:                   opts.Metrics,
 		Console:                   opts.Console,
+		SecretBox:                 opts.SecretBox,
 	}
 
 	if deps.Agent == nil {
@@ -129,9 +135,7 @@ func New(opts Options) (*Server, error) {
 	if deps.Auth == nil {
 		return nil, errors.New("restapi: authenticator is required")
 	}
-	// 账号登录的两半必须同时给出：只有 store 时登录接口签不出令牌（前端会
-	// 卡在「密码对了却拿不到令牌」），只有 issuer 时查不到人（每个账号都
-	// 不存在）。两者单独出现都是配置错误，在组合处就拒绝，别等第一次登录。
+	
 	if (deps.Accounts == nil) != (deps.AccountStore == nil) {
 		return nil, errors.New(
 			"restapi: account issuer and account store must be provided together",
@@ -144,13 +148,9 @@ func New(opts Options) (*Server, error) {
 	return &Server{Deps: deps, Config: cfg}, nil
 }
 
-// Engine builds the go-zero server: global middleware, then every route
-// generated from restapi.api. Exported so tests can drive the engine through
-// httptest without binding a port.
 func (s *Server) Engine() (*rest.Server, error) {
 	serverCtx := svc.NewServiceContext(s.Config, s.Deps)
 
-	// Install the unified error envelope before any request can fail.
 	httpx.Register()
 
 	server, err := rest.NewServer(s.Config.RestConf)
@@ -158,36 +158,10 @@ func (s *Server) Engine() (*rest.Server, error) {
 		return nil, err
 	}
 
-	// The chain is go-zero's. rest assembles TraceHandler, LogHandler,
-	// PrometheusHandler, RecoverHandler and the resilience handlers per route
-	// from MiddlewaresConf (every field defaults to true; see etc/restapi.yaml),
-	// so there is nothing to register for those here.
-	//
-	// server.Use middlewares are appended *after* that native chain, which makes
-	// them run inside it: by the time these execute, TraceHandler has already
-	// started the span and put it on the request context. Both depend on that.
-	//
-	// Three middlewares are ours:
-	//
-	//	TraceID      echoes the go-zero trace id back as X-Trace-ID. go-zero
-	//	             injects W3C traceparent only, no bare trace id header.
-	//	Authenticate the Bearer API key check. go-zero's handler.Authorize is
-	//	             HMAC request signing, an entirely different contract.
-	//	PasswordGuard blocks everything but /api/v1/auth/ while the identity
-	//	             still carries must_change_password. It must run *after*
-	//	             Authenticate — it reads the identity Authenticate put on
-	//	             the context, and before Authenticate there is none, so it
-	//	             would silently never fire.
-	//
-	// TraceID is registered first so the header is also set on the 401s that
-	// Authenticate and the role checks produce.
 	server.Use(rest.ToMiddleware(middleware.TraceID))
 	server.Use(rest.ToMiddleware(middleware.Authenticate(s.Auth)))
 	server.Use(rest.ToMiddleware(middleware.PasswordGuard))
 
-	// Every route, including the two SSE ones. The stream group in
-	// docs/stream/stream.api carries `sse: true`, so its routes are registered
-	// here with rest.WithSSE() — nothing is added by hand any more.
 	handler.RegisterHandlers(server, serverCtx)
 
 	return server, nil

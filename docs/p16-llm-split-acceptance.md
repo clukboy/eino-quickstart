@@ -6,7 +6,7 @@
 
 - `internal/rag/parser/llmsplit` 定义 provider-neutral HTTP 请求/响应契约。
 - 响应写库前校验：产品数上限、正文非空、`product_id`/`model` 稳定键、重复键。
-- API 配置增加 `knowledge.productSplitEnabled`、endpoint、model、解析版本、超时和数量上限；默认关闭。
+- 拆分器由组合根注入（`knowledge.ServiceDeps.ProductSplitter` / `ProductSplitterVersion` / `ProductSplitterModel`）。原计划的 `Knowledge.ProductSplitEnabled`、endpoint、model、解析版本、超时和数量上限等配置键**没有**落到 `internal/platform/config`；验收模板里残留的死键已在 2026-10 的配置迁移中删除，`cmd/restapi` 当前也未注入拆分器。
 - 无 front-matter 的模型结果复用现有产品文档写入/索引队列链路；模型失败不会静默退回整份“成功”文档。
 
 ## 用户直接验证

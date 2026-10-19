@@ -6,6 +6,7 @@ package dataset
 import (
 	"context"
 
+	"eino-quickstart/internal/transport/restapi/internal/httpx"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
@@ -18,7 +19,7 @@ type ListDocumentsLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 列出数据集文档
+// 列出数据集文档（分页）
 func NewListDocumentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListDocumentsLogic {
 	return &ListDocumentsLogic{
 		Logger: logx.WithContext(ctx),
@@ -27,8 +28,10 @@ func NewListDocumentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 	}
 }
 
-func (l *ListDocumentsLogic) ListDocuments(req *types.DatasetIDReq) (resp *types.DocumentListResp, err error) {
-	docs, err := l.svcCtx.Knowledge.List(l.ctx, req.ID)
+func (l *ListDocumentsLogic) ListDocuments(req *types.DocumentListReq) (resp *types.DocumentListResp, err error) {
+	page, pageSize := httpx.NormalizePage(req.Page, req.PageSize)
+
+	docs, total, err := l.svcCtx.Knowledge.ListPage(l.ctx, req.ID, page, pageSize)
 	if err != nil {
 		return nil, documentFail(err)
 	}
@@ -37,5 +40,7 @@ func (l *ListDocumentsLogic) ListDocuments(req *types.DatasetIDReq) (resp *types
 	if err != nil {
 		return nil, documentFail(err)
 	}
-	return &types.DocumentListResp{Data: data}, nil
+
+	// Total 是整库文档数，不是本页条数：前端据它算总页数。
+	return &types.DocumentListResp{Data: data, Total: total, Page: page, PageSize: pageSize}, nil
 }

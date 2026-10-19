@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"eino-quickstart/internal/platform/im/wechat"
 	"errors"
 	"fmt"
@@ -10,103 +9,120 @@ import (
 	"strings"
 
 	"github.com/redis/go-redis/v9"
-	"gopkg.in/yaml.v3"
+	"github.com/zeromicro/go-zero/core/conf"
 )
 
 type ESConfig struct {
-	Address     []string `yaml:"address"`
-	Index       string   `yaml:"index"`
-	Analyzer    string   `yaml:"analyzer"`
-	Username    string   `yaml:"username"`
-	Password    string   `yaml:"-"`
-	PasswordEnv string   `yaml:"passwordEnv"`
-	CaCertPath  string   `yaml:"caCertPath"`
-	BulkSize    int      `yaml:"bulkSize"`
-	MappingFile string `yaml:"mappingFile"`
+	Address     []string `json:"Address,optional"`
+	Index       string   `json:"Index,optional"`
+	Analyzer    string   `json:"Analyzer,optional"`
+	Username    string   `json:"Username,optional"`
+	Password    string   `json:"-"`
+	PasswordEnv string   `json:"PasswordEnv,optional"`
+	CaCertPath  string   `json:"CaCertPath,optional"`
+	BulkSize    int      `json:"BulkSize,optional"`
+	MappingFile string   `json:"MappingFile,optional"`
 }
 
 // Enabled 报告 ES 段是否配了集群地址。
 func (c ESConfig) Enabled() bool { return len(c.Address) > 0 }
 
 type Config struct {
-	Server        ServerConfig        `yaml:"server"`
-	Runtime       RuntimeConfig       `yaml:"runtime"`
-	Observability ObservabilityConfig `yaml:"observability"`
+	Server        ServerConfig        `json:"Server,optional"`
+	Runtime       RuntimeConfig       `json:"Runtime,optional"`
+	Observability ObservabilityConfig `json:"Observability,optional"`
 
-	Agent       AgentConfig       `yaml:"agent"`
-	Model       ModelConfig       `yaml:"model"`
-	Workspace   WorkspaceConfig   `yaml:"workspace"`
-	Context     Context           `yaml:"context"`
-	Skills      Skills            `yaml:"skills"`
-	Security    Security          `yaml:"security"`
-	Storage     Storage           `yaml:"storage"`
-	Auth        Auth              `yaml:"auth"`
-	Execution   ExecutionConfig   `yaml:"execution"`
-	Knowledge   KnowledgeConfig   `yaml:"knowledge"`
-	Embedding   EmbeddingConfig   `yaml:"embedding"`
-	Milvus      MilvusConfig      `yaml:"milvus"`
-	ES          ESConfig          `yaml:"es"`
-	Maintenance MaintenanceConfig `yaml:"maintenance"`
-	Retrieval   RetrievalConfig   `yaml:"retrieval"`
-	Indexer     IndexerConfig     `yaml:"indexer"`
+	Agent       AgentConfig       `json:"Agent,optional"`
+	Model       ModelConfig       `json:"Model,optional"`
+	Workspace   WorkspaceConfig   `json:"Workspace,optional"`
+	Context     Context           `json:"Context,optional"`
+	Skills      Skills            `json:"Skills,optional"`
+	Security    Security          `json:"Security,optional"`
+	Storage     Storage           `json:"Storage,optional"`
+	Auth        Auth              `json:"Auth,optional"`
+	Execution   ExecutionConfig   `json:"Execution,optional"`
+	Knowledge   KnowledgeConfig   `json:"Knowledge,optional"`
+	Embedding   EmbeddingConfig   `json:"Embedding,optional"`
+	Milvus      MilvusConfig      `json:"Milvus,optional"`
+	ES          ESConfig          `json:"ES,optional"`
+	Maintenance MaintenanceConfig `json:"Maintenance,optional"`
+	Retrieval   RetrievalConfig   `json:"Retrieval,optional"`
+	Indexer     IndexerConfig     `json:"Indexer,optional"`
 
-	Asynq AsynqConfig `yaml:"asynq"`
+	Asynq AsynqConfig `json:"Asynq,optional"`
 
-	Redis redis.UniversalOptions `yaml:"redis"`
+	Redis RedisConfig `json:"Redis,optional"`
+}
 
+// RedisConfig contains only the serializable Redis settings used by the API cache.
+type RedisConfig struct {
+	Addrs       []string `json:"Addrs,optional"`
+	Username    string   `json:"Username,optional"`
+	Password    string   `json:"-"`
+	PasswordEnv string   `json:"PasswordEnv,optional"`
+}
+
+func (c RedisConfig) UniversalOptions() redis.UniversalOptions {
+	return redis.UniversalOptions{Addrs: c.Addrs, Username: c.Username, Password: c.Password}
 }
 
 type ServerConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host string `json:"Host,optional"`
+	Port int    `json:"Port,optional"`
 }
 
 type AgentConfig struct {
-	Name          string `yaml:"name"`
-	Instruction   string `yaml:"instruction"`
-	MaxIterations int    `yaml:"max_iterations"`
+	Name          string `json:"Name,optional"`
+	Instruction   string `json:"Instruction,optional"`
+	MaxIterations int    `json:"MaxIterations,optional"`
 }
 
 type ModelConfig struct {
-	Provider    string  `yaml:"provider"`
-	BaseURL     string  `yaml:"baseURL"`
-	APIKey      string  `yaml:"apiKey"`
-	Model       string  `yaml:"model"`
-	Temperature float32 `yaml:"temperature"`
+	Provider    string  `json:"Provider,optional"`
+	BaseURL     string  `json:"BaseURL,optional"`
+	APIKey      string  `json:"APIKey,optional"`
+	Model       string  `json:"Model,optional"`
+	Temperature float32 `json:"Temperature,optional"`
 }
 
 type WorkspaceConfig struct {
-	Root                string `yaml:"root"`
-	ShellTimeoutSeconds int    `yaml:"shellTimeoutSeconds"`
-	MaxOutputBytes      int    `yaml:"maxOutputBytes"`
+	Root                string `json:"Root,optional"`
+	ShellTimeoutSeconds int    `json:"ShellTimeoutSeconds,optional"`
+	MaxOutputBytes      int    `json:"MaxOutputBytes,optional"`
 }
 
 type Context struct {
-	MaxHistoryMessages int `yaml:"maxHistoryMessages"`
-	MaxToolOutputBytes int `yaml:"maxToolOutputBytes"`
+	MaxHistoryMessages int `json:"MaxHistoryMessages,optional"`
+	MaxToolOutputBytes int `json:"MaxToolOutputBytes,optional"`
 }
 type Skills struct {
-	Root         string `yaml:"root"`
-	MaxReadBytes int    `yaml:"maxReadBytes"`
+	Root         string `json:"Root,optional"`
+	MaxReadBytes int    `json:"MaxReadBytes,optional"`
 }
 type Security struct {
-	AllowedTools             []string `yaml:"allowedTools"`
-	RequireApprovalForShell  bool     `yaml:"requireApprovalForShell"`
-	RequireApprovalForWrite  bool     `yaml:"requireApprovalForWrite"`
-	MaxApprovalArgumentBytes int      `yaml:"maxApprovalArgumentBytes"`
-	SensitiveArgumentKeys    []string `yaml:"sensitiveArgumentKeys"`
-	ApprovalTTLSeconds       int      `yaml:"approvalTTLSeconds"`
+	AllowedTools             []string `json:"AllowedTools,optional"`
+	RequireApprovalForShell  bool     `json:"RequireApprovalForShell,optional"`
+	RequireApprovalForWrite  bool     `json:"RequireApprovalForWrite,optional"`
+	MaxApprovalArgumentBytes int      `json:"MaxApprovalArgumentBytes,optional"`
+	SensitiveArgumentKeys    []string `json:"SensitiveArgumentKeys,optional"`
+	ApprovalTTLSeconds       int      `json:"ApprovalTTLSeconds,optional"`
+
+	// SecretKeyEnv 指向一个环境变量名，该变量里放 base64 编码的 32 字节主密钥，
+	// 用于加解密 ModelProvider.secret_ciphertext。SecretKey 是它的运行期取值，
+	// 不出现在 JSON 里。
+	SecretKeyEnv string `json:"SecretKeyEnv,optional"`
+	SecretKey    string `json:"-"`
 }
 
 type Storage struct {
-	Host        string `yaml:"host"`
-	Port        int    `yaml:"port"`
-	Username    string `yaml:"username"`
-	Password    string `yaml:"-"`
-	PasswordEnv string `yaml:"passwordEnv"`
-	DBName      string `yaml:"dbName"`
-	SSLMode     string `yaml:"sslMode"`
-	MaxOpenConn int    `yaml:"maxOpenConn"`
+	Host        string `json:"Host,optional"`
+	Port        int    `json:"Port,optional"`
+	Username    string `json:"Username,optional"`
+	Password    string `json:"-"`
+	PasswordEnv string `json:"PasswordEnv,optional"`
+	DBName      string `json:"DBName,optional"`
+	SSLMode     string `json:"SSLMode,optional"`
+	MaxOpenConn int    `json:"MaxOpenConn,optional"`
 }
 
 const maxAnonymousTTLHours = 24 * 365
@@ -123,68 +139,68 @@ const (
 )
 
 type Auth struct {
-	Enabled   bool                `yaml:"enabled"`
-	APIKeys   []APIKeyConfig      `yaml:"apiKeys"`
-	Anonymous AnonymousAuthConfig `yaml:"anonymous"`
-	Accounts  AccountsAuthConfig  `yaml:"accounts"`
-	UserSync  UserSyncConfig      `yaml:"userSync"`
+	Enabled   bool                `json:"Enabled,optional"`
+	APIKeys   []APIKeyConfig      `json:"APIKeys,optional"`
+	Anonymous AnonymousAuthConfig `json:"Anonymous,optional"`
+	Accounts  AccountsAuthConfig  `json:"Accounts,optional"`
+	UserSync  UserSyncConfig      `json:"UserSync,optional"`
 }
 
 // the indexing process.
 type UserSyncConfig struct {
-	Enabled   bool   `yaml:"enabled"`
-	Type 	 string `yaml:"type"`
-	WechatConfig map[string]*wechat.Config `yaml:"wechatConfig"`
+	Enabled      bool                      `json:"Enabled,optional"`
+	Type         string                    `json:"Type,optional"`
+	WechatConfig map[string]*wechat.Config `json:"WechatConfig,optional"`
 }
 type APIKeyConfig struct {
-	Subject string `yaml:"subject"`
-	Role    string `yaml:"role"`
-	KeyEnv  string `yaml:"keyEnv"`
+	Subject string `json:"Subject,optional"`
+	Role    string `json:"Role,optional"`
+	KeyEnv  string `json:"KeyEnv,optional"`
 }
 
 type AnonymousAuthConfig struct {
-	Enabled       bool   `yaml:"enabled"`
-	Role          string `yaml:"role"`
-	SecretEnv     string `yaml:"secretEnv"`
-	TTLHours      int    `yaml:"ttlHours"`
-	SubjectPrefix string `yaml:"subjectPrefix"`
+	Enabled       bool   `json:"Enabled,optional"`
+	Role          string `json:"Role,optional"`
+	SecretEnv     string `json:"SecretEnv,optional"`
+	TTLHours      int    `json:"TTLHours,optional"`
+	SubjectPrefix string `json:"SubjectPrefix,optional"`
 
-	Secret string `yaml:"-"`
+	Secret string `json:"-"`
 }
 
 type AccountsAuthConfig struct {
-	Enabled bool `yaml:"enabled"`
+	Enabled bool `json:"Enabled,optional"`
 
-	SecretEnv string `yaml:"secretEnv"`
-	TTLHours  int    `yaml:"ttlHours"`
-	BcryptCost int `yaml:"bcryptCost"`
-	Secret string `yaml:"-"`
+	SecretEnv  string `json:"SecretEnv,optional"`
+	TTLHours   int    `json:"TTLHours,optional"`
+	BcryptCost int    `json:"BcryptCost,optional"`
+	Secret     string `json:"-"`
 }
 
 type RuntimeConfig struct {
-	ReadTimeoutSeconds  int `yaml:"readTimeoutSeconds"`
-	WriteTimeoutSeconds int `yaml:"writeTimeoutSeconds"`
-	IdleTimeoutSeconds  int `yaml:"idleTimeoutSeconds"`
-	MaxRequestBodyBytes int `yaml:"maxRequestBodyBytes"`
+	ReadTimeoutSeconds  int `json:"ReadTimeoutSeconds,optional"`
+	WriteTimeoutSeconds int `json:"WriteTimeoutSeconds,optional"`
+	IdleTimeoutSeconds  int `json:"IdleTimeoutSeconds,optional"`
+	MaxRequestBodyBytes int `json:"MaxRequestBodyBytes,optional"`
 }
 
 type ObservabilityConfig struct {
-	LogLevel       string `yaml:"logLevel"`
-	MetricsEnabled bool   `yaml:"metricsEnabled"`
+	LogLevel       string `json:"LogLevel,optional"`
+	MetricsEnabled bool   `json:"MetricsEnabled,optional"`
 
-	ServiceName string `yaml:"serviceName"`
+	ServiceName string `json:"ServiceName,optional"`
 
-	WorkerServiceName string `yaml:"workerServiceName"`
-	Environment       string `yaml:"environment"`
+	WorkerServiceName string `json:"WorkerServiceName,optional"`
+	Environment       string `json:"Environment,optional"`
 
-	OTLPEndpoint     string  `yaml:"otlpEndpoint"`
-	OTLPInsecure     bool    `yaml:"otlpInsecure"`
-	TraceSampleRatio float64 `yaml:"traceSampleRatio"`
+	OTLPEndpoint     string  `json:"OTLPEndpoint,optional"`
+	OTLPInsecure     bool    `json:"OTLPInsecure,optional"`
+	TraceSampleRatio float64 `json:"TraceSampleRatio,optional"`
 
-	LogFilePath   string `yaml:"logFilePath"`
-	LogMaxSizeMB  int    `yaml:"logMaxSizeMB"`
-	LogMaxBackups int    `yaml:"logMaxBackups"`
-	LogMaxAgeDays int    `yaml:"logMaxAgeDays"`
+	LogFilePath   string `json:"LogFilePath,optional"`
+	LogMaxSizeMB  int    `json:"LogMaxSizeMB,optional"`
+	LogMaxBackups int    `json:"LogMaxBackups,optional"`
+	LogMaxAgeDays int    `json:"LogMaxAgeDays,optional"`
 }
 
 // WorkerTraceName 返回 worker 进程在 trace 里的服务名。
@@ -199,115 +215,122 @@ func (c ObservabilityConfig) WorkerTraceName() string {
 }
 
 type ExecutionConfig struct {
-	Mode             string `yaml:"mode"`
-	DockerBinary     string `yaml:"dockerBinary"`
-	Image            string `yaml:"image"`
-	User             string `yaml:"user"`
-	MemoryLimit      string `yaml:"memoryLimit"`
-	CPULimit         string `yaml:"cpuLimit"`
-	PIDsLimit        int    `yaml:"pidsLimit"`
-	TmpFSSize        string `yaml:"tmpFSSize"`
-	AllowNetwork     bool   `yaml:"allowNetwork"`
-	AllowLocalRunner bool   `yaml:"allowLocalRunner"`
+	Mode             string `json:"Mode,optional"`
+	DockerBinary     string `json:"DockerBinary,optional"`
+	Image            string `json:"Image,optional"`
+	User             string `json:"User,optional"`
+	MemoryLimit      string `json:"MemoryLimit,optional"`
+	CPULimit         string `json:"CPULimit,optional"`
+	PIDsLimit        int    `json:"PIDsLimit,optional"`
+	TmpFSSize        string `json:"TmpFSSize,optional"`
+	AllowNetwork     bool   `json:"AllowNetwork,optional"`
+	AllowLocalRunner bool   `json:"AllowLocalRunner,optional"`
 }
 type KnowledgeConfig struct {
-	Root                  string `yaml:"root"`
-	MaxDocumentBytes      int    `yaml:"maxDocumentBytes"`
-	MaxUploadRequestBytes int    `yaml:"maxUploadRequestBytes"`
-	MaxUploadFiles        int    `yaml:"maxUploadFiles"`
-	ChunkSizeCharacters   int    `yaml:"chunkSizeCharacters"`
-	ChunkOverlapChars     int    `yaml:"chunkOverlapCharacters"`
-	MaxChunksPerDoc       int    `yaml:"maxChunksPerDocument"`
-	DefaultTopK           int    `yaml:"defaultTopK"`
-	MaxTopK               int    `yaml:"maxTopK"`
-	MaxQueryCharacters    int    `yaml:"maxQueryCharacters"`
-	MaxResultBytes int `yaml:"maxResultBytes"`
-	RecallGrouping map[string]string `yaml:"recallGrouping"`
-
+	Root                  string            `json:"Root,optional"`
+	MaxDocumentBytes      int               `json:"MaxDocumentBytes,optional"`
+	MaxUploadRequestBytes int               `json:"MaxUploadRequestBytes,optional"`
+	MaxUploadFiles        int               `json:"MaxUploadFiles,optional"`
+	ChunkSizeCharacters   int               `json:"ChunkSizeCharacters,optional"`
+	ChunkOverlapChars     int               `json:"ChunkOverlapCharacters,optional"`
+	MaxChunksPerDoc       int               `json:"MaxChunksPerDocument,optional"`
+	DefaultTopK           int               `json:"DefaultTopK,optional"`
+	MaxTopK               int               `json:"MaxTopK,optional"`
+	MaxQueryCharacters    int               `json:"MaxQueryCharacters,optional"`
+	MaxResultBytes        int               `json:"MaxResultBytes,optional"`
+	RecallGrouping        map[string]string `json:"RecallGrouping,optional"`
 }
 
 type EmbeddingConfig struct {
-	BaseURL    string `yaml:"baseURL"`
-	APIKeyEnv  string `yaml:"apiKeyEnv"`
-	Model      string `yaml:"model"`
-	Dimensions int    `yaml:"dimensions"`
-	BatchSize int `yaml:"batchSize"`
+	BaseURL    string `json:"BaseURL,optional"`
+	APIKeyEnv  string `json:"APIKeyEnv,optional"`
+	Model      string `json:"Model,optional"`
+	Dimensions int    `json:"Dimensions,optional"`
+	BatchSize  int    `json:"BatchSize,optional"`
 }
 
 type MilvusConfig struct {
-	Address         string `yaml:"address"`
-	Collection      string `yaml:"collection"`
-	MetricType      string `yaml:"metricType"`
-	TopKCandidate   int    `yaml:"topKCandidate"`
-	SearchTimeoutMS int    `yaml:"searchTimeoutMS"`
+	Address         string `json:"Address,optional"`
+	Collection      string `json:"Collection,optional"`
+	MetricType      string `json:"MetricType,optional"`
+	TopKCandidate   int    `json:"TopKCandidate,optional"`
+	SearchTimeoutMS int    `json:"SearchTimeoutMS,optional"`
 }
 
 type MaintenanceConfig struct {
-	CleanupIntervalSeconds   int `yaml:"cleanupIntervalSeconds"`
-	ApprovalRetentionHours   int `yaml:"approvalRetentionHours"`
-	CheckpointRetentionHours int `yaml:"checkpointRetentionHours"`
-	TurnRetentionHours       int `yaml:"turnRetentionHours"`
-	CleanupBatchSize         int `yaml:"cleanupBatchSize"`
+	CleanupIntervalSeconds   int `json:"CleanupIntervalSeconds,optional"`
+	ApprovalRetentionHours   int `json:"ApprovalRetentionHours,optional"`
+	CheckpointRetentionHours int `json:"CheckpointRetentionHours,optional"`
+	TurnRetentionHours       int `json:"TurnRetentionHours,optional"`
+	CleanupBatchSize         int `json:"CleanupBatchSize,optional"`
 }
 
 type RetrievalConfig struct {
-	VectorWeight  float64 `yaml:"vectorWeight"`
-	KeywordWeight float64 `yaml:"keywordWeight"`
-	ExactWeight   float64 `yaml:"exactWeight"`
+	VectorWeight  float64 `json:"VectorWeight,optional"`
+	KeywordWeight float64 `json:"KeywordWeight,optional"`
+	ExactWeight   float64 `json:"ExactWeight,optional"`
 
-	RRFSmoothing int `yaml:"rrfSmoothing"`
+	RRFSmoothing int `json:"RRFSmoothing,optional"`
 
-	VectorCandidateLimit  int `yaml:"vectorCandidateLimit"`
-	KeywordCandidateLimit int `yaml:"keywordCandidateLimit"`
-	ExactCandidateLimit   int `yaml:"exactCandidateLimit"`
+	VectorCandidateLimit  int `json:"VectorCandidateLimit,optional"`
+	KeywordCandidateLimit int `json:"KeywordCandidateLimit,optional"`
+	ExactCandidateLimit   int `json:"ExactCandidateLimit,optional"`
 
-	EnableRerank        bool   `yaml:"enableRerank"`
-	MaxRerankCandidates int    `yaml:"maxRerankCandidates"`
-	RerankEndpoint      string `yaml:"rerankEndpoint"`
-	RerankAPIKeyEnv     string `yaml:"rerankApiKeyEnv"`
-	RerankAPIKey        string `yaml:"-"`
-	RerankModel         string `yaml:"rerankModel"`
-	RerankTimeoutMS     int    `yaml:"rerankTimeoutMS"`
+	EnableRerank        bool   `json:"EnableRerank,optional"`
+	MaxRerankCandidates int    `json:"MaxRerankCandidates,optional"`
+	RerankEndpoint      string `json:"RerankEndpoint,optional"`
+	RerankAPIKeyEnv     string `json:"RerankAPIKeyEnv,optional"`
+	RerankAPIKey        string `json:"-"`
+	RerankModel         string `json:"RerankModel,optional"`
+	RerankTimeoutMS     int    `json:"RerankTimeoutMS,optional"`
 }
 
 type IndexerConfig struct {
-	BatchSize int `yaml:"batchSize"`
+	BatchSize int `json:"BatchSize,optional"`
 }
 
 type AsynqConfig struct {
-	Enabled bool             `yaml:"enabled"`
-	Redis   AsynqRedisConfig `yaml:"redis"`
+	Enabled bool             `json:"Enabled,optional"`
+	Redis   AsynqRedisConfig `json:"Redis,optional"`
 
 	// Queues 是队列名到权重的映射，权重越高被拉取得越频繁。
-	Queues []AsynqQueueConfig `yaml:"queues"`
+	Queues []AsynqQueueConfig `json:"Queues,optional"`
 
 	// Concurrency 是同时处理的任务数。索引任务大部分时间在等 embedding
 	// 服务的网络往返，所以这个值可以远大于 CPU 核数。
-	Concurrency int `yaml:"concurrency"`
+	Concurrency int `json:"Concurrency,optional"`
 
 	// MaxRetries 是单个任务的重试次数上限，含首次共执行 MaxRetries+1 次。
-	MaxRetries int `yaml:"maxRetries"`
+	MaxRetries int `json:"MaxRetries,optional"`
 
-	RetryDelaySeconds    int `yaml:"retryDelaySeconds"`
-	MaxRetryDelaySeconds int `yaml:"maxRetryDelaySeconds"`
+	RetryDelaySeconds    int `json:"RetryDelaySeconds,optional"`
+	MaxRetryDelaySeconds int `json:"MaxRetryDelaySeconds,optional"`
 
 	// ShutdownTimeoutSeconds 是优雅关闭的上限：已开始的任务最多再跑这么久，
 	// 超时未完成的任务会被退回队列，由启动后的实例重新领取。
-	ShutdownTimeoutSeconds int `yaml:"shutdownTimeoutSeconds"`
+	ShutdownTimeoutSeconds int `json:"ShutdownTimeoutSeconds,optional"`
 }
 
 type AsynqRedisConfig struct {
-	Addr        string `yaml:"addr"`
-	Username    string `yaml:"username"`
-	Password    string `yaml:"-"`
-	PasswordEnv string `yaml:"passwordEnv"`
-	DB          int    `yaml:"db"`
+	Addr        string `json:"Addr,optional"`
+	Username    string `json:"Username,optional"`
+	Password    string `json:"-"`
+	PasswordEnv string `json:"PasswordEnv,optional"`
+	DB          int    `json:"DB,optional"`
 }
 
 type AsynqQueueConfig struct {
-	Name   string `yaml:"name"`
-	Weight int    `yaml:"weight"`
+	Name   string `json:"Name,optional"`
+	Weight int    `json:"Weight,optional"`
 }
+
+// 配置文件的键名 = 结构体上的 json tag 名 = 大驼峰字段名（Host、MaxIterations、
+// Knowledge.MaxChunksPerDocument……）。go-zero 的 mapping 只做大小写不敏感的
+// 精确匹配，不认识下划线，所以 `HOST`、`max_iterations` 这类写法并不会命中
+// 字段，只会被静默忽略 —— 改配置文件时请照抄 tag 的拼写。
+//
+// 每个字段都带 `,optional`：进程配置按角色拆成 api / worker 两份，任何一份都
+// 必然缺另一份的段，go-zero 对没有 optional 的字段会直接报 "field not set"。
 
 // Load retains the legacy combined profile for callers with existing configurations.
 func Load(path string) (*Config, error) { return load(path, profileLegacy) }
@@ -319,20 +342,14 @@ func LoadAPI(path string) (*Config, error) { return load(path, profileAPI) }
 func LoadWorker(path string) (*Config, error) { return load(path, profileWorker) }
 
 func load(path string, profile configProfile) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
+	// 角色校验（含未知键检测）按文件内容做，解析本身交给 go-zero 的 conf：
+	// 它按扩展名选解析器，.yaml / .yml / .json 共用同一套结构体与同一套键名。
+	if err := validateConfigFile(path, profile); err != nil {
 		return nil, err
 	}
 
 	var cfg Config
-	if profile != profileLegacy {
-		if err := validateProfileSections(data, profile); err != nil {
-			return nil, err
-		}
-	}
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(profile != profileLegacy)
-	if err := decoder.Decode(&cfg); err != nil {
+	if err := conf.Load(path, &cfg); err != nil {
 		return nil, err
 	}
 
@@ -371,6 +388,12 @@ func load(path string, profile configProfile) (*Config, error) {
 		cfg.Retrieval.RerankAPIKey = os.Getenv(cfg.Retrieval.RerankAPIKeyEnv)
 	}
 	if profile != profileWorker {
+		// 外部模型供应商密钥的主密钥：数据库里只存密文，明文密钥来自环境变量。
+		// 留空不算配置错误 —— 此时数据库里配置的供应商不可用，兜底专员会回落
+		// 到统一配置的 Model 段（见 application/providermodel）。
+		if cfg.Security.SecretKeyEnv != "" {
+			cfg.Security.SecretKey = os.Getenv(cfg.Security.SecretKeyEnv)
+		}
 		// 匿名令牌的签名密钥同理：它一旦泄漏，任何人都能伪造任意 subject。
 		if cfg.Auth.Anonymous.SecretEnv != "" {
 			cfg.Auth.Anonymous.Secret = os.Getenv(cfg.Auth.Anonymous.SecretEnv)
@@ -383,7 +406,7 @@ func load(path string, profile configProfile) (*Config, error) {
 	}
 
 	if cfg.Storage.PasswordEnv == "" {
-		return nil, fmt.Errorf("storage.passwordEnv is required")
+		return nil, fmt.Errorf("Storage.PasswordEnv is required")
 	}
 	if cfg.Storage.Password == "" {
 		return nil, fmt.Errorf(
@@ -401,34 +424,34 @@ func load(path string, profile configProfile) (*Config, error) {
 		}
 
 		if len(cfg.Security.AllowedTools) == 0 {
-			return nil, fmt.Errorf("security.allowedTools must contain at least one tool")
+			return nil, fmt.Errorf("Security.AllowedTools must contain at least one tool")
 		}
 		if cfg.Security.MaxApprovalArgumentBytes <= 0 {
-			return nil, errors.New("security.maxApprovalArgumentBytes must be greater than zero")
+			return nil, errors.New("Security.MaxApprovalArgumentBytes must be greater than zero")
 		}
 		if len(cfg.Security.SensitiveArgumentKeys) == 0 {
-			return nil, errors.New("security.sensitiveArgumentKeys must contain at least one key")
+			return nil, errors.New("Security.SensitiveArgumentKeys must contain at least one key")
 		}
 		if cfg.Security.ApprovalTTLSeconds <= 0 {
 			return nil, fmt.Errorf(
-				"security.approvalTTLSeconds must be greater than zero",
+				"Security.ApprovalTTLSeconds must be greater than zero",
 			)
 		}
 
 		if !cfg.Auth.Enabled {
-			return nil, fmt.Errorf("auth.enabled must be true")
+			return nil, fmt.Errorf("Auth.Enabled must be true")
 		}
 		if len(cfg.Auth.APIKeys) == 0 {
-			return nil, fmt.Errorf("auth.apiKeys must contain at least one API key")
+			return nil, fmt.Errorf("Auth.APIKeys must contain at least one API key")
 		}
 
 		for _, key := range cfg.Auth.APIKeys {
 			if key.Subject == "" {
-				return nil, fmt.Errorf("auth.apiKeys.subject must be set")
+				return nil, fmt.Errorf("Auth.APIKeys.Subject must be set")
 			}
 			if key.KeyEnv == "" {
 				return nil, fmt.Errorf(
-					"auth API key %q has an empty keyEnv",
+					"Auth.APIKeys entry %q has an empty KeyEnv",
 					key.Subject,
 				)
 			}
@@ -436,7 +459,7 @@ func load(path string, profile configProfile) (*Config, error) {
 			case "agent", "approver", "admin":
 			default:
 				return nil, fmt.Errorf(
-					"auth API key %q has invalid role %q",
+					"Auth.APIKeys entry %q has invalid Role %q",
 					key.Subject,
 					key.Role,
 				)
@@ -458,13 +481,13 @@ func load(path string, profile configProfile) (*Config, error) {
 			case "agent", "approver", "admin":
 			default:
 				return nil, fmt.Errorf(
-					"auth.anonymous.role %q is not a known role",
+					"Auth.Anonymous.Role %q is not a known role",
 					cfg.Auth.Anonymous.Role,
 				)
 			}
 			if cfg.Auth.Anonymous.SecretEnv == "" {
 				return nil, fmt.Errorf(
-					"auth.anonymous.secretEnv is required when anonymous access is enabled",
+					"Auth.Anonymous.SecretEnv is required when anonymous access is enabled",
 				)
 			}
 			if cfg.Auth.Anonymous.Secret == "" {
@@ -475,12 +498,12 @@ func load(path string, profile configProfile) (*Config, error) {
 			}
 			if cfg.Auth.Anonymous.TTLHours <= 0 {
 				return nil, fmt.Errorf(
-					"auth.anonymous.ttlHours must be greater than zero",
+					"Auth.Anonymous.TTLHours must be greater than zero",
 				)
 			}
 			if cfg.Auth.Anonymous.TTLHours > maxAnonymousTTLHours {
 				return nil, fmt.Errorf(
-					"auth.anonymous.ttlHours must not exceed %d",
+					"Auth.Anonymous.TTLHours must not exceed %d",
 					maxAnonymousTTLHours,
 				)
 			}
@@ -504,7 +527,7 @@ func load(path string, profile configProfile) (*Config, error) {
 		if cfg.Auth.Accounts.Enabled {
 			if cfg.Auth.Accounts.SecretEnv == "" {
 				return nil, fmt.Errorf(
-					"auth.accounts.secretEnv is required when accounts are enabled",
+					"Auth.Accounts.SecretEnv is required when accounts are enabled",
 				)
 			}
 			if cfg.Auth.Accounts.Secret == "" {
@@ -515,12 +538,12 @@ func load(path string, profile configProfile) (*Config, error) {
 			}
 			if cfg.Auth.Accounts.TTLHours <= 0 {
 				return nil, fmt.Errorf(
-					"auth.accounts.ttlHours must be greater than zero",
+					"Auth.Accounts.TTLHours must be greater than zero",
 				)
 			}
 			if cfg.Auth.Accounts.TTLHours > maxAccountTTLHours {
 				return nil, fmt.Errorf(
-					"auth.accounts.ttlHours must not exceed %d",
+					"Auth.Accounts.TTLHours must not exceed %d",
 					maxAccountTTLHours,
 				)
 			}
@@ -533,7 +556,7 @@ func load(path string, profile configProfile) (*Config, error) {
 			if cost := cfg.Auth.Accounts.BcryptCost; cost != 0 &&
 				(cost < minAccountBcryptCost || cost > maxAccountBcryptCost) {
 				return nil, fmt.Errorf(
-					"auth.accounts.bcryptCost must be 0 (default) or between %d and %d",
+					"Auth.Accounts.BcryptCost must be 0 (default) or between %d and %d",
 					minAccountBcryptCost,
 					maxAccountBcryptCost,
 				)
@@ -542,49 +565,49 @@ func load(path string, profile configProfile) (*Config, error) {
 
 		if cfg.Auth.UserSync.Enabled {
 			if !cfg.Auth.Accounts.Enabled {
-				return nil, fmt.Errorf("auth.userSync requires auth.accounts.enabled")
+				return nil, fmt.Errorf("Auth.UserSync requires Auth.Accounts.Enabled")
 			}
 			if cfg.Auth.UserSync.Type == "" {
-				return nil, fmt.Errorf("auth.userSync.type is required when user sync is enabled")
+				return nil, fmt.Errorf("Auth.UserSync.Type is required when user sync is enabled")
 			}
 		}
 
 		if cfg.Runtime.ReadTimeoutSeconds <= 0 {
-			return nil, fmt.Errorf("runtime.readTimeoutSeconds must be greater than zero")
+			return nil, fmt.Errorf("Runtime.ReadTimeoutSeconds must be greater than zero")
 		}
 
 		if cfg.Runtime.WriteTimeoutSeconds <= 0 {
-			return nil, fmt.Errorf("runtime.writeTimeoutSeconds must be greater than zero")
+			return nil, fmt.Errorf("Runtime.WriteTimeoutSeconds must be greater than zero")
 		}
 
 		if cfg.Runtime.IdleTimeoutSeconds <= 0 {
-			return nil, fmt.Errorf("runtime.idleTimeoutSeconds must be greater than zero")
+			return nil, fmt.Errorf("Runtime.IdleTimeoutSeconds must be greater than zero")
 		}
 
 		if cfg.Runtime.MaxRequestBodyBytes <= 0 {
-			return nil, fmt.Errorf("runtime.maxRequestBodyBytes must be greater than zero")
+			return nil, fmt.Errorf("Runtime.MaxRequestBodyBytes must be greater than zero")
 		}
 		if cfg.Knowledge.MaxDocumentBytes <= 0 {
-			return nil, fmt.Errorf("knowledge.maxDocumentBytes must be greater than zero")
+			return nil, fmt.Errorf("Knowledge.MaxDocumentBytes must be greater than zero")
 		}
 		if cfg.Runtime.MaxRequestBodyBytes < cfg.Knowledge.MaxDocumentBytes {
 			return nil, fmt.Errorf(
-				"runtime.maxRequestBodyBytes must be at least knowledge.maxDocumentBytes",
+				"Runtime.MaxRequestBodyBytes must be at least Knowledge.MaxDocumentBytes",
 			)
 		}
 		if cfg.Knowledge.MaxUploadRequestBytes <= 0 {
 			return nil, fmt.Errorf(
-				"knowledge.maxUploadRequestBytes must be greater than zero",
+				"Knowledge.MaxUploadRequestBytes must be greater than zero",
 			)
 		}
 		if cfg.Knowledge.MaxUploadRequestBytes < cfg.Knowledge.MaxDocumentBytes {
 			return nil, fmt.Errorf(
-				"knowledge.maxUploadRequestBytes must be at least knowledge.maxDocumentBytes",
+				"Knowledge.MaxUploadRequestBytes must be at least Knowledge.MaxDocumentBytes",
 			)
 		}
 		if cfg.Knowledge.MaxUploadFiles <= 0 {
 			return nil, fmt.Errorf(
-				"knowledge.maxUploadFiles must be greater than zero",
+				"Knowledge.MaxUploadFiles must be greater than zero",
 			)
 		}
 	}
@@ -593,55 +616,55 @@ func load(path string, profile configProfile) (*Config, error) {
 	case "debug", "info", "warn", "error":
 	default:
 		return nil, fmt.Errorf(
-			"observability.logLevel must be debug, info, warn, or error",
+			"Observability.LogLevel must be debug, info, warn, or error",
 		)
 	}
 	if cfg.Observability.ServiceName == "" {
 		return nil, fmt.Errorf(
-			"observability.serviceName is required",
+			"Observability.ServiceName is required",
 		)
 	}
 
 	if cfg.Observability.Environment == "" {
 		return nil, fmt.Errorf(
-			"observability.environment is required",
+			"Observability.Environment is required",
 		)
 	}
 
 	if cfg.Observability.OTLPEndpoint == "" {
 		return nil, fmt.Errorf(
-			"observability.otlpEndpoint is required",
+			"Observability.OTLPEndpoint is required",
 		)
 	}
 
 	if cfg.Observability.TraceSampleRatio < 0 ||
 		cfg.Observability.TraceSampleRatio > 1 {
 		return nil, fmt.Errorf(
-			"observability.traceSampleRatio must be between 0 and 1",
+			"Observability.TraceSampleRatio must be between 0 and 1",
 		)
 	}
 
 	if cfg.Observability.LogFilePath == "" {
 		return nil, fmt.Errorf(
-			"observability.logFilePath is required",
+			"Observability.LogFilePath is required",
 		)
 	}
 
 	if cfg.Observability.LogMaxSizeMB <= 0 {
 		return nil, fmt.Errorf(
-			"observability.logMaxSizeMB must be greater than zero",
+			"Observability.LogMaxSizeMB must be greater than zero",
 		)
 	}
 
 	if cfg.Observability.LogMaxBackups <= 0 {
 		return nil, fmt.Errorf(
-			"observability.logMaxBackups must be greater than zero",
+			"Observability.LogMaxBackups must be greater than zero",
 		)
 	}
 
 	if cfg.Observability.LogMaxAgeDays <= 0 {
 		return nil, fmt.Errorf(
-			"observability.logMaxAgeDays must be greater than zero",
+			"Observability.LogMaxAgeDays must be greater than zero",
 		)
 	}
 
@@ -650,7 +673,7 @@ func load(path string, profile configProfile) (*Config, error) {
 		case "disabled", "docker", "local":
 		default:
 			return nil, fmt.Errorf(
-				"execution.mode must be docker or local",
+				"Execution.Mode must be docker or local",
 			)
 		}
 
@@ -659,27 +682,27 @@ func load(path string, profile configProfile) (*Config, error) {
 			cfg.Server.Host != "localhost" {
 			if cfg.Execution.Image == "" {
 				return nil, fmt.Errorf(
-					"execution.image is required in docker mode",
+					"Execution.Image is required in docker mode",
 				)
 			}
 			if cfg.Execution.User == "" {
 				return nil, fmt.Errorf(
-					"execution.user is required in docker mode",
+					"Execution.User is required in docker mode",
 				)
 			}
 			if cfg.Execution.MemoryLimit == "" {
 				return nil, fmt.Errorf(
-					"execution.memoryLimit is required in docker mode",
+					"Execution.MemoryLimit is required in docker mode",
 				)
 			}
 			if cfg.Execution.CPULimit == "" {
 				return nil, fmt.Errorf(
-					"execution.cpuLimit is required in docker mode",
+					"Execution.CPULimit is required in docker mode",
 				)
 			}
 			if cfg.Execution.PIDsLimit <= 0 {
 				return nil, fmt.Errorf(
-					"execution.pidsLimit must be greater than zero",
+					"Execution.PIDsLimit must be greater than zero",
 				)
 			}
 		}
@@ -687,25 +710,25 @@ func load(path string, profile configProfile) (*Config, error) {
 		if cfg.Execution.Mode == "local" &&
 			!cfg.Execution.AllowLocalRunner {
 			return nil, fmt.Errorf(
-				"local execution requires execution.allowLocalRunner=true",
+				"local execution requires Execution.AllowLocalRunner=true",
 			)
 		}
 	}
 
 	if profile != profileAPI {
 		if cfg.Knowledge.Root == "" {
-			return nil, fmt.Errorf("knowledge.root is required")
+			return nil, fmt.Errorf("Knowledge.Root is required")
 		}
 
 		if cfg.Knowledge.MaxDocumentBytes <= 0 {
 			return nil, fmt.Errorf(
-				"knowledge.maxDocumentBytes must be greater than zero",
+				"Knowledge.MaxDocumentBytes must be greater than zero",
 			)
 		}
 
 		if cfg.Knowledge.ChunkSizeCharacters <= 0 {
 			return nil, fmt.Errorf(
-				"knowledge.chunkSizeCharacters must be greater than zero",
+				"Knowledge.ChunkSizeCharacters must be greater than zero",
 			)
 		}
 
@@ -713,13 +736,13 @@ func load(path string, profile configProfile) (*Config, error) {
 			cfg.Knowledge.ChunkOverlapChars >=
 				cfg.Knowledge.ChunkSizeCharacters {
 			return nil, fmt.Errorf(
-				"knowledge.chunkOverlapCharacters must be non-negative and smaller than chunkSizeCharacters",
+				"Knowledge.ChunkOverlapCharacters must be non-negative and smaller than chunkSizeCharacters",
 			)
 		}
 
 		if cfg.Knowledge.MaxChunksPerDoc <= 0 {
 			return nil, fmt.Errorf(
-				"knowledge.maxChunksPerDocument must be greater than zero",
+				"Knowledge.MaxChunksPerDocument must be greater than zero",
 			)
 		}
 	}
@@ -728,24 +751,24 @@ func load(path string, profile configProfile) (*Config, error) {
 		if cfg.Knowledge.DefaultTopK <= 0 ||
 			cfg.Knowledge.DefaultTopK > cfg.Knowledge.MaxTopK {
 			return nil, fmt.Errorf(
-				"knowledge.defaultTopK must be between 1 and maxTopK",
+				"Knowledge.DefaultTopK must be between 1 and Knowledge.MaxTopK",
 			)
 		}
 	}
 
 	if cfg.Embedding.Model == "" {
-		return nil, fmt.Errorf("embedding.model is required")
+		return nil, fmt.Errorf("Embedding.Model is required")
 	}
 
 	if cfg.Embedding.Dimensions <= 0 {
 		return nil, fmt.Errorf(
-			"embedding.dimensions must be greater than zero",
+			"Embedding.Dimensions must be greater than zero",
 		)
 	}
 
 	if cfg.Embedding.BatchSize <= 0 {
 		return nil, fmt.Errorf(
-			"embedding.batchSize must be greater than zero",
+			"Embedding.BatchSize must be greater than zero",
 		)
 	}
 
@@ -758,31 +781,31 @@ func load(path string, profile configProfile) (*Config, error) {
 
 	if cfg.Maintenance.CleanupIntervalSeconds <= 0 {
 		return nil, fmt.Errorf(
-			"maintenance.cleanupIntervalSeconds must be greater than zero",
+			"Maintenance.CleanupIntervalSeconds must be greater than zero",
 		)
 	}
 
 	if cfg.Maintenance.ApprovalRetentionHours <= 0 {
 		return nil, fmt.Errorf(
-			"maintenance.approvalRetentionHours must be greater than zero",
+			"Maintenance.ApprovalRetentionHours must be greater than zero",
 		)
 	}
 
 	if cfg.Maintenance.CheckpointRetentionHours <= 0 {
 		return nil, fmt.Errorf(
-			"maintenance.checkpointRetentionHours must be greater than zero",
+			"Maintenance.CheckpointRetentionHours must be greater than zero",
 		)
 	}
 
 	if cfg.Maintenance.TurnRetentionHours <= 0 {
 		return nil, fmt.Errorf(
-			"maintenance.turnRetentionHours must be greater than zero",
+			"Maintenance.TurnRetentionHours must be greater than zero",
 		)
 	}
 
 	if cfg.Maintenance.CleanupBatchSize <= 0 {
 		return nil, fmt.Errorf(
-			"maintenance.cleanupBatchSize must be greater than zero",
+			"Maintenance.CleanupBatchSize must be greater than zero",
 		)
 	}
 
@@ -799,44 +822,44 @@ func load(path string, profile configProfile) (*Config, error) {
 
 		if cfg.Retrieval.RRFSmoothing <= 0 {
 			return nil, fmt.Errorf(
-				"retrieval.rrfSmoothing must be greater than zero",
+				"Retrieval.RRFSmoothing must be greater than zero",
 			)
 		}
 
 		if cfg.Retrieval.VectorCandidateLimit <
 			cfg.Knowledge.MaxTopK {
 			return nil, fmt.Errorf(
-				"retrieval.vectorCandidateLimit must be at least knowledge.maxTopK",
+				"Retrieval.VectorCandidateLimit must be at least Knowledge.MaxTopK",
 			)
 		}
 
 		if cfg.Retrieval.KeywordCandidateLimit <
 			cfg.Knowledge.MaxTopK {
 			return nil, fmt.Errorf(
-				"retrieval.keywordCandidateLimit must be at least knowledge.maxTopK",
+				"Retrieval.KeywordCandidateLimit must be at least Knowledge.MaxTopK",
 			)
 		}
 
 		if cfg.Retrieval.ExactCandidateLimit <
 			cfg.Knowledge.MaxTopK {
 			return nil, fmt.Errorf(
-				"retrieval.exactCandidateLimit must be at least knowledge.maxTopK",
+				"Retrieval.ExactCandidateLimit must be at least Knowledge.MaxTopK",
 			)
 		}
 
 		if cfg.Retrieval.EnableRerank {
 			if cfg.Retrieval.MaxRerankCandidates <= 0 {
 				return nil, fmt.Errorf(
-					"retrieval.maxRerankCandidates must be greater than zero when rerank is enabled",
+					"Retrieval.MaxRerankCandidates must be greater than zero when rerank is enabled",
 				)
 			}
 			if strings.TrimSpace(cfg.Retrieval.RerankEndpoint) == "" {
 				return nil, fmt.Errorf(
-					"retrieval.rerankEndpoint is required when rerank is enabled",
+					"Retrieval.RerankEndpoint is required when rerank is enabled",
 				)
 			}
 			if cfg.Retrieval.RerankTimeoutMS < 0 {
-				return nil, fmt.Errorf("retrieval.rerankTimeoutMS must not be negative")
+				return nil, fmt.Errorf("Retrieval.RerankTimeoutMS must not be negative")
 			}
 		}
 	}
@@ -844,7 +867,7 @@ func load(path string, profile configProfile) (*Config, error) {
 	if profile != profileAPI {
 		if cfg.Indexer.BatchSize <= 0 {
 			return nil, fmt.Errorf(
-				"indexer.batchSize must be greater than zero",
+				"Indexer.BatchSize must be greater than zero",
 			)
 		}
 	}
@@ -859,17 +882,17 @@ func load(path string, profile configProfile) (*Config, error) {
 
 	if profile == profileWorker {
 		if !cfg.Asynq.Enabled {
-			return nil, fmt.Errorf("asynq.enabled must be true for worker")
+			return nil, fmt.Errorf("Asynq.Enabled must be true for worker")
 		}
 		consumesIndex := false
 		for _, q := range cfg.Asynq.Queues {
 			consumesIndex = consumesIndex || q.Name == "index"
 		}
 		if !consumesIndex {
-			return nil, fmt.Errorf("worker asynq.queues must include the index queue")
+			return nil, fmt.Errorf("worker Asynq.Queues must include the index queue")
 		}
 		if cfg.Milvus.Address == "" || cfg.Milvus.Collection == "" {
-			return nil, fmt.Errorf("worker milvus.address and milvus.collection are required")
+			return nil, fmt.Errorf("worker Milvus.Address and Milvus.Collection are required")
 		}
 	}
 
@@ -882,7 +905,7 @@ func load(path string, profile configProfile) (*Config, error) {
 	return &cfg, nil
 }
 
-// validateES 只在 es.address 非空时执行。
+// validateES 只在 ES.Address 非空时执行。
 //
 // 校验口径是「配了一半比没配更危险」：地址配上、索引名或口令没配，进程能起来，
 // 但要到第一个分块写不进去、或者第一次关键字查询静默返回空结果时才暴露 ——
@@ -892,36 +915,36 @@ func validateES(cfg ESConfig) error {
 		if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
 			// 裸 host:port 也能被客户端接受，但会被当成 http，托管集群上会
 			// 以「连接被重置」这种和真实原因无关的方式失败。
-			return fmt.Errorf("es.address %q must start with http:// or https://", addr)
+			return fmt.Errorf("ES.Address %q must start with http:// or https://", addr)
 		}
 	}
 	if cfg.Index == "" {
-		return fmt.Errorf("es.index is required when es.address is set")
+		return fmt.Errorf("ES.Index is required when ES.Address is set")
 	}
 	if cfg.Analyzer == "" {
-		return fmt.Errorf("es.analyzer is required when es.address is set")
+		return fmt.Errorf("ES.Analyzer is required when ES.Address is set")
 	}
 	if cfg.BulkSize <= 0 {
-		return fmt.Errorf("es.bulkSize must be greater than zero")
+		return fmt.Errorf("ES.BulkSize must be greater than zero")
 	}
 	// 映射文件是检索面的唯一定义处：没有它，进程连「该写哪些字段」都不知道。
 	// 在这里拦下来，好过等到 es.New 里报错时还带着一个已经连上的集群连接。
 	if cfg.MappingFile == "" {
 		return fmt.Errorf(
-			"es.mappingFile is required when es.address is set; " +
-				"see configs/es/chunk_mapping.json for a working example",
+			"ES.MappingFile is required when ES.Address is set; " +
+				"see configs/es/chunk_mapping.yaml for a working example",
 		)
 	}
 	if _, err := os.Stat(cfg.MappingFile); err != nil {
 		return fmt.Errorf(
-			"es.mappingFile %q is not readable: %w（路径相对进程的工作目录，通常是仓库根）",
+			"ES.MappingFile %q is not readable: %w（路径相对进程的工作目录，通常是仓库根）",
 			cfg.MappingFile, err,
 		)
 	}
 	// basic auth 是 user + password 成对的：只配 user 不配口令只会拿到 401。
 	if cfg.Username != "" {
 		if cfg.PasswordEnv == "" {
-			return fmt.Errorf("es.passwordEnv is required when es.username is set")
+			return fmt.Errorf("ES.PasswordEnv is required when ES.Username is set")
 		}
 		if cfg.Password == "" {
 			return fmt.Errorf("environment variable %s is required", cfg.PasswordEnv)
@@ -930,14 +953,14 @@ func validateES(cfg ESConfig) error {
 	return nil
 }
 
-// validateAsynq 只在 asynq.enabled=true 时执行：关掉队列意味着整个索引链路
+// validateAsynq 只在 Asynq.Enabled=true 时执行：关掉队列意味着整个索引链路
 // 停摆，那种情况下再校验连接参数只会挡住一次有意为之的排障启动。
 func validateAsynq(cfg AsynqConfig, consumer bool) error {
 	if cfg.Redis.Addr == "" {
-		return fmt.Errorf("asynq.redis.addr is required")
+		return fmt.Errorf("Asynq.Redis.Addr is required")
 	}
 	if cfg.Redis.DB < 0 {
-		return fmt.Errorf("asynq.redis.db must not be negative")
+		return fmt.Errorf("Asynq.Redis.DB must not be negative")
 	}
 	if cfg.Redis.PasswordEnv != "" && cfg.Redis.Password == "" {
 		return fmt.Errorf(
@@ -947,11 +970,11 @@ func validateAsynq(cfg AsynqConfig, consumer bool) error {
 	}
 	if consumer {
 		if len(cfg.Queues) == 0 {
-			return fmt.Errorf("asynq.queues must contain at least one queue")
+			return fmt.Errorf("Asynq.Queues must contain at least one queue")
 		}
 		for _, queue := range cfg.Queues {
 			if queue.Name == "" {
-				return fmt.Errorf("asynq.queues.name must be set")
+				return fmt.Errorf("Asynq.Queues.Name must be set")
 			}
 			if queue.Weight <= 0 {
 				return fmt.Errorf(
@@ -961,24 +984,24 @@ func validateAsynq(cfg AsynqConfig, consumer bool) error {
 			}
 		}
 		if cfg.Concurrency <= 0 {
-			return fmt.Errorf("asynq.concurrency must be greater than zero")
+			return fmt.Errorf("Asynq.Concurrency must be greater than zero")
 		}
 	}
 	if cfg.MaxRetries < 0 {
-		return fmt.Errorf("asynq.maxRetries must not be negative")
+		return fmt.Errorf("Asynq.MaxRetries must not be negative")
 	}
 	if consumer {
 		if cfg.RetryDelaySeconds <= 0 {
-			return fmt.Errorf("asynq.retryDelaySeconds must be greater than zero")
+			return fmt.Errorf("Asynq.RetryDelaySeconds must be greater than zero")
 		}
 		if cfg.MaxRetryDelaySeconds < cfg.RetryDelaySeconds {
 			return fmt.Errorf(
-				"asynq.maxRetryDelaySeconds must be >= retryDelaySeconds",
+				"Asynq.MaxRetryDelaySeconds must be >= retryDelaySeconds",
 			)
 		}
 		if cfg.ShutdownTimeoutSeconds <= 0 {
 			return fmt.Errorf(
-				"asynq.shutdownTimeoutSeconds must be greater than zero",
+				"Asynq.ShutdownTimeoutSeconds must be greater than zero",
 			)
 		}
 	}

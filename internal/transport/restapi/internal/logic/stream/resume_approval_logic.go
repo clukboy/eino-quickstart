@@ -5,8 +5,6 @@ package stream
 
 import (
 	"context"
-	"errors"
-	"io"
 	"strings"
 
 	"eino-quickstart/internal/application/middleware"
@@ -95,82 +93,32 @@ func (l *ResumeApprovalLogic) ResumeApproval(
 // streamResume 转发续跑的事件流，并在收尾时把 turn 补完。
 //
 // 与 Chat 里的转发有一处刻意的不同：这里一遇到错误就 ReleaseResume 并结束，
-// 不像 Chat 那样「发一帧 error 继续读」。续跑是接在审批之后的，出错的流没有再
-// 继续的语义；退回 APPROVED 让用户重试比拖着一条坏流更干净。
+// 不像 Chat 那样「收下错误继续读」。续跑是接在审批之后的，出错的流没有再继续的
+// 语义；退回 APPROVED 让用户重试比拖着一条坏流更干净 —— 这个语义通过
+// forwardRound 的 abortOnErr=true 表达。
 func (l *ResumeApprovalLogic) streamResume(
 	ctx context.Context,
 	client chan<- *types.ChatEvent,
 	record *approval.Request,
 	iter *adk.AsyncIterator[*adk.AgentEvent],
 ) error {
-	var assistant strings.Builder
+	round, clientGone, fatal := forwardRound(ctx, client, record.SessionID, iter, true)
+	if clientGone {
+		// 客户端断开：这轮续跑没了接收方，把审批单退回 APPROVED，让它能被重新
+		// 发起（否则会一直卡在 RESUMING 直到过期）。
+		_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
+		return nil
+	}
+	if fatal != nil {
+		_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
+		return fail(ctx, client, record.SessionID, "resume stream failed", fatal)
+	}
 
-	for {
-		event, ok := iter.Next()
-		if !ok {
-			break
-		}
-
-		if event.Err != nil {
-			_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
-			return fail(ctx, client, record.SessionID, "resume stream failed", event.Err)
-		}
-
-		// 续跑里又撞上审批：当前实现不支持二次中断（没有把新断点接回去的链路），
-		// 所以退回 APPROVED 并明确告诉客户端，而不是留下一条含糊的死流。
-		if event.Action != nil && event.Action.Interrupted != nil {
-			_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
-			return emitError(ctx, client, record.SessionID, "resumed execution requires another approval")
-		}
-
-		if event.Output == nil || event.Output.MessageOutput == nil {
-			continue
-		}
-
-		output := event.Output.MessageOutput
-
-		if output.IsStreaming {
-			for {
-				message, err := output.MessageStream.Recv()
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				if err != nil {
-					_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
-					return fail(ctx, client, record.SessionID, "resume stream failed", err)
-				}
-				if message.Content == "" {
-					continue
-				}
-				assistant.WriteString(message.Content)
-				if !emit(ctx, client, &types.ChatEvent{
-					Type:      eventMessage,
-					SessionID: record.SessionID,
-					Agent:     event.AgentName,
-					Content:   message.Content,
-				}) {
-					// 客户端断开：这轮续跑没了接收方，把审批单退回 APPROVED，
-					// 让它能被重新发起（旧实现这里是直接 return，审批单会一直
-					// 卡在 RESUMING 直到过期）。
-					_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
-					return nil
-				}
-			}
-			continue
-		}
-
-		if output.Message != nil && output.Message.Content != "" {
-			assistant.WriteString(output.Message.Content)
-			if !emit(ctx, client, &types.ChatEvent{
-				Type:      eventMessage,
-				SessionID: record.SessionID,
-				Agent:     event.AgentName,
-				Content:   output.Message.Content,
-			}) {
-				_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
-				return nil
-			}
-		}
+	// 续跑里又撞上审批：当前实现不支持二次中断（没有把新断点接回去的链路），
+	// 所以退回 APPROVED 并明确告诉客户端，而不是留下一条含糊的死流。
+	if round.Interrupted != nil {
+		_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
+		return emitError(ctx, client, record.SessionID, "resumed execution requires another approval")
 	}
 
 	if record.TurnID == nil {
@@ -178,7 +126,7 @@ func (l *ResumeApprovalLogic) streamResume(
 		return emitError(ctx, client, record.SessionID, "approval is missing its chat turn")
 	}
 
-	if err := l.svcCtx.Turns.Complete(ctx, *record.TurnID, record.RequestedBy, assistant.String()); err != nil {
+	if err := l.svcCtx.Turns.Complete(ctx, *record.TurnID, record.RequestedBy, round.Assistant); err != nil {
 		_ = l.svcCtx.Approvals.ReleaseResume(ctx, record.ID)
 		return fail(ctx, client, record.SessionID, "complete resumed chat turn failed", err)
 	}

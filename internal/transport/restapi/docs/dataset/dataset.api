@@ -39,8 +39,9 @@ syntax = "v1"
 //   StatusResp        定义在 common/types.api（创建/删除都返回它）
 //   DocumentResp /
 //   DocumentListResp  定义在本文件，只被本组使用
-//   DatasetListResp   定义在本文件，被 admin 组
-//                     GET /agents/:subject/dataset 引用
+//   DatasetListResp   定义在本文件，只被本组 GET /dataset 使用
+//                     （admin 组的 GET /agents/:subject/dataset 用自己那份
+//                      AgentDatasetListResp —— 它按主体授权列举、不分页）
 // goctl 会先合并所有 import 的文件再解析类型，因此谁定义不重要；但**不要**
 // 两边各定义一份，会报类型重名。
 type CreateDatasetReq {
@@ -62,12 +63,28 @@ type DatasetResp {
 }
 
 type ListDatasetsReq {
-	Name string `json:"name,optional"`
-	Type string `json:"type,optional"`
+	// ⚠️ 必须是 `form` 标签，不能是 `json`：GET 的查询串由 httpx 的 formUnmarshaler
+	// 解析，而 core/mapping 的 usingDifferentKeys 会把「没有 form 标签」的字段**整条
+	// 跳过** —— 写成 json 的症状不是报错，而是这两个参数被静默忽略（此前就是这样）。
+	// 两个都是子串/精确匹配的**服务端过滤**（空串 = 不筛），过滤在 Count 之前生效，
+	// 故 Total 是过滤后的命中数：客户端把过滤写在本地、服务端却按全量分页，
+	// 会出现「第 2 页空空如也」这种对不上的分页。
+	Name string `form:"name,optional"`
+	Type string `form:"type,optional"`
+	// Page / PageSize 口径同 /users、/tools：page 从 1 开始，page_size<=0 或
+	// >200 时后端按 20 兜底。都不传 = 第一页 20 条。
+	Page     int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
 }
 
+// DatasetListResp 的 Total 是**过滤后**的总数，不是 len(Data)。它同时被本组的
+// GET /dataset 使用；admin 组的 GET /agents/:subject/dataset 已改用
+// AgentDatasetListResp（那张表按主体授权、量级固定，不参与分页）。
 type DatasetListResp {
-	Data []*DatasetResp `json:"data"`
+	Data     []*DatasetResp `json:"data"`
+	Total    int            `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
 }
 
 type DatasetTypeOption {
@@ -155,8 +172,30 @@ type DocumentResp {
 	Enabled   bool   `json:"enabled"`
 }
 
+// DocumentListResp 只被 GET /dataset/:id/documents 使用；创建走 CreateDocumentResp。
+// 拆开是为了不让「创建」背上 total/page/page_size —— 它返回的是本次写入涉及的那几条
+// 文档，压根没有「第几页」的概念，硬填一个 page=1 反而让人以为它可以翻页。
 type DocumentListResp {
+	Data     []*DocumentResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+}
+
+// CreateDocumentResp 的 JSON 形状与拆分前的 DocumentListResp 完全一致（顶层只有
+// data），所以线上调用方的解析不用改。
+type CreateDocumentResp {
 	Data []*DocumentResp `json:"data"`
+}
+
+// DocumentListReq 在 DatasetIDReq 之外加了分页参数。没有直接往 DatasetIDReq 上加：
+// 它还被 GET/DELETE /dataset/:id、POST /dataset/:id/reindex 复用，给那些路径凭空
+// 多出两个不起作用的查询参数只会误导。
+type DocumentListReq {
+	ID uint64 `path:"id"`
+	// page 从 1 开始；page_size<=0 或 >200 时后端按 20 兜底。都不传 = 第一页 20 条。
+	Page     int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
 }
 
 // DocumentUploadResp 保留 data 兼容旧客户端，并用 files 报告每个 multipart
@@ -303,11 +342,11 @@ service restapi {
 
 	@doc "创建文档（产品型录会按产品拆成多条）"
 	@handler CreateDocument
-	post /dataset/:id/documents (CreateDocumentReq) returns (DocumentListResp)
+	post /dataset/:id/documents (CreateDocumentReq) returns (CreateDocumentResp)
 
-	@doc "列出数据集文档"
+	@doc "列出数据集文档（分页）"
 	@handler ListDocuments
-	get /dataset/:id/documents (DatasetIDReq) returns (DocumentListResp)
+	get /dataset/:id/documents (DocumentListReq) returns (DocumentListResp)
 
 	@doc "获取文档详情"
 	@handler GetDocument

@@ -560,7 +560,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: dataset.CreateDocumentHandler(serverCtx),
 				},
 				{
-					// 列出数据集文档
+					// 列出数据集文档（分页）
 					Method:  http.MethodGet,
 					Path:    "/dataset/:id/documents",
 					Handler: dataset.ListDocumentsHandler(serverCtx),
@@ -672,11 +672,23 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/tasks/stream",
+				Handler: stream.TaskStreamHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
+		rest.WithSSE(),
+	)
+
+	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.RoleAdmin},
 			[]rest.Route{
 				{
-					// 列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）
+					// 列出账号（按创建时间倒序分页；keyword 可按用户名或昵称模糊搜索）
 					Method:  http.MethodGet,
 					Path:    "/users",
 					Handler: user.ListUsersHandler(serverCtx),

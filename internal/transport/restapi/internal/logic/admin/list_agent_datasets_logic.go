@@ -29,7 +29,12 @@ func NewListAgentDatasetsLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 // ListAgentDatasets lists the datasets bound to a subject.
-func (l *ListAgentDatasetsLogic) ListAgentDatasets(req *types.AgentSubjectReq) (resp *types.DatasetListResp, err error) {
+//
+// 不分页：这张表按主体列举授权，条数受人工授权规模限制，没有翻页场景。
+// 响应类型是本品自持的 AgentDatasetListResp —— 不再复用 dataset 组的
+// DatasetListResp，后者带 total/page/page_size（GET /dataset 要分页），
+// 被这里用会把分页字段读成 0。
+func (l *ListAgentDatasetsLogic) ListAgentDatasets(req *types.AgentSubjectReq) (resp *types.AgentDatasetListResp, err error) {
 	entClient, err := client(l.svcCtx)
 	if err != nil {
 		return nil, err
@@ -56,5 +61,5 @@ func (l *ListAgentDatasetsLogic) ListAgentDatasets(req *types.AgentSubjectReq) (
 		result = append(result, DatasetDTO(base))
 	}
 
-	return &types.DatasetListResp{Data: result}, nil
+	return &types.AgentDatasetListResp{Data: result}, nil
 }

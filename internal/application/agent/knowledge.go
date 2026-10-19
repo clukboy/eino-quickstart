@@ -38,5 +38,6 @@ func newKnowledgeAgent(
 		knowledgeInstruction,
 		tools,
 		handlers,
+		0, // 沿用 cfg.Agent.MaxIterations
 	)
 }

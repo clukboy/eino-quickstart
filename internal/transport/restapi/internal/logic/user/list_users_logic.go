@@ -19,7 +19,7 @@ type ListUsersLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 列出全部账号（按创建时间倒序，暂不分页）
+// 列出账号（按创建时间倒序分页）
 func NewListUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListUsersLogic {
 	return &ListUsersLogic{
 		Logger: logx.WithContext(ctx),
@@ -33,8 +33,10 @@ func (l *ListUsersLogic) ListUsers(req *types.UserListReq) (resp *types.UserList
 	if err != nil {
 		return nil, err
 	}
-	
-	records, err := store.List(l.ctx, normalizeKeyword(req.Keyword))
+
+	page, pageSize := httpx.NormalizePage(req.Page, req.PageSize)
+
+	records, total, err := store.List(l.ctx, normalizeKeyword(req.Keyword), page, pageSize)
 	if err != nil {
 		l.Errorf("list accounts failed: %v", err)
 		return nil, httpx.Internal("查询账号列表失败")
@@ -45,5 +47,6 @@ func (l *ListUsersLogic) ListUsers(req *types.UserListReq) (resp *types.UserList
 		data = append(data, userDTO(record))
 	}
 
-	return &types.UserListResp{Data: data, Total: len(data)}, nil
+	// Total 是过滤后的命中总数，不是 len(data) —— 前端据它算总页数。
+	return &types.UserListResp{Data: data, Total: total, Page: page, PageSize: pageSize}, nil
 }

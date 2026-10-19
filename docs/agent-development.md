@@ -8,12 +8,19 @@
 
 | Agent | 职责 | 当前工具 |
 | --- | --- | --- |
-| `root_agent` | 将请求路由给一个专项 Agent | 三个 Agent Tool |
+| `root_agent` | 只做路由：每条请求必须委派一个专项 Agent，不直接回答 | 四个 Agent Tool |
 | `knowledge_agent` | 基于已索引知识库回答并给出引用 | `search_knowledge` |
-| `workspace_agent` | 只读检查工作区 | `read_file`、`list_dir` |
+| `workspace_agent` | 只读检查工作区 | `read_file`、`list_dir`、`list_skills`、`load_skill` |
 | `automation_agent` | 受策略和审批控制地修改、执行 | `write_file`，以及启用执行器时的 `shell` |
+| `general_agent` | 兜底：处理其余一切请求，无工具 | 无 |
 
-根 Agent 通过 `adk.NewAgentTool` 将专项 Agent 包装为工具。专项 Agent 则由共享的 `newSpecialist` 创建，该函数统一设置模型、最大迭代次数、工具和中间件。
+根 Agent 通过 `adk.NewAgentTool` 将专项 Agent 包装为工具。专项 Agent 则由共享的 `newSpecialist` 创建，该函数统一设置模型、最大迭代次数、工具和中间件；兜底 Agent 走 `newSpecialistWithModel`，差异只在模型由调用方注入。
+
+## 路由约定
+
+1. `root_agent` 自己不回答，只调一个专员 —— 这样"不匹配就落兜底"才是确定语义，而不只是提示词偏好。
+2. 每个专员的 `Description` 是路由的唯一判据，必须写清"覆盖面 + 排他条件"。`general_agent` 的 Description 额外需要"no other specialist clearly applies / whenever you are unsure"。
+3. 兜底有第二层：一轮结束后助手正文为空时，`ChatLogic` 会用 `GeneralRunner` 再跑一次 `general_agent`。所以给 `general_agent` 加工具会破坏这条路（它没有 checkpoint store，审批中断无法续跑）。
 
 ## 新增专项 Agent
 
@@ -49,6 +56,7 @@
            ctx, cfg, "review_agent",
            "Reviews workspace code without modifying it.",
            reviewInstruction, tools, handlers,
+           0, // 沿用 Agent.MaxIterations
        )
    }
    ```
@@ -74,9 +82,20 @@
 
 3. 修改 `newRootAgent` 的参数和工具列表，将 `adk.NewAgentTool(ctx, reviewAgent)` 加入其中；同时更新 `rootInstruction`，写清 `review_agent` 的适用请求。这样根协调器才能发现并调度新 Agent。
 
-4. 如果 Agent 使用新工具，在 `cmd/server/main.go` 注册该工具，并在 `configs/config.yaml` 的 `security.allowedTools` 中显式允许它。工具被注册不等于被某个 Agent 授予，也不等于通过安全策略。
+4. 如果 Agent 使用新工具，在 `cmd/server/main.go` 注册该工具，并在 `configs/config.yaml` 的 `Security.AllowedTools` 中显式允许它。工具被注册不等于被某个 Agent 授予，也不等于通过安全策略。
 
-目前 Agent 不是由 YAML 声明式创建的；`agent` 配置只提供所有 Agent 共用的名称、基础指令和 `max_iterations`。专项 Agent 的名称、指令、工具集和路由关系均在 `internal/application/agent` 中维护。
+目前 Agent 不是由 YAML 声明式创建的；`Agent` 配置只提供 `Agent.MaxIterations`（专项 Agent 的默认值）。`root_agent` 固定 3 次、`general_agent` 固定 1 次，各自在源码里写死 —— 它们要表达的循环次数是确定的，做成配置项只会多一个人工旋钮。专项 Agent 的名称、指令、工具集和路由关系均在 `internal/application/agent` 中维护。
+
+## 模型从哪来
+
+`root_agent` 与三个专项 Agent 使用 `config.yaml` 的 `Model` 段。
+
+`general_agent` 可以换成外部平台：解析顺序是
+`ModelRouting(config_key="default").default_chat_model` → `Model.key` → `ModelProvider`（`base_url` / `auth_type` / `secret_ciphertext`），密钥用 `Security.SecretKeyEnv` 指向的主密钥解密。
+
+- `Model.key` 必须填平台自己的模型名（如 `deepseek-chat`），OpenAI 兼容协议里 `model` 字段就是它。
+- 没配路由或没配主密钥时回落统一 `Model` 段；**配了却解析失败**（provider 被删、密文损坏）会直接启动失败 —— 那是部署错误，静默降级会让问题拖很久。
+- 改 provider 最多等 60 秒缓存 TTL 生效，不需重启：`general_agent` 无工具，模型可以用动态代理把解析推迟到每次调用。
 
 ## 编写并接入工具
 
@@ -126,7 +145,7 @@ if err := reg.Register(projectStatus); err != nil {
 然后完成以下接线：
 
 1. 用 `registry.Require("project_status")` 将工具交给需要它的专项 Agent，避免把全部注册工具暴露给全部 Agent。
-2. 将 `project_status` 加入 `security.allowedTools`，否则 `middleware.Policy` 会拒绝调用。
+2. 将 `project_status` 加入 `Security.AllowedTools`，否则 `middleware.Policy` 会拒绝调用。
 3. 在 `internal/tool/policy.go` 的 `RiskFor` 中声明风险等级：无副作用查询使用 `RiskRead`，写操作使用 `RiskWrite`，执行命令、外部副作用或未知影响使用 `RiskHigh`。未分类工具默认需要审批。
 4. 为输入校验、路径边界、超时、输出大小和错误路径编写单元测试。可参考 `internal/tool/builtin/filesystem_test.go` 与 `shell_test.go`。
 
@@ -145,27 +164,27 @@ skills/
 在 `configs/config.yaml` 中配置根目录和单次加载的最大字节数：
 
 ```yaml
-skills:
-  root: "./skills"
-  maxReadBytes: 32768
+Skills:
+  Root: "./skills"
+  MaxReadBytes: 32768
 ```
 
 启动时 `skill.NewLoader` 会注册两个 Eino 工具：
 
 | 工具 | 行为 |
 | --- | --- |
-| `list_skills` | 列出 `skills.root` 直属子目录中包含 `SKILL.md` 的 Skill 名称 |
-| `load_skill` | 按名称读取 `<skills.root>/<name>/SKILL.md`，超出 `maxReadBytes` 时截断 |
+| `list_skills` | 列出 `Skills.Root` 直属子目录中包含 `SKILL.md` 的 Skill 名称 |
+| `load_skill` | 按名称读取 `<Skills.Root>/<name>/SKILL.md`，超出 `Skills.MaxReadBytes` 时截断 |
 
-Skill 名称只能由字母、数字、`-` 和 `_` 组成；加载器会拒绝路径穿越和指向根目录外的符号链接。`skills.root` 必须在启动前存在且是目录。
+Skill 名称只能由字母、数字、`-` 和 `_` 组成；加载器会拒绝路径穿越和指向根目录外的符号链接。`Skills.Root` 必须在启动前存在且是目录。
 
 当前启动代码已注册 Skill 工具，但默认三个专项 Agent 均未取得它们。因此，仅新增 `SKILL.md` 不会让 Agent 使用它。要启用某个 Agent 的 Skill 能力，应在该 Agent 的 `registry.Require(...)` 中加入 `list_skills` 和 `load_skill`，并在其指令中说明先列举、再按需加载的规则；“代码审查 Agent”示例展示了该方式。此项也记录在 [待完善项](known-gaps.md#p1skill-未授予任何默认-agent)。
 
-如果使用了带 `middleware.Policy` 的 Agent，还要将这两个工具加入 `security.allowedTools`：
+如果使用了带 `middleware.Policy` 的 Agent，还要将这两个工具加入 `Security.AllowedTools`：
 
 ```yaml
-security:
-  allowedTools:
+Security:
+  AllowedTools:
     - read_file
     - list_dir
     - list_skills
@@ -198,6 +217,6 @@ Skill 应保持短小、任务聚焦，并且只要求其所属 Agent 已被授�
 1. Agent 的职责、指令和最小工具集已经定义。
 2. 工具已创建、注册、分类风险，并覆盖失败路径测试。
 3. 需要策略保护的 Agent 已挂载 `middleware.Policy`。
-4. `security.allowedTools` 与实际工具名一致，审批开关符合风险等级。
+4. `Security.AllowedTools` 与实际工具名一致，审批开关符合风险等级。
 5. 根 Agent 已获得新专项 Agent 的 `AgentTool` 并更新路由指令。
-6. Skill 位于 `<skills.root>/<skill-name>/SKILL.md`，并且已授予目标 Agent `list_skills`、`load_skill`。
+6. Skill 位于 `<Skills.Root>/<skill-name>/SKILL.md`，并且已授予目标 Agent `list_skills`、`load_skill`。

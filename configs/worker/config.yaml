@@ -1,90 +1,90 @@
 # Index worker only: no HTTP, agent, model, auth, workspace or retrieval settings.
 # API and worker must target the same storage/Redis/vector/keyword resources.
 # For isolated acceptance, use configs/acceptance/worker.yaml instead.
-storage:
-  host: 10.10.2.181
-  port: 5432
-  dbName: eino
-  username: postgres
-  passwordEnv: "EINO_STORAGE_PASSWORD"
-  maxOpenConn: 100
-  sslMode: disable
+Storage:
+  Host: 10.10.2.181
+  Port: 5432
+  DBName: eino
+  Username: postgres
+  PasswordEnv: "EINO_STORAGE_PASSWORD"
+  MaxOpenConn: 100
+  SSLMode: disable
 
-observability:
-  logLevel: "info"
-  serviceName: "eino-harness-worker"
-  environment: "development"
-  otlpEndpoint: "10.10.2.90:4317"
-  otlpInsecure: true
-  traceSampleRatio: 1.0
-  logFilePath: "logs/eino/worker.json"
-  logMaxSizeMB: 100
-  logMaxBackups: 5
-  logMaxAgeDays: 14
+Observability:
+  LogLevel: "info"
+  ServiceName: "eino-harness-worker"
+  Environment: "development"
+  OTLPEndpoint: "10.10.2.90:4317"
+  OTLPInsecure: true
+  TraceSampleRatio: 1.0
+  LogFilePath: "logs/eino/worker.json"
+  LogMaxSizeMB: 100
+  LogMaxBackups: 5
+  LogMaxAgeDays: 14
 
 # Legacy content directory is read only; new bodies come from PostgreSQL.
-knowledge:
-  root: "./tests/knowledge"
-  maxDocumentBytes: 5242880
-  chunkSizeCharacters: 1200
-  chunkOverlapCharacters: 200
-  maxChunksPerDocument: 2000
+Knowledge:
+  Root: "./tests/knowledge"
+  MaxDocumentBytes: 5242880
+  ChunkSizeCharacters: 1200
+  ChunkOverlapCharacters: 200
+  MaxChunksPerDocument: 2000
 
-embedding:
-  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  apiKeyEnv: "EINO_EMBEDDING_API_KEY"
-  model: "qwen3.7-text-embedding"
-  dimensions: 1024
+Embedding:
+  BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  APIKeyEnv: "EINO_EMBEDDING_API_KEY"
+  Model: "qwen3.7-text-embedding"
+  Dimensions: 1024
   # 单次 embedding 请求最多带几段文本 —— 服务方的硬上限，不是调优项。
   # 超了会回 400「batch size is invalid, it should not be larger than 10」，
   # 而那一刻向量还没写、检索索引也还没写，整篇文档会什么都索引不上。
   # DashScope：text-embedding-v3/v4 上限 10，qwen3.7-text-embedding 上限 20。
-  batchSize: 10
+  BatchSize: 10
 
-milvus:
-  address: "10.10.2.90:19530"
-  collection: "eino_document_chunks_v1"
-  metricType: "COSINE"
+Milvus:
+  Address: "10.10.2.90:19530"
+  Collection: "eino_document_chunks_v1"
+  MetricType: "COSINE"
 
-es:
-  address:
+ES:
+  Address:
     - https://10.4.99.100:30920
-  index: "eino_document_chunks_v1"
-  analyzer: "ik_max_word"
-  username: "elastic"
-  passwordEnv: "EINO_ES_PASSWORD"
-  caCertPath: "configs/http_ca.crt"
-  bulkSize: 500
+  Index: "eino_document_chunks_v1"
+  Analyzer: "ik_max_word"
+  Username: "elastic"
+  PasswordEnv: "EINO_ES_PASSWORD"
+  CaCertPath: "configs/http_ca.crt"
+  BulkSize: 500
   # 检索面声明：字段、类型、权重、从元数据的哪个路径取值。
   # 路径相对进程的工作目录（在仓库根启动时就是仓库根）。
-  mappingFile: "configs/es/chunk_mapping.yaml"
+  MappingFile: "configs/es/chunk_mapping.yaml"
 
-indexer:
+Indexer:
   # 一轮从 document_chunks 里取多少 pending 分块做 embedding + 写库。
   # 只影响批处理粒度，不是单次 embedding 请求的大小 —— 后者由
-  # embedding.batchSize 决定，Embedder 会把请求切到那个上限以内。
-  batchSize: 32
+  # Embedding.BatchSize 决定，Embedder 会把请求切到那个上限以内。
+  BatchSize: 32
 
-asynq:
-  enabled: true
-  redis:
-    addr: "10.10.2.90:6379"
-    username: ""
-    passwordEnv: ""
-    db: 0
-  queues:
-    - name: "index"
-      weight: 1
-  concurrency: 10
-  maxRetries: 5
-  retryDelaySeconds: 30
-  maxRetryDelaySeconds: 900
-  shutdownTimeoutSeconds: 300
+Asynq:
+  Enabled: true
+  Redis:
+    Addr: "10.10.2.90:6379"
+    Username: ""
+    PasswordEnv: ""
+    DB: 0
+  Queues:
+    - Name: "index"
+      Weight: 1
+  Concurrency: 10
+  MaxRetries: 5
+  RetryDelaySeconds: 30
+  MaxRetryDelaySeconds: 900
+  ShutdownTimeoutSeconds: 300
 
-maintenance:
+Maintenance:
   # 维护入口复用 worker 配置；周期任务首次启动会先执行一次清理。
-  cleanupIntervalSeconds: 300
-  approvalRetentionHours: 168
-  checkpointRetentionHours: 168
-  turnRetentionHours: 168
-  cleanupBatchSize: 100
+  CleanupIntervalSeconds: 300
+  ApprovalRetentionHours: 168
+  CheckpointRetentionHours: 168
+  TurnRetentionHours: 168
+  CleanupBatchSize: 100

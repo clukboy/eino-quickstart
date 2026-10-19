@@ -6,27 +6,27 @@
 
 ## 前置条件
 
-1. PostgreSQL、Milvus、Redis 都可访问，且 `configs/api/config.yaml` 与 `configs/worker/config.yaml` 里的 `storage`、
-   `milvus`、`embedding`、`asynq` 配置与实际环境一致。
-2. Elasticsearch 可选：`es.address` 填了就启用 BM25 词法通道，留空则词法通道回落
+1. PostgreSQL、Milvus、Redis 都可访问，且 `configs/api/config.yaml` 与 `configs/worker/config.yaml` 里的 `Storage`、
+   `Milvus`、`Embedding`、`Asynq` 配置与实际环境一致。
+2. Elasticsearch 可选：`ES.Address` 填了就启用 BM25 词法通道，留空则词法通道回落
    PostgreSQL 子串匹配（正文和元数据可做子串匹配，
    但没有 ES 的结构化 exact 通道；质量不等同于 BM25）。启用时需要：
 
    ```yaml
-   es:
-     address: ["https://es-xxxx.tencentelasticsearch.com:9200"]
-     index: "eino_document_chunks_v1"
-     analyzer: "ik_max_word"        # 集群需装 IK 插件；没装用内置 cjk
-     username: "elastic"
-     passwordEnv: "EINO_ES_PASSWORD"
-     caCertPath: "/etc/es/ca.crt"   # 托管集群的 CA 证书
-     mappingFile: "configs/es/chunk_mapping.yaml"   # 检索面声明；必填
+   ES:
+     Address: ["https://es-xxxx.tencentelasticsearch.com:9200"]
+     Index: "eino_document_chunks_v1"
+     Analyzer: "ik_max_word"        # 集群需装 IK 插件；没装用内置 cjk
+     Username: "elastic"
+     PasswordEnv: "EINO_ES_PASSWORD"
+     CaCertPath: "/etc/es/ca.crt"   # 托管集群的 CA 证书
+     MappingFile: "configs/es/chunk_mapping.yaml"   # 检索面声明；必填
    ```
 
-   索引由 `cmd/worker` 启动时创建/校验，不需要手工建。`analyzer` 写错（集群没装
+   索引由 `cmd/worker` 启动时创建/校验，不需要手工建。`ES.Analyzer` 写错（集群没装
    IK）会在 worker 启动时以 400 失败，报错里会提示改用 `cjk`。
 
-   **`mappingFile` 是必填项**：它决定索引里有哪些业务字段（型号、系列、品类）、
+   **`ES.MappingFile` 是必填项**：它决定索引里有哪些业务字段（型号、系列、品类）、
    各自权重、以及值从分块 `metadata` 的哪个路径取。ES 启用却留空会在启动时直接报错。
    换一条产品线时改这个文件即可，不需要动代码。
 3. 设置运行所需的环境变量（配置已分离：共用依赖变量要一致，API 身份变量仅 API 使用）：
@@ -35,14 +35,14 @@
    export EINO_STORAGE_PASSWORD=...
    export EINO_EMBEDDING_API_KEY=...   # worker 需要；没设 worker 会拒绝启动
    export EINO_API_KEY_ADMIN=...
-   # Redis 需要口令时，把 asynq.redis.passwordEnv 设成下面这个名字
+   # Redis 需要口令时，把 Asynq.Redis.PasswordEnv 设成下面这个名字
    export EINO_REDIS_PASSWORD=...
-   # 配了 es.passwordEnv（默认 EINO_ES_PASSWORD）时需要
+   # 配了 ES.PasswordEnv（默认 EINO_ES_PASSWORD）时需要
    export EINO_ES_PASSWORD=...
    ```
 
 4. 在仓库根目录执行命令。正文不需要预先准备任何目录 —— 它直接落在
-   `documents.content` 列里（`knowledge.root` 只在存量迁移时被读一次，见「存量迁移」）。
+   `documents.content` 列里（`Knowledge.Root` 只在存量迁移时被读一次，见「存量迁移」）。
 
 ## 正文存在哪
 
@@ -58,14 +58,14 @@
 
 ## 存量迁移
 
-早期版本的正文写在 `knowledge.root/documents/<id>/<slug>.md`。这份旧数据由 worker
+早期版本的正文写在 `Knowledge.Root/documents/<id>/<slug>.md`。这份旧数据由 worker
 在索引时**只读**导入：`documents.content` 为空时，它会带着 `documents.source`
 去旧目录读一次文件、去掉 YAML 头、写回 `content`，之后所有链路都只认库。
 
 - 迁移是幂等的：导入后再也不会读文件；重传/重索引都只看库里的正文。
 - 旧目录里一个文件含多个产品块的，会直接报错要求重传 —— 那种形态在「一篇文档
   一个 `source`」的新模型里没有对应物。
-- 迁移完成后可以把 `knowledge.root` 配置和 `rag.LegacyContentReader` 一起删掉。
+- 迁移完成后可以把 `Knowledge.Root` 配置和 `rag.LegacyContentReader` 一起删掉。
 
 ## 启动服务
 
@@ -120,7 +120,7 @@ consume                              ← cmd/worker（另一个进程）
      -> MarkdownChunker 按正文切分块（标题优先，超长按字符数滑窗）
   -> 事务写入 document_chunks，vector_status=pending
   -> 分批 embedding -> Milvus upsert
-  -> 写检索索引 ES（_id = chunk_id，按 chunk 覆盖；配了 es.address 才有这一步）
+  -> 写检索索引 ES（_id = chunk_id，按 chunk 覆盖；配了 ES.Address 才有这一步）
   -> chunk 标 indexed；全部分块追平后 documents.status = ready
 ```
 
@@ -154,7 +154,7 @@ ORDER BY c.chunk_index;
 且 `content_bytes` 大于 0（等于 0 说明正文没落库，见「排错」）。
 
 配置拆分、覆盖变量和隔离验收步骤见 [P02 配置指南](p02-configuration.md)。
-验收 Redis 默认 DB 15；下方排错命令的 `-n 0` 需按实际 `asynq.redis.db` 调整。
+验收 Redis 默认 DB 15；下方排错命令的 `-n 0` 需按实际 `Asynq.Redis.DB` 调整。
 
 ## 排错
 
@@ -163,10 +163,10 @@ ORDER BY c.chunk_index;
 - **文档停在 `indexing` 且 `chunk_count` 恒为 0**：worker 没在跑，或者任务投进了
   没人消费的队列。
   1. 确认 `cmd/worker` 进程活着，日志里有 `eino worker started`；
-  2. 比对两份配置的 `asynq.redis.addr/db`，worker 的 `asynq.queues` 必须包含 `index`；
+  2. 比对两份配置的 `Asynq.Redis.Addr/DB`，worker 的 `Asynq.Queues` 必须包含 `index`；
      API 只配置投递参数，不再包含消费队列权重或并发数；
   3. 直接看队列积压：`redis-cli -n 0 llen 'asynq:{index}:pending'`。
-- **文档变 `failed`**：任务重试耗尽（`asynq.maxRetries`）。日志里搜
+- **文档变 `failed`**：任务重试耗尽（`Asynq.MaxRetries`）。日志里搜
   `index document failed`，`retries_exhausted=true` 的那条会带原始错误（常见是
   embedding 鉴权失败或 Milvus 不可达）；修好外部依赖后用
   `POST /dataset/1/documents/1/reindex` 重来。注意进程在优雅关闭时被取消的任务
@@ -192,7 +192,7 @@ ORDER BY c.chunk_index;
    决定，默认就是 `trace`）;
 3. 在 trace 界面上应当看到两个服务名：HTTP 进程的来自 `etc/restapi.yaml` 的
    `Telemetry.Name`，worker 的来自 `configs/worker/config.yaml` 的
-   `observability.serviceName`。span 形状符合 `docs/architecture.md` 里
+   `Observability.ServiceName`。span 形状符合 `docs/architecture.md` 里
    「链路追踪」那一节。
 
 排查用的两条：
@@ -330,9 +330,9 @@ go run ./cmd/rag-test -out logs/report.json
    写错 source 是评测集最常见的事故，而且症状和「召回不准」一模一样。
 4. **配了 ES 但索引里一条文档都没有** → 直接失败。关键词通道必然全空、向量通道单打
    独斗，看起来就是「BM25 没用」。分块是在 worker 索引文档时写进 ES 的，确认 worker
-   的 `es` 段配置与本次评测一致，并对已有文档逐个触发 reindex。
-5. **ES 里有一批文档的映射形态与当前不一致** → 告警。它们是改过 `mappingFile`
-   （增删字段或换 `analyzer`）之前写入的，`mapping_rev` 与当前指纹不同，新字段
+   的 `ES` 段配置与本次评测一致，并对已有文档逐个触发 reindex。
+5. **ES 里有一批文档的映射形态与当前不一致** → 告警。它们是改过 `ES.MappingFile`
+   （增删字段或换 `ES.Analyzer`）之前写入的，`mapping_rev` 与当前指纹不同，新字段
    没有值，按型号、系列、品类可能都搜不到它们。触发 reindex 即可回填，见下一节。
 
 预检里的 `document_status` 计数会一起打出来，用来发现「有文档卡在 `indexing`」。
@@ -344,11 +344,11 @@ go run ./cmd/rag-test -out logs/report.json
 
 | 通道 | 启用条件 | 排序依据 |
 | --- | --- | --- |
-| 精确（`exact`） | 配了 `es.address` | 逐字相等（`term` 打在 `keyword` 子字段上） |
+| 精确（`exact`） | 配了 `ES.Address` | 逐字相等（`term` 打在 `keyword` 子字段上） |
 | 关键字（`keyword`） | 总是启用 | 配了 ES 走 `Elasticsearch BM25`（词频 + IDF + 字段长度归一化）；没配回落 `PostgreSQL 子串匹配`（「命中了几成词元」，长文档容易靠「什么都沾一点」排前面） |
 | 向量（`vector`） | 配了 Milvus + embedding | 向量距离 |
 
-三个通道按 `retrieval` 段里的权重加权融合（默认精确 3.0 > 关键字 1.5 > 向量 1.0），
+三个通道按 `Retrieval` 段里的权重加权融合（默认精确 3.0 > 关键字 1.5 > 向量 1.0），
 **产品型号这类查询优先命中精确/关键字通道**，向量只作兜底。任一通道失败只降级不整体
 失败：`vector` 依赖外部 embedding 服务，最容易先挂，挂掉后前两条仍然完整可用。
 
@@ -356,7 +356,7 @@ go run ./cmd/rag-test -out logs/report.json
 YAML 头里（`product_id` / `model` / `series_name` / `category_l1` 等），正文里一次都
 不出现 —— 所以按型号搜能不能命中，取决于这些键有没有进 ES。**哪些键进来、叫什么名字、
 各自多重要、值从哪个路径取，全部由一份 mapping 文件声明**：`configs/es/chunk_mapping.yaml`
-（`es.mappingFile` 指向它）。落地方式：
+（`ES.MappingFile` 指向它）。落地方式：
 
 - mapping 里显式声明的业务字段各自单独成列，权重按声明（当前型号/产品 ID 是 5，
   产品名 4，系列/品类/变体 2~3），高于正文（详见 `docs/architecture.md` 的
@@ -407,13 +407,13 @@ knowledge: 这批分块没有可检索的业务元数据，检索索引里只会
   **指纹覆盖正文 + 元数据两段**（`spec_hash`，存在 `documents.metadata` 里）：产品块
   的 YAML 头解析进 `metadata`，只改头不改正文也算变了。这是文件时代做不到的 —— 当时
   只能比对正文字节，改型号不改正文会被静默跳过。
-- **embedding 的单次请求条数上限会被服务方拒绝。** `embedding.batchSize` 是服务方的
+- **embedding 的单次请求条数上限会被服务方拒绝。** `Embedding.BatchSize` 是服务方的
   硬上限（DashScope 的 text-embedding-v3/v4 是 10），超过会回
   `400 batch size is invalid, it should not be larger than 10`。这个失败发生在向量与
   检索索引写入**之前**，所以症状是「整篇文档什么都没索引上」，而文档状态是 `failed`、
   worker 日志里只有一条 embedding 报错 —— 很容易被当成「检索质量差」。它与
-  `indexer.batchSize`（一轮处理多少分块）是两件事，Embedder 会按前者自动切分请求。
-- **换了 `es.analyzer` 必须换 `es.index` 名。** ES 的 mapping 不能就地换分词器，
+  `Indexer.BatchSize`（一轮处理多少分块）是两件事，Embedder 会按前者自动切分请求。
+- **换了 `ES.Analyzer` 必须换 `ES.Index` 名。** ES 的 mapping 不能就地换分词器，
   改配置却忘了换索引名，症状同样是「按型号搜不到」，而且没有任何报错。worker 启动时
   会校验并直接报错。**改已有字段的类型**（如 `text` → `integer`）同理，必须换索引名；
   只增字段或调 `boost` 不需要。
@@ -443,7 +443,7 @@ knowledge: 这批分块没有可检索的业务元数据，检索索引里只会
 ### 召回结果的归并粒度
 
 「一条结果」是什么，由知识库类型决定 —— 配置在 `configs/api/config.yaml` 的
-`knowledge.recallGrouping`（键是 `dataset.type`，`default` 兜底）：
+`Knowledge.RecallGrouping`（键是 `dataset.type`，`default` 兜底）：
 
 | 粒度 | 一条结果 = | 适合 |
 | --- | --- | --- |

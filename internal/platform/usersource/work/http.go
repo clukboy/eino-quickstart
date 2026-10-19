@@ -43,7 +43,7 @@ func (s *UserSync) Fetch(ctx context.Context) ([]*usersource.User, error) {
 }
 
 func (s *UserSync) FetchByExternalID(ctx context.Context, externalID string) (*usersource.User, error) {
-	work, err := s.client.GetWork("contact")
+	work, err := s.client.GetWork("work")
 	if err != nil {
 		return nil, err
 	}

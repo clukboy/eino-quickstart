@@ -34,5 +34,6 @@ func newAutomationAgent(
 		automationInstruction,
 		tools,
 		handlers,
+		0, // 沿用 cfg.Agent.MaxIterations
 	)
 }

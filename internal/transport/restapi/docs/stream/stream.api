@@ -48,14 +48,18 @@ syntax = "v1"
 // ChatEvent 是这条流上唯一的事件类型，四种 type 各自的用法：
 //
 //   message            模型输出增量。content 是这一片的内容，agent 是产出它的
-//                      agent 名（多 agent 编排下可能是子 agent）。客户端按到达
-//                      顺序拼接 content 就是完整回答。
+//                      agent 名（多 agent 编排下可能是子 agent；走兜底时是
+//                      general_agent）。客户端按到达顺序拼接 content 就是完整回答。
 //   error              链路出错，error 是原因。此帧之后流立即结束，不会再收到
 //                      message / done，本次回答不完整。
 //   done               本次回答正常收尾，assistant 全文已落库（chat_turns）。
 //   approval_required  工具调用被审批拦下，approval_id 指向待决策的审批单。
 //                      决策后用 POST /api/v1/approvals/:id/resume 继续这条流
 //                      （续跑的帧仍走本类型）。
+//
+// 服务端保证：一次对话至少会产出一条 message 或一条 error，绝不会只发一个
+// done 了事。空回答时服务端会用 general_agent（兜底专员）补跑一次；补跑仍失败
+// 才会发 error。
 //
 // 字段全部 omitempty，一帧只带该事件用得上的那几个。
 type ChatEvent {
@@ -85,20 +89,39 @@ type ResumeApprovalPathReq {
 	ID string `path:"id"`
 }
 
-// 对话与审批续跑都需要 agent 角色。
-//
-// sse: true 是本组的关键 —— 它同时决定 handler、logic 与路由选项三处的形态，
-// 组内**每条**路由都会变成 SSE，所以不要把普通 JSON 路由塞进这个组。
+type TaskEvent {
+	ID    string `json:"id"`
+	Event string   `json:"event"`
+	Data  interface{} `json:"data"`
+}
 @server (
 	prefix:     /api/v1
 	group:      stream
 	sse:        true
 	middleware: RoleAgent
 )
+
+
 service restapi {
 	@handler Chat
 	post /chat (ChatReq) returns (ChatEvent)
 
 	@handler ResumeApproval
 	post /approvals/:id/resume (ResumeApprovalPathReq) returns (ChatEvent)
+
+
 }
+
+
+@server (
+	prefix:     /api/v1
+	group:      stream
+	sse:        true
+)
+
+service restapi {
+	@handler TaskStream
+	post /tasks/stream () returns (TaskEvent)
+}
+
+

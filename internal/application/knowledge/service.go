@@ -780,7 +780,11 @@ func (s *Service) Get(ctx context.Context, datasetID, documentID uint64) (*ent.D
 	return s.document(ctx, datasetID, documentID)
 }
 
-// List 列出一个数据集下的文档，最新的在前。
+// List 列出一个数据集下的**全部**文档，最新的在前。
+//
+// ⚠️ 仅供需要全量的内部场景使用（目录导入要先按 source 建一张全量索引表，
+// 见 DirectoryImportStore）。HTTP 的「列文档」接口走 ListPage —— 那边必须分页，
+// 全量拉一份几十上万条的列表不是它该干的事。
 func (s *Service) List(ctx context.Context, datasetID uint64) ([]*ent.Document, error) {
 	docs, err := s.client.Document.Query().
 		Where(document.DatasetIDEQ(datasetID)).
@@ -790,6 +794,34 @@ func (s *Service) List(ctx context.Context, datasetID uint64) ([]*ent.Document, 
 		return nil, fmt.Errorf("knowledge: list documents: %w", err)
 	}
 	return docs, nil
+}
+
+// ListPage 分页列出一个数据集下的文档，最新的在前（按 ID 倒序）。
+//
+// total 是**这个数据集里的文档总数**，与 len(docs) 只有在「一页装得下」时才相等 ——
+// 调用方要拿 total 算页数，不能拿 len(docs)。
+//
+// page / pageSize 由调用方归一（口径见 transport 层的 httpx.NormalizePage）：
+// 这里不再兜底一次，免得应用层与 HTTP 层各有一套默认值。
+func (s *Service) ListPage(ctx context.Context, datasetID uint64, page, pageSize int) ([]*ent.Document, int, error) {
+	query := s.client.Document.Query().Where(document.DatasetIDEQ(datasetID))
+
+	// Count 在加 Order / Offset 之前问：总数与排序、分页都无关。
+	total, err := query.Count(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("knowledge: count documents: %w", err)
+	}
+
+	docs, err := query.
+		Order(ent.Desc(document.FieldID)).
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		All(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("knowledge: list documents: %w", err)
+	}
+
+	return docs, total, nil
 }
 
 // ChunkStats 批量取分块计数。

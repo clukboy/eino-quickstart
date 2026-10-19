@@ -29,6 +29,7 @@ import (
 	"eino-quickstart/internal/platform/persistence/turn"
 	"eino-quickstart/internal/platform/privacy"
 	"eino-quickstart/internal/platform/queue/asynq"
+	"eino-quickstart/internal/platform/secretbox"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/platform/usersource/work"
@@ -125,7 +126,7 @@ func runServer() error {
 	}
 
 	// entClient, err := entx.OpenWithoutMigration(ctx, cfg.Storage)
-	entClient, err := entx.OpenDevelopment(ctx, cfg.Storage) 
+	entClient, err := entx.OpenDevelopment(ctx, cfg.Storage)
 	if err != nil {
 		return err
 	}
@@ -160,12 +161,10 @@ func runServer() error {
 
 	asynqQueue := asynq.NewProducer(newAsynqConf(cfg))
 
-
 	recallGrouping, err := grouping.NewPolicy(cfg.Knowledge.RecallGrouping)
 	if err != nil {
 		return fmt.Errorf("解析 knowledge.recallGrouping: %w", err)
 	}
-
 
 	knowledgeService, err := knowledge.NewService(knowledge.ServiceDeps{
 		Client: entClient,
@@ -180,11 +179,11 @@ func runServer() error {
 			DefaultTopK:        cfg.Knowledge.DefaultTopK,
 			MaxTopK:            cfg.Knowledge.MaxTopK,
 			MaxQueryCharacters: cfg.Knowledge.MaxQueryCharacters,
-			MaxContentBytes: cfg.Knowledge.MaxResultBytes,
+			MaxContentBytes:    cfg.Knowledge.MaxResultBytes,
 		},
-		MaxDocumentBytes:       cfg.Knowledge.MaxDocumentBytes,
-		Logger:                 logger,
-		Metrics:                metrics,
+		MaxDocumentBytes: cfg.Knowledge.MaxDocumentBytes,
+		Logger:           logger,
+		Metrics:          metrics,
 	})
 	if err != nil {
 		return fmt.Errorf("init knowledge service: %w", err)
@@ -227,7 +226,25 @@ func runServer() error {
 	)
 	checkpoints := checkpoint.NewStore(entClient)
 
-	harness, err := agent.NewHarness(ctx, cfg, registryInstance, policy, checkpoints)
+	// 模型供应商密钥的主密钥。三种状态要分开：
+	//   - 配了且合法：可以解密数据库里的供应商密钥，兜底专员走外部平台；
+	//   - 配了但环境变量为空：这次部署不启用数据库供应商，兜底回落统一配置；
+	//   - 配了但内容不合法（长度/编码不对）：这是部署错误，直接启动失败 ——
+	//     让它跑起来只会表现为「密钥明明配了却解不开」。
+	var secretBox *secretbox.Box
+	if cfg.Security.SecretKey != "" {
+		secretBox, err = secretbox.New(cfg.Security.SecretKey)
+		if err != nil {
+			return fmt.Errorf("解析 %s: %w", cfg.Security.SecretKeyEnv, err)
+		}
+	} else if cfg.Security.SecretKeyEnv != "" {
+		log.Printf(
+			"warning: %s is empty; database model providers will be ignored and the general agent falls back to the configured model",
+			cfg.Security.SecretKeyEnv,
+		)
+	}
+
+	harness, err := agent.NewHarness(ctx, cfg, registryInstance, policy, checkpoints, entClient, secretBox)
 	if err != nil {
 		return err
 	}
@@ -283,7 +300,8 @@ func runServer() error {
 	}
 
 	// 初始化微信服务 / 用户同步服务
-	wechatClient := wechat.NewClient(cfg.Auth.UserSync.WechatConfig,(*kernel.UniversalOptions)(&cfg.Redis))
+	redisOptions := cfg.Redis.UniversalOptions()
+	wechatClient := wechat.NewClient(cfg.Auth.UserSync.WechatConfig, (*kernel.UniversalOptions)(&redisOptions))
 
 	var userSyncService *usersync.Service
 	if cfg.Auth.UserSync.Enabled {
@@ -322,6 +340,7 @@ func runServer() error {
 		UploadMaxFiles:            cfg.Knowledge.MaxUploadFiles,
 		Logger:                    logger,
 		EntClient:                 entClient,
+		SecretBox:                 secretBox,
 		Metrics:                   metrics,
 	})
 	if err != nil {

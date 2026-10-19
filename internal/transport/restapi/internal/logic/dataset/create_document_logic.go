@@ -38,7 +38,7 @@ func NewCreateDocumentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cr
 // chunk_count 是 0，客户端应轮询 GET 直到 ready 或 failed。每条上的 operation
 // 说明这次请求对它做了什么（created / updated / unchanged），只有前两者需要
 // 轮询。
-func (l *CreateDocumentLogic) CreateDocument(req *types.CreateDocumentReq) (resp *types.DocumentListResp, err error) {
+func (l *CreateDocumentLogic) CreateDocument(req *types.CreateDocumentReq) (resp *types.CreateDocumentResp, err error) {
 	subject, err := actorSubject(l.ctx)
 	if err != nil {
 		return nil, err
@@ -61,5 +61,7 @@ func (l *CreateDocumentLogic) CreateDocument(req *types.CreateDocumentReq) (resp
 	if err != nil {
 		return nil, documentFail(err)
 	}
-	return &types.DocumentListResp{Data: list}, nil
+	// 用 CreateDocumentResp 而不是分页后的 DocumentListResp：这次写入涉及哪几条
+	// 就是哪几条，没有「第几页」的概念，硬塞分页字段只会让人以为它能翻页。
+	return &types.CreateDocumentResp{Data: list}, nil
 }

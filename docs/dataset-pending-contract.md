@@ -51,7 +51,7 @@
 推进而增长；embedding 再追 `indexed_chunk_count`）。客户端不要用 `status != ready` 判失败。
 
 **错误**：`400` 没带文件 / 文件解析不出正文 / 不支持的格式；`404` dataset 不存在；
-`413` 超过正文上限（`knowledge.maxDocumentBytes`，5 MiB）。
+`413` 超过正文上限（`Knowledge.MaxDocumentBytes`，5 MiB）。
 
 **goctl 落地要点**（已核对 `tools/goctl@v1.10.0` 源码）：
 
@@ -204,7 +204,7 @@ multipart 还要额外叠加 boundary、`title` / `visibility` 字段和文件�
 - 编码识别（GBK → UTF-8 之类）
 - 结果写进 `documents.content`（服务端已经不再有托管目录，见 `docs/architecture.md`
   的「知识库数据流」），`documents.source` 只是按 `datasetId + 标题` 派生的逻辑标识
-- 复用现有的正文上限（`knowledge.maxDocumentBytes`，默认 5 MiB），超限的状态码要和前端文案对上
+- 复用现有的正文上限（`Knowledge.MaxDocumentBytes`，默认 5 MiB），超限的状态码要和前端文案对上
 
 前端 `UPLOAD_ACCEPT` 常量里列的格式是**期望**能解析的清单（md / txt / csv / json / yaml /
 xml / html / pdf / doc(x) / xls(x) / ppt(x)）。服务端如果暂时只收文本类，把这个常量收窄即可 ——

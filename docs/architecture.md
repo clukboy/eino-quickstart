@@ -30,26 +30,33 @@
 ```text
 HTTP /api/v1/chat
         |
-   root_agent
-  /     |      \
-knowledge workspace automation
+   root_agent（只路由，不直接作答）
+  /     |      \        \
+knowledge workspace automation general
 ```
 
 | Agent | 可用能力 | 边界 |
 | --- | --- | --- |
-| `root_agent` | 调用专项 Agent | 只路由，不直接读取、写入或执行 |
+| `root_agent` | 用 `AgentTool` 调用四个专项 Agent | 只路由，不直接回答；每轮必须且只委派一个专员 |
 | `knowledge_agent` | `search_knowledge` | 仅返回授权知识库内容和引用 |
-| `workspace_agent` | `read_file`、`list_dir` | 只读工作区 |
+| `workspace_agent` | `read_file`、`list_dir`、`list_skills`、`load_skill` | 只读工作区 |
 | `automation_agent` | `write_file`、可选 `shell` | 受工具白名单和审批策略控制 |
+| `general_agent` | 无工具，纯语言能力 | 兜底：处理其余一切请求；模型可来自外部平台 |
 
 专项 Agent 定义于 `internal/application/agent`。根 Agent 使用 `adk.NewAgentTool` 包装专项 Agent；工具注册表位于 `internal/tool/registry`，工具本身必须先注册、再显式授予目标 Agent。
+
+`general_agent` 是路由层的兜底：`root_agent` 的指令要求「四个里必须选一个，不确定就选 general_agent」。它的 Description 因此在路由中承担关键作用，修改时不要只改指令。
+
+除路由层兜底外，`ChatLogic` 还有一层代码级兜底：一轮对话结束时若助手正文为空（模型无视路由契约、工具全部失败、迭代上限被打满），服务端会用 `Harness.GeneralRunner` 单独跑一次 `general_agent`；仍无内容则发一帧 `error`。因此客户端**不会只收到 `done` 而没有内容**。
+
+`general_agent` 的模型来源可以不是本地统一配置，而是数据库里的 `ModelProvider` / `Model` / `ModelRouting`（见 `internal/application/providermodel`）。它无工具，因此可以用动态代理把模型解析推迟到每次调用，改 provider 不必重启。
 
 ## 请求生命周期
 
 1. `POST /api/v1/chat` 经过 API Key 认证，创建或恢复会话。
 2. 服务写入用户消息和 `ChatTurn`，准备有限长度的历史上下文。
 3. Eino Runner 流式运行根 Agent；响应使用 SSE 返回内容、审批请求或错误事件。
-4. 工具调用经过 `middleware.Policy`：不在 `security.allowedTools` 的工具被拒绝；受保护写入或 shell 操作创建审批并中断运行。
+4. 工具调用经过 `middleware.Policy`：不在 `Security.AllowedTools` 的工具被拒绝；受保护写入或 shell 操作创建审批并中断运行。
 5. 审批人调用 decision API 后，调用 resume API 恢复检查点；原始参数哈希必须匹配，防止审批后替换操作。
 6. 回答完成后，服务保存助手消息并关闭本轮运行状态。
 
@@ -66,19 +73,19 @@ worker 只校验索引消费配置，不要求 API 的模型、身份、HTTP 或
 | `EINO_MODEL_API_KEY` | 对话模型 API Key |
 | `EINO_MODEL_BASE_URL` | 对话模型 Base URL |
 | `EINO_MODEL` | 对话模型名称 |
-| `EINO_SERVER_PORT` | API 业务配置的 `server.port`；实际 HTTP 端口由 HTTP YAML 的 `Port` 决定 |
+| `EINO_SERVER_PORT` | API 业务配置的 `Server.Port`；实际 HTTP 端口由 HTTP YAML 的 `Port` 决定 |
 | `EINO_WORKSPACE_ROOT` | 工作区根目录 |
-| `EINO_EMBEDDING_API_KEY` | Embedding API Key，名称由 `embedding.apiKeyEnv` 配置；API 查询 embedding 和 worker 文档 embedding 都需要 |
-| `EINO_STORAGE_PASSWORD` | PostgreSQL 密码，名称由 `storage.passwordEnv` 配置 |
-| `EINO_ES_PASSWORD` | Elasticsearch 密码，名称由 `es.passwordEnv` 配置；ES 未配置时不需要 |
+| `EINO_EMBEDDING_API_KEY` | Embedding API Key，名称由 `Embedding.APIKeyEnv` 配置；API 查询 embedding 和 worker 文档 embedding 都需要 |
+| `EINO_STORAGE_PASSWORD` | PostgreSQL 密码，名称由 `Storage.PasswordEnv` 配置 |
+| `EINO_ES_PASSWORD` | Elasticsearch 密码，名称由 `ES.PasswordEnv` 配置；ES 未配置时不需要 |
 | `EINO_API_KEY_DEVELOPER` | Agent 调用 API Key |
 | `EINO_API_KEY_APPROVER` | 审批 API Key |
 | `EINO_API_KEY_ADMIN` | 管理 API Key |
-| `EINO_ACCOUNT_SECRET` | 账号令牌的 HMAC 密钥，名称由 `auth.accounts.secretEnv` 配置；`auth.accounts.enabled=false` 时不需要。**必须与匿名令牌的密钥不同** |
+| `EINO_ACCOUNT_SECRET` | 账号令牌的 HMAC 密钥，名称由 `Auth.Accounts.SecretEnv` 配置；`Auth.Accounts.Enabled=false` 时不需要。**必须与匿名令牌的密钥不同** |
 
-Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同一个值。
+Redis 口令同理走 `Asynq.Redis.PasswordEnv`，两个进程都要能读到同一个值。
 
-不要将 API Key、数据库密码或生产地址提交到配置文件。`storage.passwordEnv` 必须指向一个已设置的环境变量。
+不要将 API Key、数据库密码或生产地址提交到配置文件。`Storage.PasswordEnv` 必须指向一个已设置的环境变量。
 
 ## HTTP API
 
@@ -146,7 +153,7 @@ Redis 口令同理走 `asynq.redis.passwordEnv`，两个进程都要能读到同
 - 重试耗尽仍失败的 chunk 会把文档置为 `failed`。所以 `status != ready` 也不等于
   失败，要看具体是 `indexing` 还是 `failed`。
 
-投递失败是**同步失败**：队列不可用（Redis 连不上、`asynq.enabled=false`）时请求直接
+投递失败是**同步失败**：队列不可用（Redis 连不上、`Asynq.Enabled=false`）时请求直接
 返回错误，`documents` 行被标记为 `failed`，不会留下一个永远停在 `indexing` 的孤儿。
 
 路由与类型由 `internal/transport/restapi/docs/*.api` 驱动 goctl 生成，是契约的唯一来源 ——
@@ -170,7 +177,7 @@ SSE 帧是 goctl 生成器的原生形态 —— 只有 `data: {...}` 行、没�
 | 身份 | 令牌 | subject | 角色来源 |
 | --- | --- | --- | --- |
 | 静态 API Key | 配置里的固定串 | 配置里的 subject | 该 Key 配的角色（`agent` / `approver` / `admin`） |
-| 匿名访客 | `POST /api/v1/auth/anonymous` 签发，自包含 | `anon:<uuid>` | `auth.anonymous.role`（默认 `agent`） |
+| 匿名访客 | `POST /api/v1/auth/anonymous` 签发，自包含 | `anon:<uuid>` | `Auth.Anonymous.Role`（默认 `agent`） |
 | 登录账号 | `POST /api/v1/auth/login` 签发，自包含 | `user:<id>` | 令牌载荷里的 `r`（签发时取自 `users.role`） |
 
 匿名与账号两类令牌共用一个 HMAC 内核（`internal/platform/auth/issuer.go`），
@@ -222,7 +229,7 @@ Immutable，ent 没有生成它的 setter。`chat_turns` / `agent_runs` / `appro
                  TextParser → MarkdownChunker 切块
              → INSERT document_chunks (vector_status=pending)
              → Embedder 批量向量化 → Milvus upsert
-             → 写检索索引 ES（_id = chunk_id；未配 es.address 时跳过）
+             → 写检索索引 ES（_id = chunk_id；未配 ES.Address 时跳过）
              → chunk: pending→indexed；全部追平后 document: indexing→ready
              → 重试耗尽仍失败 → chunk: failed，document: failed
 
@@ -248,7 +255,7 @@ Immutable，ent 没有生成它的 setter。`chat_turns` / `agent_runs` / `appro
 
 拆分的收益是故障域隔离：embedding 或 Milvus 慢/挂只影响消费进度，不影响 HTTP 收发；
 HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署、独立配队列的进程，运维上
-两个进程要能看到同一份 `asynq` 配置和同一个 Redis。
+两个进程要能看到同一份 `Asynq` 配置和同一个 Redis。
 
 重入靠两道幂等：`documents.metadata.content_hash`（正文 SHA-256）让「内容没变的重建
 索引」跳过重新切块；`embedPending` 每轮只挑 `vector_status=pending` 的 chunk，所以
@@ -286,16 +293,16 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 不再有「注册外部文件」这条路径：正文只能从 `content` 字段进来。过去那种「托管目录
 内的可改、root 下的只读」的区分随之消失 —— 它本来就是文件存储的产物。
 
-> **迁移**：正文搬家之前建的文档，`content` 为空而正文还在 `knowledge.root` 下。
+> **迁移**：正文搬家之前建的文档，`content` 为空而正文还在 `Knowledge.Root` 下。
 > worker 索引到这种文档时会去旧目录读一次、把正文（去掉 YAML 头）补进库
 > （`Indexer.importLegacyContent`），导入过一轮就不再读文件。这是**一次性**通路：
 > `rag.LegacyContentReader` 只读、不建目录、不写任何东西，等存量文档都导入完之后
-> 它和 `knowledge.root` 那段配置可以整块删掉。旧文件里若有多个产品块，导入会明确
+> 它和 `Knowledge.Root` 那段配置可以整块删掉。旧文件里若有多个产品块，导入会明确
 > 失败并提示重新上传（那份文件对应多条文档，硬塞给一条会把内容算错）。
 
 | 模块 | 单一职责 | 不负责 |
 | --- | --- | --- |
-| `rag.LegacyContentReader` | 在 `knowledge.root` 内安全**读取**旧正文文件（含软链与路径穿越校验），只服务存量数据的一次性导入 | 写入、文档归属、切块、索引 |
+| `rag.LegacyContentReader` | 在 `Knowledge.Root` 内安全**读取**旧正文文件（含软链与路径穿越校验），只服务存量数据的一次性导入 | 写入、文档归属、切块、索引 |
 | `rag.FileLoader` | 在受控目录内安全读取支持的文本文件（`cmd/ragserver` 的演示链用） | 知识库归属、权限和入库 |
 | `rag.Pipeline` | 把「解析 → 切块」串成一条 eino Chain。两条入口：`IngestContent`（正文已在内存，知识库索引走这条，不需要任何目录）与 `IngestFile`（从 `DocRoot` 读文件，产品拆分的接缝是 `FileLoader` 里那张 parser 注册表）；`Config.Store` 为 nil 时链尾就停在切块 | 文档归属、分块状态机、检索授权 |
 | `application/knowledge.Service` | 校验入参、把正文写进 `documents.content`、写 `documents` 行、提交后投递索引任务；文档增删改查编排与实时分块统计 | 切块、embedding、写向量 |
@@ -304,7 +311,7 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 | `platform/queue/asynq.IndexQueue` | 把 `Producer` 适配成应用层的 `knowledge.IndexTaskQueue` 端口 | 业务决策 |
 | `platform/queue/asynq.AsynqClient` | 同时是 asynq 的 Producer 与 Consumer（后者实现 `service.Service`，由 `cmd/worker` 单独启停） | 业务处理与存储访问 |
 | `rag.Store` | 检索的三个通道：精确通道（结构化字段逐字相等，走 ES `term`；未配 ES 使用同一 mapping 在 PostgreSQL metadata 上相等匹配）、关键字通道（配了 ES 走 BM25，没配回落 PG 词元子串匹配）、向量通道（Milvus 取 chunk_id → 回 PostgreSQL 补齐正文与 provenance）；词法/精确通道不再要求 `vector_status=indexed`，向量通道仍只召回已索引分块 | 融合排序、授权决策 |
-| `rag.HybridRetriever` | 把三个通道的结果做**加权** RRF 融合（`Σ weight/(k+rank)`，权重见配置 `retrieval`），按名次而非原始分数量纲定序，套用 `Filter`（数据集范围 + 可见性 + 启用状态）；返回 `Report` 记录各通道成败与降级。**输出恒为分块**，归并按库类型由用例层做 | 决定结果粒度、直接对外格式化回答 |
+| `rag.HybridRetriever` | 把三个通道的结果做**加权** RRF 融合（`Σ weight/(k+rank)`，权重见配置 `Retrieval`），按名次而非原始分数量纲定序，套用 `Filter`（数据集范围 + 可见性 + 启用状态）；返回 `Report` 记录各通道成败与降级。**输出恒为分块**，归并按库类型由用例层做 | 决定结果粒度、直接对外格式化回答 |
 | `rag/grouping` | 按 `dataset.type` 解析召回结果的归并粒度（`chunk` / `document`），并把「要 N 条结果」折算成「向检索侧要多少分块」（`FetchPlan`）—— 见「召回结果的归并粒度」与「条数的单位」 | 判定命中的口径、RRF 融合 |
 | `platform/storage/es` | 关键词索引的读写：索引生命周期（建/校验/演进）、按 `_id=chunk_id` 的幂等批量写入、按文档清理、多字段 BM25 查询（`bool.should` 组合 `multi_match` 与各字段 `.keyword` 子字段的 `term`）；精确查走 `SearchExact` | 权限判定、正文存储、向量检索 |
 | `eval` | 离线召回评测：装载金标用例、驱动检索、按配置粒度整理结果明细、折算成 Recall@K/MRR/ACL 泄漏/P95 并按门禁判定。质量指标恒按文档去重，不随粒度变 | 在线检索、生成式回答质量 |
@@ -332,17 +339,17 @@ HTTP 重启也不会丢在跑的任务。代价是多了一个必须独立部署
 这件事由下面那条独立的通道权重表达。两处都放大等于把同一个判断算两遍，调参时没人
 说得清最后是几倍。
 
-三通道的权重与候选上限来自配置的 `retrieval` 段（`rag.PolicyFromConfig`）：
+三通道的权重与候选上限来自配置的 `Retrieval` 段（`rag.PolicyFromConfig`）：
 
 ```yaml
-retrieval:
-  exactWeight: 3.0        # 精确优先
-  keywordWeight: 1.5
-  vectorWeight: 1.0
-  rrfSmoothing: 60        # RRF 平滑 k
-  exactCandidateLimit: 20
-  keywordCandidateLimit: 30
-  vectorCandidateLimit: 30
+Retrieval:
+  ExactWeight: 3.0        # 精确优先
+  KeywordWeight: 1.5
+  VectorWeight: 1.0
+  RRFSmoothing: 60        # RRF 平滑 k
+  ExactCandidateLimit: 20
+  KeywordCandidateLimit: 30
+  VectorCandidateLimit: 30
 ```
 
 权重为 0 即关闭该通道（不出现在 `Report` 里，也不计为降级）。融合公式是
@@ -366,7 +373,7 @@ BM25 分、`term` 分与向量距离量纲完全不同，按名次求和天然�
 ### 召回结果的归并粒度
 
 上面三条通道返回的都是**分块**，但「一条结果」是什么由知识库类型决定 —— 配置在
-`knowledge.recallGrouping`（键是 `dataset.type`，`default` 兜底，见
+`Knowledge.RecallGrouping`（键是 `dataset.type`，`default` 兜底，见
 `rag/grouping.Policy`）：
 
 | 粒度 | 一条结果 = | 适合 |
@@ -421,7 +428,7 @@ top_k=20 → 检索侧给 20 个分块 → 每篇切 5 块 → 归并出 4 篇
 `document_id` 一次查回 `documents.content`，不是把命中块拼起来 —— 切块是带 overlap
 的滑动窗口，拼回去会重复，还会丢掉没命中的段落）。代表块回答的是「这篇文档为什么
 被召回」，它不是阅读的单位：产品型录里只回一块，等于把一个产品拆开只给一半。整篇
-正文超过 `knowledge.maxResultBytes` 时按 rune 边界截断，并在 `content_truncated` 上
+正文超过 `Knowledge.MaxResultBytes` 时按 rune 边界截断，并在 `content_truncated` 上
 显式标记 —— 悄悄截断会让下游拿半份规格当全份用。
 
 **检索面是一份显式声明，不是一个写死的 mapping。** 字段分两层：
@@ -429,7 +436,7 @@ top_k=20 → 检索侧给 20 个分块 → 每篇切 5 块 → 归并出 4 篇
 | 层 | 定义在 | 内容 |
 | --- | --- | --- |
 | 共有字段 | 代码（`es/baseFields`） | `chunk_id` / `document_id` / `dataset_id` / `chunk_index` / `source` / `title` / `heading_path` / `content` / `metadata_text` / `visibility` / `owner` / `indexed_at` / `mapping_rev` |
-| 业务字段 | `es.mappingFile` 指向的文件（默认 `configs/es/chunk_mapping.yaml`） | 字段名、类型、从元数据的哪个路径取值、权重、是否挂精确匹配子字段 |
+| 业务字段 | `ES.MappingFile` 指向的文件（默认 `configs/es/chunk_mapping.yaml`） | 字段名、类型、从元数据的哪个路径取值、权重、是否挂精确匹配子字段 |
 
 分两层的理由是它们的**变更节奏不同**：共有字段由写入端（`ChunkDoc`）直接填，每个索引
 都一样；业务字段按产品线变化，换一套型录只改配置文件、不动代码、不发版。
@@ -491,7 +498,7 @@ YAML 头里**，正文里一次都不出现，所以「按型号找资料」能�
 - **数值规格声明成统一类型。** parser 里 `open_angle_deg` / `cup_diameter_mm` /
   `door_thickness_min_mm` / `door_thickness_max_mm` 是 `*int`；声明成 `text` 会经
   `toString` 变成 `"100"` 参与检索，声明成 `integer` 就只能过滤/排序。**两者之间切换
-  不能就地改** —— 字段类型变了，必须换 `es.index` 名重建。
+  不能就地改** —— 字段类型变了，必须换 `ES.Index` 名重建。
 
 **机制键在进入索引之前就被剔掉**（`application/knowledge/keyword_doc.go` 的
 `searchableMetadata`）：`doc_id`、`content_hash`、`visibility`、`owner`、`source`、
@@ -530,8 +537,8 @@ reindex。指纹只覆盖**索引期**形态（分词器、字段名/类型/取�
 但**漏声明不会在启动时报错** —— 它只能靠映射与 parser 的一致性测试（上面的
 `mapping_contract_test.go`）提前拦住。
 
-`es.analyzer` 是所有 text 字段的默认分词器（单个字段可在映射里覆盖）。事后改它必须
-换 `es.index` 版本号重建：改配置却忘了换索引名，进程照常启动、写入照常成功，只有检索
+`ES.Analyzer` 是所有 text 字段的默认分词器（单个字段可在映射里覆盖）。事后改它必须
+换 `ES.Index` 版本号重建：改配置却忘了换索引名，进程照常启动、写入照常成功，只有检索
 命中率悄悄变差。`EnsureIndex` 会在启动时直接报出来。
 
 ### 进程编排
@@ -541,7 +548,7 @@ reindex。指纹只覆盖**索引期**形态（分词器、字段名/类型/取�
 | 进程 | 挂载的 service | 关闭预算来自 |
 | --- | --- | --- |
 | `cmd/restapi` | `transport/restapi.Server`（HTTP 监听） | `configs/api/restapi.yaml` 的 `Shutdown.WaitTime` |
-| `cmd/worker` | `asynq.AsynqClient`（消费端，`Start()` 阻塞到 `Stop()`） | `configs/worker/config.yaml` 的 `asynq.shutdownTimeoutSeconds` |
+| `cmd/worker` | `asynq.AsynqClient`（消费端，`Start()` 阻塞到 `Stop()`） | `configs/worker/config.yaml` 的 `Asynq.ShutdownTimeoutSeconds` |
 
 HTTP 进程有一个容易踩的细节：监听的关闭**不由** `Stop()` 触发。go-zero 把监听的关闭
 挂在 `core/proc` 的全局 shutdown 链上（SIGTERM/SIGINT 触发），而那条链只能被 notify
@@ -550,11 +557,11 @@ HTTP 进程有一个容易踩的细节：监听的关闭**不由** `Stop()` 触�
 同步操作，否则还没有响应完的请求会被 go-zero 直接 `Kill` 掉（默认预算只有 5.5s）。
 
 worker 进程的关闭预算含义不同：它等的是**正在跑的索引任务**排空。任务可能正卡在
-embedding 的网络往返上，`asynq.shutdownTimeoutSeconds` 要按任务实际耗时配；配小了
+embedding 的网络往返上，`Asynq.ShutdownTimeoutSeconds` 要按任务实际耗时配；配小了
 超时的任务会被退回队列重跑，白烧一次 embedding（只是浪费，不会错 —— 靠
 `content_hash` 与 pending 语义收敛）。
 
-两个进程都拒绝「半个配置」启动：HTTP 在 `asynq.enabled=false` 时仍可启动（只是文档
+两个进程都拒绝「半个配置」启动：HTTP 在 `Asynq.Enabled=false` 时仍可启动（只是文档
 写操作会同步失败），worker 则直接拒绝启动，因为一个没有队列可消费的 worker 只会空转。
 
 知识库、文档和授权关系由 `internal/transport/restapi` 的 admin 接口维护
@@ -602,7 +609,7 @@ W3C `traceparent`；消费端拆信封、恢复上下文，再开一个消费 sp
 | 进程 | provider 谁装 | 服务名来自 |
 | --- | --- | --- |
 | `cmd/restapi` | go-zero 的 `ServiceConf.SetUp()` → `trace.StartAgent` | `configs/api/restapi.yaml` 的 `Telemetry.Name` |
-| `cmd/worker` | `observability.SetupTracing`（组合根显式调用） | `configs/worker/config.yaml` 的 `observability.serviceName` |
+| `cmd/worker` | `observability.SetupTracing`（组合根显式调用） | `configs/worker/config.yaml` 的 `Observability.ServiceName` |
 
 - **worker 必须自己装**：它不跑 rest/rpc，没有任何东西会替它调 `SetUp()`。没有
   provider 时 `otel.Tracer()` 是空实现，从 payload 里恢复出来的上下文无处落地 ——
@@ -614,8 +621,8 @@ W3C `traceparent`；消费端拆信封、恢复上下文，再开一个消费 sp
 - 退出时冲刷要用**独立的超时上下文**：worker 的 ctx 是信号上下文，进程退出时已经
   被取消，拿它调 `Shutdown` 会把 Batcher 里还没发出去的 span 直接丢掉。
 
-**开关语义**：`otlpEndpoint` 留空也照样安装 provider（只是不导出），`traceSampleRatio`
+**开关语义**：`Observability.OTLPEndpoint` 留空也照样安装 provider（只是不导出），`Observability.TraceSampleRatio`
 <= 0 当作 1.0。两条都是为了避免「少配一个字段 → 链路静默消失」——这种坏法比直接报错
-难查得多。`otlpEndpoint` 填上之后 span 才开始真正导出。
+难查得多。`Observability.OTLPEndpoint` 填上之后 span 才开始真正导出。
 
 本地的上传、分块、索引和检索验证步骤见 [RAG 本地验证](rag-testing.md)。

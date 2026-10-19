@@ -9,9 +9,14 @@ syntax = "v1"
 // 类型归属说明：
 //   本文件定义授权矩阵自己的请求与响应类型，并复用两组各自拥有的：
 //     StatusResp       定义在 common/types.api
-//     DatasetListResp  定义在 dataset.api（数据集归 dataset 组所有）
+//     DatasetResp      定义在 dataset.api（数据集归 dataset 组所有）
 //   goctl 会先合并所有 import 的文件再解析类型，因此定义在哪都可见；
 //   但**不要**两边各定义一份，会报类型重名。
+//
+//   ⚠️ GET /agents/:subject/dataset 曾经直接复用 dataset 组的 DatasetListResp。
+//   那张响应加了 total/page/page_size（GET /dataset 要分页）之后就**不能**再复用了：
+//   本路由按主体列举授权，量级固定、不分页，跟着带上分页字段就得回答「第几页」，
+//   而它只有一页。故本组自持 AgentDatasetListResp。
 //
 //   DocumentResp / DocumentListResp 曾定义在本文件（历史上由 dataset 组引用），
 //   现已随文档接口一起迁回 dataset.api —— 只有本组用到的类型留在这里，
@@ -52,6 +57,13 @@ type AgentSubjectListResp {
 	PageSize int                 `json:"page_size"`
 }
 
+// AgentDatasetListResp 是「某主体被授权访问哪些数据集」。不分页：这张表按主体
+// 列举，条数受人工授权规模限制，没有翻页场景；真到要分页时应改成 limit + 游标。
+// 之所以自持一份而不是复用 dataset 组的 DatasetListResp，见文件头。
+type AgentDatasetListResp {
+	Data []*DatasetResp `json:"data"`
+}
+
 // agent 授权全部需要 admin 角色。
 @server (
 	prefix:     /api/v1
@@ -66,7 +78,7 @@ service restapi {
 	get /dataset/:id/subjects (DatasetAgentsReq) returns (AgentSubjectListResp)
 
 	@handler ListAgentDatasets
-	get /agents/:subject/dataset (AgentSubjectReq) returns (DatasetListResp)
+	get /agents/:subject/dataset (AgentSubjectReq) returns (AgentDatasetListResp)
 
 	@handler GrantAgentDataset
 	put /agents/:subject/dataset/:id (AgentDatasetReq) returns (StatusResp)

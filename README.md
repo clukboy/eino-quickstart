@@ -7,7 +7,7 @@
 | 能力 | 入口 | 说明 |
 | --- | --- | --- |
 | 对话 + 知识库 API | `go run ./cmd/restapi` | 一个进程同时提供 API Key 认证的 SSE 对话 API 和知识库 admin 接口。**只投递不消费**：收到文档写请求时把正文写进 `documents.content`、建文档行、往 asynq（Redis）投一个索引任务就返回。 |
-| 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后从库里读正文（空则从旧的托管目录导入一次）、切块、调 embedding、写 Milvus、写关键词索引（配了 `es.address` 时），并把文档状态收敛到 `ready` / `failed`。 |
+| 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后从库里读正文（空则从旧的托管目录导入一次）、切块、调 embedding、写 Milvus、写关键词索引（配了 `ES.Address` 时），并把文档状态收敛到 `ready` / `failed`。 |
 | RAG 调试入口 | `go run ./cmd/ragserver` | 本地手动跑一遍 RAG 链路的调试用入口，不是生产运行形态。 |
 | 召回评测 | `go run ./cmd/rag-test` | 拿金标用例集打真实检索链路，输出 Recall@K / MRR / ACL 泄漏 / P95，并按 `internal/eval/thresholds.yaml` 判定退出码 —— 可以直接卡在 CI 或发布流水线里阻断质量回退。用法见 [RAG 本地验证](docs/rag-testing.md#召回评测)。 |
 
@@ -16,10 +16,10 @@
 时文档写请求会直接失败**（这是刻意的，避免文档静默卡在 `indexing`）。
 
 检索链路（精确 + 关键字 + 向量三个通道，加权 RRF 融合）已经实现，`cmd/rag-test` 跑的就是它；
-关键字通道配了 `es.address` 时走 Elasticsearch BM25（产品型号、系列、品类等元数据字段
+关键字通道配了 `ES.Address` 时走 Elasticsearch BM25（产品型号、系列、品类等元数据字段
 是主要命中面），没配则回落 PostgreSQL 子串匹配；精确通道走 ES 的 `term`，对型号这类
 逐字查询按独立权重优先，未配 ES 时该通道降级并在响应里标注。**检索面由一份映射声明驱动**
-（`es.mappingFile`，默认 `configs/es/chunk_mapping.yaml`）：索引里有哪些业务字段、各自
+（`ES.MappingFile`，默认 `configs/es/chunk_mapping.yaml`）：索引里有哪些业务字段、各自
 权重、值从元数据的哪个路径取，都在这一处声明 —— 换产品线改文件即可，不用改代码。
 HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge` 共用同一条
 混合检索装配链路；对话工具会在每次调用时解析认证主体的知识库授权，并输出带 source、章节
@@ -56,7 +56,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
    export EINO_MODEL_API_KEY=...
    export EINO_EMBEDDING_API_KEY=...
    export EINO_STORAGE_PASSWORD=...
-   export EINO_ES_PASSWORD=...      # 配了 es.passwordEnv 时需要
+   export EINO_ES_PASSWORD=...      # 配了 ES.PasswordEnv 时需要
    export EINO_API_KEY_DEVELOPER=...
    export EINO_API_KEY_APPROVER=...
    export EINO_API_KEY_ADMIN=...
@@ -87,7 +87,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 **配置覆盖：** API 业务用 `EINO_API_CONFIG`，API HTTP 用 `EINO_REST_CONFIG`，worker 用 `EINO_WORKER_CONFIG`；不再读取共享的 `EINO_CONFIG`。
 
 服务默认监听 `:8090`（以 API HTTP 配置的 `Port` 为准）；`GET /health` 用于存活检查，`GET /ready` 检查 PostgreSQL 连通性。
-`asynq.enabled=false` 时 worker 拒绝启动，HTTP 仍可起来但文档写操作会报错。完整的 RAG
+`Asynq.Enabled=false` 时 worker 拒绝启动，HTTP 仍可起来但文档写操作会报错。完整的 RAG
 验证命令见 [RAG 本地验证](docs/rag-testing.md)。
 
 ## 目录

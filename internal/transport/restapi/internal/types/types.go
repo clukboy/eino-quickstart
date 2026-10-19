@@ -8,6 +8,10 @@ type AddOrgMemberReq struct {
 	Subject string `json:"subject"`
 }
 
+type AgentDatasetListResp struct {
+	Data []*DatasetResp `json:"data"`
+}
+
 type AgentDatasetReq struct {
 	Subject string `path:"subject"`
 	ID      uint64 `path:"id"`
@@ -205,13 +209,10 @@ type AuthMeResp struct {
 }
 
 type AuthTokenResp struct {
-	Token              string `json:"token"`
-	Subject            string `json:"subject"`
-	Role               string `json:"role"`
-	Username           string `json:"username"`
-	MustChangePassword bool   `json:"must_change_password"`
-	IssuedAt           int64  `json:"issued_at"`
-	ExpiresAt          int64  `json:"expires_at"`
+	Token     string   `json:"token"`
+	User      UserResp `json:"user"`
+	IssuedAt  int64    `json:"issued_at"`
+	ExpiresAt int64    `json:"expires_at"`
 }
 
 type ChangePasswordReq struct {
@@ -264,6 +265,10 @@ type CreateDocumentReq struct {
 	Metadata   map[string]string `json:"metadata,optional"`
 }
 
+type CreateDocumentResp struct {
+	Data []*DocumentResp `json:"data"`
+}
+
 type CreateEvalCaseReq struct {
 	ID             uint64   `path:"id"`
 	Question       string   `json:"question"`
@@ -314,7 +319,10 @@ type DatasetIDReq struct {
 }
 
 type DatasetListResp struct {
-	Data []*DatasetResp `json:"data"`
+	Data     []*DatasetResp `json:"data"`
+	Total    int            `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
 }
 
 type DatasetModelListResp struct {
@@ -375,8 +383,17 @@ type DocumentIDReq struct {
 	DocID uint64 `path:"docId"`
 }
 
+type DocumentListReq struct {
+	ID       uint64 `path:"id"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
 type DocumentListResp struct {
-	Data []*DocumentResp `json:"data"`
+	Data     []*DocumentResp `json:"data"`
+	Total    int             `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
 }
 
 type DocumentResp struct {
@@ -428,6 +445,12 @@ type EnableToolReq struct {
 	Enabled bool   `json:"enabled"`
 }
 
+type EvalCaseListReq struct {
+	ID       uint64 `path:"id"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
 type EvalCaseListResp struct {
 	Data     []*EvalCaseResp `json:"data"`
 	Total    int             `json:"total"`
@@ -467,9 +490,17 @@ type EvalRunIDReq struct {
 	RunID string `path:"runId"`
 }
 
+type EvalRunListReq struct {
+	ID       uint64 `path:"id"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
 type EvalRunListResp struct {
-	Data  []*EvalRunResp `json:"data"`
-	Total int            `json:"total"`
+	Data     []*EvalRunResp `json:"data"`
+	Total    int            `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
 }
 
 type EvalRunResp struct {
@@ -552,8 +583,10 @@ type LabelFeedbackReq struct {
 }
 
 type ListDatasetsReq struct {
-	Name string `json:"name,optional"`
-	Type string `json:"type,optional"`
+	Name     string `form:"name,optional"`
+	Type     string `form:"type,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
 }
 
 type LoginReq struct {
@@ -621,9 +654,17 @@ type ModelRoutingResp struct {
 	UpdatedAt             int64    `json:"updated_at"`
 }
 
+type OrgMemberListReq struct {
+	ID       uint64 `path:"id"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
+}
+
 type OrgMemberListResp struct {
-	Data  []*OrgMemberResp `json:"data"`
-	Total int              `json:"total"`
+	Data     []*OrgMemberResp `json:"data"`
+	Total    int              `json:"total"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"page_size"`
 }
 
 type OrgMemberResp struct {
@@ -914,6 +955,12 @@ type SyncUsersResp struct {
 	Errors       []SyncUserError   `json:"errors,omitempty"`
 }
 
+type TaskEvent struct {
+	ID    string      `json:"id"`
+	Event string      `json:"event"`
+	Data  interface{} `json:"data"`
+}
+
 type ToolKeyReq struct {
 	Key string `path:"key"`
 }
@@ -1053,12 +1100,16 @@ type UsageTotalsResp struct {
 }
 
 type UserListReq struct {
-	Keyword string `form:"keyword,optional"`
+	Keyword  string `form:"keyword,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"page_size,optional"`
 }
 
 type UserListResp struct {
-	Data  []UserResp `json:"data"`
-	Total int        `json:"total"`
+	Data     []UserResp `json:"data"`
+	Total    int        `json:"total"`
+	Page     int        `json:"page"`
+	PageSize int        `json:"page_size"`
 }
 
 type UserPathReq struct {

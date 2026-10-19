@@ -36,9 +36,9 @@ logs/acceptance/P11/<时间>-<pid>-local/
 复制一份 API 配置，保留 mapping 文件但清空 ES 地址：
 
 ```yaml
-es:
-  address: ""
-  mappingFile: "configs/es/chunk_mapping.yaml"
+ES:
+  Address: ""
+  MappingFile: "configs/es/chunk_mapping.yaml"
 ```
 
 确认 API 使用的是这份配置，且 PostgreSQL 中已有两个启用文档，metadata 至少包含：

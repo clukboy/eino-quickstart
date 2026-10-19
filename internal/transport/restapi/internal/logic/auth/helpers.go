@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"eino-quickstart/internal/platform/auth"
 	platformauth "eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/persistence/account"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
@@ -32,21 +33,24 @@ func accountDeps(svcCtx *svc.ServiceContext) (*account.Store, *platformauth.Acco
 // tokenResponse 把签发结果装配成两个接口共用的响应类型。
 func tokenResponse(
 	token string,
-	subject string,
-	role platformauth.Role,
-	username string,
-	mustChangePassword bool,
+	user *account.Credentials,
 	issuedAt time.Time,
 	expiresAt time.Time,
 ) *types.AuthTokenResp {
 	return &types.AuthTokenResp{
-		Token:              token,
-		Subject:            subject,
-		Role:               string(role),
-		Username:           username,
-		MustChangePassword: mustChangePassword,
-		IssuedAt:           issuedAt.UnixMilli(),
-		ExpiresAt:          expiresAt.UnixMilli(),
+		Token: token,
+		User: types.UserResp{
+			ID:                 user.ID,
+			Subject:            auth.NewAccountSubject(user.ID),
+			Username:           user.Username,
+			Nickname:           user.Nickname,
+			Role:               string(user.Role),
+			Status:             string(user.Status),
+			MustChangePassword: user.MustChangePassword,
+			CreatedAt:          user.CreatedAt.UnixMilli(),
+		},
+		IssuedAt:  issuedAt.UnixMilli(),
+		ExpiresAt: expiresAt.UnixMilli(),
 	}
 }
 

@@ -17,15 +17,6 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-// invalidCredentialsMessage 是**所有**登录失败共用的文案。
-//
-// 「用户不存在」「密码不对」「账号已停用」三种情况必须回一模一样的响应体与
-// 状态码。只靠 account.BurnPasswordCheck 抹平时间差是不够的 —— 响应内容本身
-// 也会泄密：一旦区分开，这个接口就成了用户名枚举器（对非管理员来说，它是唯一
-// 能拿到「系统里有哪些人」的入口，/users 挂 RoleAdmin）。
-//
-// 连「账号已停用」也不单独提示，虽然它看起来对用户更有帮助：那等于确认了这个
-// 账号存在。真正被停用的人应该去问管理员，而不是从接口的措辞里推断。
 const invalidCredentialsMessage = "用户名或密码不正确"
 
 type LoginLogic struct {
@@ -34,7 +25,6 @@ type LoginLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 账号登录（账号由管理员创建，没有注册接口）
 func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic {
 	return &LoginLogic{
 		Logger: logx.WithContext(ctx),
@@ -43,16 +33,6 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 	}
 }
 
-// Login 校验用户名密码并签发账号令牌。契约与取舍写在 docs/auth/auth.api。
-//
-// 步骤顺序是有讲究的，每一步都在堵一个具体的观察面：
-//
-//  1. 空输入      → 400。它的原因对用户可操作，且不含任何「是否存在」的信息。
-//  2. 查不到用户  → 先烧一次假 bcrypt 再回 401，抹平三个数量级的耗时差。
-//  3. 比对密码    → 失败回 401。
-//  4. 判 status   → 必须在密码比对**之后**。反过来会让停用账号的响应明显更快，
-//     从而暴露「这个账号存在但被停用了」。
-//  5. 签发        → 角色与 must_change_password 都从库里取、签进令牌。
 func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.AuthTokenResp, err error) {
 	store, issuer, err := accountDeps(l.svcCtx)
 	if err != nil {
@@ -85,9 +65,6 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.AuthTokenResp, err 
 
 	token, expiresAt, err := issuer.IssueFor(subject, role, credentials.MustChangePassword)
 	if err != nil {
-		// 走到这里说明 users.role 里有一个签发器不认识的取值 —— 那只能来自
-		// 直接改库。回 500 而不是 401：它不是用户的凭据问题，静默当成登录失败
-		// 会把一个数据事故伪装成「密码打错了」。
 		l.Errorf("issue account token failed subject=%s role=%s: %v", subject, role, err)
 		return nil, httpx.Internal("登录失败")
 	}
@@ -105,10 +82,7 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.AuthTokenResp, err 
 
 	return tokenResponse(
 		token,
-		subject,
-		role,
-		credentials.Username,
-		credentials.MustChangePassword,
+		credentials,
 		time.Now(),
 		expiresAt,
 	), nil

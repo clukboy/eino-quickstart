@@ -401,7 +401,7 @@ LLM 自动拆分、真实用户上游同步属于条件性增强；不必把它�
 
 **已交付：**
 - [x] 保留 multipart 多文件能力，`file` 可重复；第一版明确只接收 `.md`、`.markdown`、`.txt`、`.text`，不宣称支持 PDF/Office。
-- [x] 增加 `knowledge.maxUploadRequestBytes`、`knowledge.maxDocumentBytes`、`knowledge.maxUploadFiles`，API/验收配置分开维护；默认分别为 50 MiB、5 MiB、10 个文件。
+- [x] 增加 `Knowledge.MaxUploadRequestBytes`、`Knowledge.MaxDocumentBytes`、`Knowledge.MaxUploadFiles`，API/验收配置分开维护；默认分别为 50 MiB、5 MiB、10 个文件。
 - [x] 单文件使用 `io.LimitReader(max+1)` 后再判断，避免因为 `ParseMultipartForm(8 MiB)` 误以为已有单文件硬上限。请求总量同时检查 `Content-Length` 和实际读取量。
 - [x] 空文件、坏扩展名、单文件超限、缺少 `file`、请求超限和文件数超限都有明确错误。
 - [x] 响应保留 `data` 兼容旧客户端，新增 `files[]` 与 `partial_failure`；逐文件失败不会吞掉同批成功项，调用方可只重传 `status=failed` 的文件。
@@ -412,7 +412,7 @@ LLM 自动拆分、真实用户上游同步属于条件性增强；不必把它�
 2. 准备两个小于 5 MiB 的 Markdown/文本文件，执行：
    `curl -X POST "$BASE/dataset/$DATASET_ID/documents/upload" -H "Authorization: Bearer $ADMIN" -F "file=@样例A.md" -F "file=@样例B.txt"`。
 3. 检查返回：`data` 是成功文档扁平列表，`files` 有两个 `succeeded` 项；等待 worker 后再用文档列表/搜索确认索引。产品型录可能一文件拆成多条 `data`，不能用返回条数等于文件数断言。
-4. 再混入空文件、`.pdf` 文件和超过 `maxDocumentBytes` 的文件；确认成功文件仍在 `data`，失败项在 `files[].error` 中分别写出 `empty_file`、`unsupported_format`、`payload_too_large`。
+4. 再混入空文件、`.pdf` 文件和超过 `Knowledge.MaxDocumentBytes` 的文件；确认成功文件仍在 `data`，失败项在 `files[].error` 中分别写出 `empty_file`、`unsupported_format`、`payload_too_large`。
 5. 仅重传失败文件；不要把已经成功的整批盲目重传。若需要验证总请求/文件数上限，可按配置生成超过 50 MiB 或超过 10 个 `file` 字段的请求。
 
 **验收入口（完成本项后交付）：** `bash "$REPO/scripts/acceptance/run.sh" P12`；上述真实 API 步骤需要在用户的 API/worker/Redis/数据库环境中执行并另行留档。
@@ -459,7 +459,7 @@ LLM 自动拆分、真实用户上游同步属于条件性增强；不必把它�
 **开始前需确认：** 开始前确定重排服务、调用预算和配对评测标准；不在计划中预选外部供应商。
 
 **拆分交付：**
-- [ ] 实现具体 reranker，在 HTTP 与评测入口注入，enableRerank 真正控制排序。
+- [ ] 实现具体 reranker，在 HTTP 与评测入口注入，`Retrieval.EnableRerank` 真正控制排序。
 - [ ] 记录可脱敏核对的候选 ID、RRF 排名、重排排名和服务配置摘要。
 - [ ] 准备固定候选的确定性排序测试，以及真实重排服务的配对评测。
 
@@ -480,7 +480,7 @@ LLM 自动拆分、真实用户上游同步属于条件性增强；不必把它�
 **阶段 / 类型：** B / 完善新增能力　　**前置：** P14　　**状态：** 已完成本地契约；真实服务故障演练待隔离环境
 
 **拆分交付：**
-- [ ] 让 maxRerankCandidates 真正限制候选数，交付可观察的实际送入数量。
+- [ ] 让 `Retrieval.MaxRerankCandidates` 真正限制候选数，交付可观察的实际送入数量。
 - [ ] 明确整体/通道时间预算；重排超时或失败时保留原始 RRF 排名并说明降级原因。
 - [ ] 使用隔离测试代理模拟慢响应和错误，不修改真实线上服务。
 
@@ -569,7 +569,7 @@ LLM 自动拆分、真实用户上游同步属于条件性增强；不必把它�
 **阶段 / 类型：** B / 本地契约已完成、真实上游条件性验收　　**前置：** P02、P09　　**状态：** 本地实现完成，真实上游待条件确认
 
 **已交付（2026-10-07）：**
-- [x] 替换 501 占位：provider-neutral HTTP source、`auth.userSync` API-only 配置与管理员 `dryRun` 请求。
+- [x] 替换 501 占位：provider-neutral HTTP source、`Auth.UserSync` API-only 配置与管理员 `dryRun` 请求。
 - [x] 使用可空唯一 `external_id` 做稳定匹配；报告 `created/updated/skipped/failed`，支持重复同步幂等。
 - [x] 明确 no-delete 边界：上游暂时缺人不会删除本地账号、权限或会话；同名手工账号不会被自动认领。
 - [x] 新同步账号生成一次性初始密码并保持 `must_change_password=true`；上游不能覆盖本地 role/status/password；新增显式迁移 `0003_user_external_id`。

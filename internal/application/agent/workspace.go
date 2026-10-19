@@ -34,5 +34,6 @@ func newWorkspaceAgent(
 		workspaceInstruction,
 		tools,
 		handlers,
+		0, // 沿用 cfg.Agent.MaxIterations
 	)
 }

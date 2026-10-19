@@ -35,7 +35,7 @@ Recall@K（宏平均）、MRR、HitRate@1、ACL 泄漏数、P50/P95 延迟，并
 HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `dataset_id` 限定范围，
 走三通道加权 RRF 召回，响应含 `channels`（各通道是否执行/命中数）与 `degraded`（失败通道）
 台账，可区分「通道挂了」与「确实没有相关内容」；结果按数据集类型的归并粒度返回
-（`knowledge.recallGrouping`，见 [架构](architecture.md) 的「召回结果的归并粒度」）。
+（`Knowledge.RecallGrouping`，见 [架构](architecture.md) 的「召回结果的归并粒度」）。
 装配在 `cmd/restapi/retrieval.go`：Milvus / ES / embedder 任一缺失只关掉对应通道，
 全缺才返回不可用。
 
@@ -55,18 +55,18 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 
 `rag.Reranker` 接口、`HybridRetriever.reranker` 字段与融合后的调用点都已经存在
 （`internal/rag/retriever.go` 在加权 RRF 融合与质量过滤之后调用它，`HybridConfig.Reranker`
-为 nil 时整段跳过）；配置侧的 `retrieval.enableRerank` / `maxRerankCandidates` 也有校验。
+为 nil 时整段跳过）；配置侧的 `Retrieval.EnableRerank` / `Retrieval.MaxRerankCandidates` 也有校验。
 缺的是**一个具体实现**和**组合根里的一次注入**：全仓库没有任何非接口的 `Reranker` 实现，
 `cmd/restapi` 与 `cmd/rag-test` 都没有把实例传进 `HybridConfig`，所以
-`retrieval.enableRerank: true` 目前不改变任何排序结果。
+`Retrieval.EnableRerank: true` 目前不改变任何排序结果。
 
-另有一处细节：`maxRerankCandidates` 只在配置校验里被读（要求启用时 > 0），
+另有一处细节：`Retrieval.MaxRerankCandidates` 只在配置校验里被读（要求启用时 > 0），
 **没有被检索器消费** —— 也就是「重排前把候选截到 N 条」这层保护还没生效，
 接入实现时要一并补上，否则重排成本会随候选集线性膨胀。
 
 完成标准：
 
-1. 实现一个可配置的 reranker 并在组合根注入，在 ACL 过滤后对**受 `maxRerankCandidates`
+1. 实现一个可配置的 reranker 并在组合根注入，在 ACL 过滤后对**受 `Retrieval.MaxRerankCandidates`
    约束的**有限候选集重排。
 2. 明确超时、降级和错误策略（当前实现是「rerank 报错即整体报错」，需确认是否应降级为
    保留原始 RRF 顺序），并记录 rerank 前后排名以便诊断。
@@ -109,8 +109,8 @@ HTTP 侧已接通：`POST /api/v1/dataset/:id/search`（`SearchDataset`）按 `d
 产品型录在请求内按产品拆分，返回文档列表；普通文档一次文件对应一条文档。
 切 chunk、embedding 与外部索引写入由 worker 异步完成。
 
-P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`knowledge.maxUploadRequestBytes`、
-`knowledge.maxDocumentBytes`、`knowledge.maxUploadFiles` 分别限制总请求、单文件和文件数；
+P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`Knowledge.MaxUploadRequestBytes`、
+`Knowledge.MaxDocumentBytes`、`Knowledge.MaxUploadFiles` 分别限制总请求、单文件和文件数；
 文件读取使用 `io.LimitReader(max+1)`，并在 `files[]` 中返回逐文件成功/失败台账，临时文件在请求结束清理。
 这仍不是任意大文件的对象存储或分片流式方案；目录批量导入、全链路流式/分片处理属于后续 P13/P15。
 
@@ -130,7 +130,7 @@ P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`knowledg
 
 1. 明确哪些专项 Agent 可以使用 Skill。
 2. 将所需 Skill 工具加入对应的 `registry.Require(...)`。
-3. 对受策略保护的 Agent，同步更新 `security.allowedTools`。
+3. 对受策略保护的 Agent，同步更新 `Security.AllowedTools`。
 4. 添加 Agent 路由测试。
 
 ## P2：检索可观测性与全量重建
@@ -194,14 +194,14 @@ P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`knowledg
 
 两条与运维相关的：
 
-- **改 `es.analyzer`** 必须同时换 `es.index` 名（mapping 不能就地换分词器）。
+- **改 `ES.Analyzer`** 必须同时换 `ES.Index` 名（mapping 不能就地换分词器）。
   worker 启动时会校验并直接报错，所以不会静默；但要重建索引这一步绕不过去。
-- **新增业务字段**（`fields` 里加一条）不需要换 `es.index`：`EnsureIndex` 会原地
+- **新增业务字段**（`fields` 里加一条）不需要换 `ES.Index`：`EnsureIndex` 会原地
   补写 mapping，已有文档 reindex 后才有新字段的值。指纹 `mapping_rev`（对 analyzer +
   字段形状做 SHA256）会随之变化，worker 用它统计「旧形态文档」并告警，`cmd/rag-test`
   预检把这类文档数出来。**权重微调不影响指纹** —— 只改 `boost`/`baseBoost` 属于查询期
   变化，不触发重索引。反过来，**改已有字段的类型**（如 `text` → `keyword`）无法就地
-  生效，ES 会拒绝，必须换 `es.index` 名重建。
+  生效，ES 会拒绝，必须换 `ES.Index` 名重建。
 
 
 ## 文档索引的异步边界
@@ -215,24 +215,24 @@ P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`knowledg
 由此带来五条运维前提，部署前需要确认：
 
 1. **索引链路多了一个必需依赖：Redis。** 投递失败会让写文档的请求直接报错
-   （`asynq.enabled=false` 时同样如此），而不是「先落库、后台慢慢重试」。这是刻意
+   （`Asynq.Enabled=false` 时同样如此），而不是「先落库、后台慢慢重试」。这是刻意
    的取舍：队列不可用时的静默降级，最终会变成文档卡在 `indexing` 而没人知道。
    Redis 的连通性在进程启动时就探测一次，地址或密码配错当场失败。
-2. **worker 是独立进程，必须单独部署。** 它是 `cmd/worker`，消费 `asynq.queues`
+2. **worker 是独立进程，必须单独部署。** 它是 `cmd/worker`，消费 `Asynq.Queues`
    里列出的队列（默认只有 `index`）。`cmd/restapi` 只投递，不消费。
-   - `asynq.enabled=false` 时 worker 拒绝启动（没有可消费的队列，空转没有意义）；
+   - `Asynq.Enabled=false` 时 worker 拒绝启动（没有可消费的队列，空转没有意义）；
      而 HTTP 侧仍然会起来，写文档会在投递那一步报错。
-   - 漏配 `asynq.queues` 会让任务投进 `index` 却永远没人领 —— asynq 默认只消费
-     `default` 队列，这是个安静的坑，所以配置校验要求 `queues` 非空。
+   - 漏配 `Asynq.Queues` 会让任务投进 `index` 却永远没人领 —— asynq 默认只消费
+     `default` 队列，这是个安静的坑，所以配置校验要求 `Asynq.Queues` 非空。
    - worker 的依赖比 HTTP 重：PostgreSQL、Milvus、embedding 服务缺一个都起不来
      （启动即校验，而不是等任务进来才失败）。Elasticsearch 是可选依赖：配了
-     `es.address` 会在启动时探活并校验/补写索引，没配就跳过关键词索引这一步。
+     `ES.Address` 会在启动时探活并校验/补写索引，没配就跳过关键词索引这一步。
    - **写 ES 失败会让任务重试**，与写向量失败同等对待：`_bulk` 的部分失败（HTTP 200
      但 items 里带 error）也算失败。这是刻意的 —— 忽略它的后果是「写入报成功，但
      某些分块就是搜不到」。重试按 chunk 收敛，已成功的部分不会重做。
 3. **任务以文档为粒度，重试按 chunk 收敛。** 一个坏段落不会让整篇文档白跑：worker
    每次只挑还 `pending` 的 chunk，重试自动跳过上一轮已成功的部分。次数耗尽
-   （`asynq.maxRetries`）后，剩下的 chunk 会被标成 `failed`，`document.status` 随之
+   （`Asynq.MaxRetries`）后，剩下的 chunk 会被标成 `failed`，`document.status` 随之
    变 `failed`，需要人工触发一次 reindex。已经归档的任务留在 asynq 的归档队列里，
    超过保留期会被清理。
    - **幂等靠 `document.metadata.content_hash`。** 只有正文真的变了才重切分块；
@@ -252,7 +252,9 @@ P12 已补齐第一版边界：只接收 Markdown/纯文本扩展名；`knowledg
 
 **状态：本地契约已完成；真实模型与外部并发验收待补**
 
-现有结构化型录路径继续由 `internal/rag/parser.SplitBlocks` 处理；它没有被 LLM 路径替换。API 侧现在可以通过 `knowledge.productSplitEnabled` 显式开启 provider-neutral HTTP 拆分器。模型响应必须先通过产品数量、正文非空、稳定键（`product_id` 或 `model`）和重复键校验，之后才转换为现有 `productDocument` 并复用同一写库/索引队列。模型请求失败或返回空/歧义结果会直接失败，不会静默降级成一条看似成功的整份文档。
+现有结构化型录路径继续由 `internal/rag/parser.SplitBlocks` 处理；它没有被 LLM 路径替换。API 侧可以注入 provider-neutral HTTP 拆分器（`knowledge.ServiceDeps.ProductSplitter`）。模型响应必须先通过产品数量、正文非空、稳定键（`product_id` 或 `model`）和重复键校验，之后才转换为现有 `productDocument` 并复用同一写库/索引队列。模型请求失败或返回空/歧义结果会直接失败，不会静默降级成一条看似成功的整份文档。
+
+注意：拆分器目前只有**代码级注入点** —— `cmd/restapi` 没有注入它，配置结构体里也没有对应的键（早期文档提到的 `Knowledge.ProductSplitEnabled` / endpoint / model 等从未落到 `internal/platform/config`，验收模板里残留的死键已在 2026-10 的配置迁移中删除）。要真正启用，需要先在组合根注入实现。
 
 P17 的本地边界也已补齐：输入正文、模型和解析版本参与指纹；解析版本与输入摘要写入产品元数据；产品键继续走 `external_key` 唯一约束和冲突重查，重复上传与版本变化分别走 unchanged/update。
 
@@ -280,8 +282,8 @@ P17 的本地边界也已补齐：输入正文、模型和解析版本参与指�
 链路追踪的具体形状见 [架构与运行说明](architecture.md) 的「链路追踪」一节。当前遗留：
 
 - **配置源分叉。** HTTP 进程的 trace 服务名来自 `internal/transport/restapi/etc/restapi.yaml`
-  的 `Telemetry.Name`，worker 的来自 `configs/config.yaml` 的 `observability.workerServiceName`，
-  而同一份业务配置里的 `observability.serviceName` 对 trace 已经不起作用（只有 worker 的
+  的 `Telemetry.Name`，worker 的来自 `configs/config.yaml` 的 `Observability.WorkerServiceName`，
+  而同一份业务配置里的 `Observability.ServiceName` 对 trace 已经不起作用（只有 worker 的
   缺省值会用到它）。三处要一起改才一致，很容易只改一处。
 - **缺端到端断言。** `internal/platform/queue/asynq/trace_test.go` 覆盖了信封编解码、旧
   payload 容错与「消费端 trace id 等于投递端」，但「HTTP 的 server span 与 worker 的
@@ -301,7 +303,7 @@ P17 的本地边界也已补齐：输入正文、模型和解析版本参与指�
 
 - **令牌不可吊销。** 账号令牌是自包含的（HMAC 签名，服务端不存会话行），所以改密码、
   停用账号都**挡不住一枚已签发的令牌**，它会一直有效到 `exp`。退出登录只是客户端丢弃。
-  唯一的缓解手段是有效期上限（`auth.accounts.ttlHours`，配置层设了 30 天上限）。
+  唯一的缓解手段是有效期上限（`Auth.Accounts.TTLHours`，配置层设了 30 天上限）。
   真要做到即时失效，需要引入服务端的令牌版本号或黑名单 —— 那会把「无状态」这个前提
   整个换掉，属于设计变更而不是补丁。
 - **角色改动要等下次登录生效。** 角色签在令牌载荷里（`r`），服务端不查库。所以

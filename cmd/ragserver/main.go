@@ -33,14 +33,14 @@ func main() {
 			Dimensions: 1024,
 		},
 		Storage: struct {
-			Host        string `yaml:"host"`
-			Port        int    `yaml:"port"`
-			Username    string `yaml:"username"`
-			Password    string `yaml:"-"`
-			PasswordEnv string `yaml:"passwordEnv"`
-			DBName      string `yaml:"dbName"`
-			SSLMode     string `yaml:"sslMode"`
-			MaxOpenConn int    `yaml:"maxOpenConn"`
+			Host        string `json:"Host,optional"`
+			Port        int    `json:"Port,optional"`
+			Username    string `json:"Username,optional"`
+			Password    string `json:"-"`
+			PasswordEnv string `json:"PasswordEnv,optional"`
+			DBName      string `json:"DBName,optional"`
+			SSLMode     string `json:"SSLMode,optional"`
+			MaxOpenConn int    `json:"MaxOpenConn,optional"`
 		}{
 			Host:        "10.10.2.181",
 			Port:        5432,

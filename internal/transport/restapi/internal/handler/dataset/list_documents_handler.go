@@ -12,10 +12,10 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 列出数据集文档
+// 列出数据集文档（分页）
 func ListDocumentsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.DatasetIDReq
+		var req types.DocumentListReq
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return

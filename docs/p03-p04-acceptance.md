@@ -214,7 +214,7 @@ bash "$REPO/scripts/acceptance/run.sh" P04 --timeout 120 --cleanup
 
 1. 使用独立验收 worker/embedding 环境，令指定索引依赖临时失败，再创建小文档。
 2. 记录 document ID 和 worker 原始错误；未耗尽时可继续 indexing，耗尽后必须 failed。
-   演练前将专用配置的 `asynq.maxRetries` 与重试间隔调到有限可观察值，不改共享配置。
+   演练前将专用配置的 `Asynq.MaxRetries` 与重试间隔调到有限可观察值，不改共享配置。
 3. 恢复依赖；`POST /dataset/<ID>/documents/<DOC_ID>/reindex` 返回受理状态。
 4. 有界等待 ready，核对正文字节、实际分块序号与外部索引数量。
 5. 进程正常退出产生的 context cancellation 不应误判“重试耗尽的业务失败”。

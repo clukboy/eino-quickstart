@@ -18,6 +18,7 @@ import (
 	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
+	"eino-quickstart/internal/platform/secretbox"
 	"eino-quickstart/internal/transport/restapi/internal/config"
 	"eino-quickstart/internal/transport/restapi/internal/middleware"
 
@@ -71,6 +72,10 @@ type Deps struct {
 	EntClient *ent.Client
 	Metrics   *observability.Metrics
 	Console   *consoleStore.Store
+
+	// SecretBox 用于加密 console 提交的模型供应商密钥。为 nil 表示这次部署
+	// 没有配主密钥，此时写密钥会被拒绝（而不是明文落库）。
+	SecretBox *secretbox.Box
 }
 
 // ServiceContext is what goctl passes to every handler and logic. goctl owns the
@@ -100,6 +105,7 @@ type ServiceContext struct {
 	EntClient    *ent.Client
 	Metrics      *observability.Metrics
 	Console      *consoleStore.Store
+	SecretBox    *secretbox.Box
 	RoleAdmin    rest.Middleware
 	RoleAgent    rest.Middleware
 	RoleApprover rest.Middleware
@@ -131,6 +137,7 @@ func NewServiceContext(c config.Config, deps Deps) *ServiceContext {
 		EntClient:                 deps.EntClient,
 		Metrics:                   deps.Metrics,
 		Console:                   deps.Console,
+		SecretBox:                 deps.SecretBox,
 		RoleAdmin:                 middleware.NewRoleAdminMiddleware().Handle,
 		RoleAgent:                 middleware.NewRoleAgentMiddleware().Handle,
 		RoleApprover:              middleware.NewRoleApproverMiddleware().Handle,

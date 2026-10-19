@@ -22,7 +22,7 @@ service restapi {
 	delete /org-units/:id (OrgUnitIDReq) returns (StatusResp)
 
 	@handler ListOrgMembers
-	get /org-units/:id/members (OrgUnitIDReq) returns (OrgMemberListResp)
+	get /org-units/:id/members (OrgMemberListReq) returns (OrgMemberListResp)
 
 	@handler AddOrgMember
 	post /org-units/:id/members (AddOrgMemberReq) returns (OrgMemberResp)

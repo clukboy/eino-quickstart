@@ -37,23 +37,11 @@ syntax = "v1"
 type UserResp {
 	ID      uint64 `json:"id"`
 	Subject string `json:"subject"`
-	// Username 是登录名：唯一，且**只能是 ASCII**（见 logic/user/helpers.go
-	// 的 usernamePattern，那里解释了为什么要收紧）。
 	Username string `json:"username"`
-	// Nickname 是**显示名**，与 Username 分工不同：这一个给人看（可中文、
-	// 可重名），那一个用来登录（唯一、ASCII）。建号时必填，之后没有修改接口。
-	//
-	// 本字段是后加的列，比它更早建的账号由 显式 db-migrate 里的迁移步骤按 username
-	// 补上（见 persistence/account 与 ent/schema/user.go 的说明），所以正常
-	// 状态下它不会是空串；真拿到空串说明有人绕过接口直接写了库。
 	Nickname string `json:"nickname"`
-	// Role 取值 agent / approver / admin。通过本组接口创建的账号恒为 agent。
 	Role string `json:"role"`
-	// Status 取值 ACTIVE / DISABLED。本次没有改动它的接口，所以恒为 ACTIVE。
 	Status string `json:"status"`
-	// MustChangePassword 为真表示这个账号还在用管理员设定的初始密码。
 	MustChangePassword bool `json:"must_change_password"`
-	// CreatedAt 是 Unix 毫秒。
 	CreatedAt int64 `json:"created_at"`
 }
 
@@ -62,14 +50,12 @@ type UserResp {
 // 专门做成不含哈希，让「顺手带出去」在类型上就不可能）。
 type UserListResp {
 	Data []UserResp `json:"data"`
-	// Total 与 len(Data) 恒相等：本轮不分页（与 /sessions 同一取舍，账号在
-	// 人工建号的前提下天然很少）。真到要分页时，请把 page/pageSize 加成显式
-	// 的请求参数，而不是在这里加一个不透明的默认上限。
-	//
-	// ⚠️ 加上 keyword 之后这条**仍然成立**：搜索不是分页，过滤后的结果整体
-	// 返回，Total 依旧是 len(Data)。别把它当成「命中总数」使用 —— 那需要另一个
-	// 字段，而在分页做出来之前它没有意义（不分页时两者本来就相等）。
+	// Total 是**过滤后**的命中总数（keyword 生效之后还有多少条），**不是**
+	// len(Data)。分页之前这两者恒相等，现在只有「一页装得下」时才相等 ——
+	// 拿 len(Data) 去算总页数会少算。keyword 为空时它就是账号总数。
 	Total int `json:"total"`
+	Page int `json:"page"`
+	PageSize int `json:"page_size"`
 }
 
 // UserListReq 是列表的查询条件。
@@ -86,6 +72,14 @@ type UserListReq {
 	// 对用户输入里的 % 与 _ 做转义，所以搜 "a_b" 不会命中 "axb"、搜 "%" 也不会
 	// 命中全部。这一点由库保证，后端不需要再包一层转义。
 	Keyword string `form:"keyword,optional"`
+	// Page / PageSize 与 /runs、/tools、/audit-logs 同一口径：page 从 1 开始；
+	// page_size <= 0 或 > 200 时后端按 20 兜底（不是报错 —— 上限是服务端资源
+	// 约束，不该让调用方猜）。两个都不传 = 第一页 20 条。
+	//
+	// ⚠️ 必须带 `optional`，理由同 Keyword：漏掉它会让「不带分页参数」这个最
+	// 常见的调用方式直接 400。字段名是 page_size，不是 pageSize。
+	Page     int `form:"page,optional"`
+	PageSize int `form:"page_size,optional"`
 }
 
 type CreateUserReq {
@@ -163,7 +157,7 @@ type SyncUserError {
 	middleware: RoleAdmin
 )
 service restapi {
-	@doc "列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）"
+	@doc "列出账号（按创建时间倒序分页；keyword 可按用户名或昵称模糊搜索）"
 	@handler ListUsers
 	get /users (UserListReq) returns (UserListResp)
 

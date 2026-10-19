@@ -6,7 +6,6 @@ package stream
 import (
 	"context"
 	"errors"
-	"io"
 	"strings"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"eino-quickstart/internal/transport/restapi/internal/types"
 
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -132,106 +132,90 @@ func (l *ChatLogic) Chat(req *types.ChatReq, client chan<- *types.ChatEvent) err
 		}),
 	)
 
-	var assistant strings.Builder
+	round, clientGone, _ := forwardRound(runCtx, client, sessionID, iter, false)
+	if clientGone {
+		return nil
+	}
 
-	for {
-		event, ok := iter.Next()
-		if !ok {
-			break
-		}
+	if round.Interrupted != nil {
+		return l.handleInterrupt(runCtx, client, round.Interrupted, sessionID, turnID, identity.Subject, runID, checkpointID)
+	}
 
-		// 审批拦下这轮：落 checkpoint、把 turn 与 run 标成中断，然后让客户端去
-		// 决策。这条流的使命到此为止，后续由 resume 那条接上。
-		if event.Action != nil && event.Action.Interrupted != nil {
-			return l.handleInterrupt(runCtx, client, event, sessionID, turnID, identity.Subject, runID, checkpointID)
-		}
+	// event 级错误不掐流，也不单独发帧 —— 只要这一轮最终有正文，它就是可用的回答；
+	// 没有正文会走下面的兜底，兜底再失败才发 error。所以这里只落日志，留可查的现场。
+	// routed 那行是路由准确率的唯一离线来源，单独记。
+	for _, eventErr := range round.Errors {
+		l.Errorf("chat turn event error: session=%s turn=%s err=%v", sessionID, turnID, eventErr)
+	}
+	l.Infof("chat turn routed: session=%s turn=%s agent=%s", sessionID, turnID, routingLabel(round.RoutedTo))
 
-		// 单个 event 的错误不终止整条流：Agent 可能已经产出过内容，把原因推给
-		// 客户端之后继续读，后面还可能有正常输出。
-		if event.Err != nil {
-			emit(runCtx, client, &types.ChatEvent{
-				Type:      eventError,
-				SessionID: sessionID,
-				Error:     event.Err.Error(),
-			})
-		}
+	answer := round.Assistant
 
-		if event.Output == nil || event.Output.MessageOutput == nil {
-			continue
-		}
+	var fallbackErr error
 
-		output := event.Output.MessageOutput
-		if output.IsStreaming {
-			if !streamMessage(runCtx, client, &assistant, sessionID, event.AgentName, output) {
-				return nil
-			}
-			continue
-		}
-
-		if output.Message != nil && output.Message.Content != "" {
-			assistant.WriteString(output.Message.Content)
-			if !emit(runCtx, client, &types.ChatEvent{
-				Type:      eventMessage,
-				SessionID: sessionID,
-				Agent:     event.AgentName,
-				Content:   output.Message.Content,
-			}) {
-				return nil
-			}
+	if strings.TrimSpace(answer) == "" {
+		answer, clientGone, fallbackErr = l.runGeneralFallback(runCtx, client, sessionID, history)
+		if clientGone {
+			return nil
 		}
 	}
 
-	// 收尾：assistant 全文落库，再发 done。done 之后不再有帧 —— 客户端靠它判断
-	// 「这次回答是完整的」，没有 done 就说明中途断了。
-	if err := l.svcCtx.Turns.Complete(l.ctx, turnID, identity.Subject, assistant.String()); err != nil {
+	if err := l.svcCtx.Turns.Complete(l.ctx, turnID, identity.Subject, answer); err != nil {
 		return fail(l.ctx, client, sessionID, "complete chat turn failed", err)
+	}
+
+	// 兜底也失败：发 error 帧并结束，**不发 done**。stream.api 的契约是「error
+	// 表示本次回答不完整」，再补一个 done 会让客户端把一次失败判成成功。
+	if fallbackErr != nil {
+		return fail(l.ctx, client, sessionID, "general fallback failed", fallbackErr)
 	}
 
 	emit(l.ctx, client, &types.ChatEvent{Type: eventDone, SessionID: sessionID})
 	return nil
 }
 
-// streamMessage 转发一个流式输出，返回 false 表示客户端已断开。
+// runGeneralFallback 在 root 整轮没有产出正文时，用 general_agent 单独补跑一次。
 //
-// 增量直接拼进 assistant：一次答复可能跨多个 event（多 agent 编排下各 agent
-// 各说一段），最终落库的是全文，所以累积要跨 event —— 这也是 assistant 由调用
-// 方持有、而不是在这里新建的原因。
-func streamMessage(
+// 三条约束：
+//  1. 走独立的 GeneralRunner（不挂 checkpoint store），不碰本轮 runID 的断点；
+//  2. 输入是已经裁剪过的 history，而不是重新拼一串 prompt —— 追问也要看得见上下文；
+//  3. 不传 session values：那会让 Eino 用 prompt.FString 格式化 instruction，兜底
+//     路径没必要为这个开口子。
+//
+// 返回的 error 表示兜底也没能产出内容。它**不自己发帧**：调用方会在落库之后用
+// fail 一次性发出 error 帧并结束流，避免出现「error 之后又 done」的矛盾序列。
+func (l *ChatLogic) runGeneralFallback(
 	ctx context.Context,
 	client chan<- *types.ChatEvent,
-	assistant *strings.Builder,
-	sessionID, agentName string,
-	output *adk.MessageVariant,
-) bool {
-	for {
-		message, err := output.MessageStream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			// 读流失败只发一帧、不终止：已经拼出来的内容仍然有效，让客户端自己
-			// 决定是重试还是展示半截回答。
-			emit(ctx, client, &types.ChatEvent{
-				Type:      eventError,
-				SessionID: sessionID,
-				Error:     err.Error(),
-			})
-			continue
-		}
-		if message.Content == "" {
-			continue
-		}
-		assistant.WriteString(message.Content)
-		if !emit(ctx, client, &types.ChatEvent{
-			Type:      eventMessage,
-			SessionID: sessionID,
-			Agent:     agentName,
-			Content:   message.Content,
-		}) {
-			return false
-		}
+	sessionID string,
+	history []*schema.Message,
+) (string, bool, error) {
+	if l.svcCtx.Agent == nil || l.svcCtx.Agent.GeneralRunner == nil {
+		return "", false, errors.New("general runner is not configured")
 	}
-	return true
+
+	iter := l.svcCtx.Agent.GeneralRunner.Run(ctx, history)
+
+	round, clientGone, fatal := forwardRound(ctx, client, sessionID, iter, true)
+	if clientGone {
+		return "", true, nil
+	}
+	if fatal != nil {
+		l.Errorf("general fallback failed: session=%s err=%v", sessionID, fatal)
+	}
+
+	if round.Assistant != "" {
+		l.Infof("general fallback answered: session=%s", sessionID)
+		return round.Assistant, false, nil
+	}
+
+	// 刻意不回落本地主模型：兜底专员的模型配错属于部署问题，应当被看见，
+	// 而不是被一次静默的降级掩盖掉。
+	l.Errorf("general fallback produced no content: session=%s", sessionID)
+	if fatal != nil {
+		return "", false, fatal
+	}
+	return "", false, errors.New("general agent produced no content")
 }
 
 // handleInterrupt 保存审批断点并告知客户端去决策。
@@ -239,12 +223,7 @@ func streamMessage(
 // 三处状态都要落：审批单挂上 checkpoint 与中断 id（否则 resume 找不到续跑入口）、
 // turn 与 run 标成中断。任一步失败都要发 error 帧 —— 「客户端以为在等审批，库里
 // 却没有可续跑的断点」是最难查的一种状态。
-func (l *ChatLogic) handleInterrupt(
-	ctx context.Context,
-	client chan<- *types.ChatEvent,
-	event *adk.AgentEvent,
-	sessionID, turnID, subject, runID, checkpointID string,
-) error {
+func (l *ChatLogic) handleInterrupt(ctx context.Context, client chan<- *types.ChatEvent, event *adk.AgentEvent, sessionID, turnID, subject, runID, checkpointID string) error {
 	approvalID, ok := approvalIDFromInterrupt(event.Action.Interrupted.Data)
 	if !ok {
 		return emitError(ctx, client, sessionID, "approval interrupt did not include an approval ID")

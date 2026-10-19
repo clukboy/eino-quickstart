@@ -1714,20 +1714,47 @@
                 "issued_at": {
                   "type": "integer"
                 },
-                "must_change_password": {
-                  "type": "boolean"
-                },
-                "role": {
-                  "type": "string"
-                },
-                "subject": {
-                  "type": "string"
-                },
                 "token": {
                   "type": "string"
                 },
-                "username": {
-                  "type": "string"
+                "user": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "subject",
+                    "username",
+                    "nickname",
+                    "role",
+                    "status",
+                    "must_change_password",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "created_at": {
+                      "type": "integer"
+                    },
+                    "id": {
+                      "type": "integer"
+                    },
+                    "must_change_password": {
+                      "type": "boolean"
+                    },
+                    "nickname": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -1824,20 +1851,47 @@
                 "issued_at": {
                   "type": "integer"
                 },
-                "must_change_password": {
-                  "type": "boolean"
-                },
-                "role": {
-                  "type": "string"
-                },
-                "subject": {
-                  "type": "string"
-                },
                 "token": {
                   "type": "string"
                 },
-                "username": {
-                  "type": "string"
+                "user": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "subject",
+                    "username",
+                    "nickname",
+                    "role",
+                    "status",
+                    "must_change_password",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "created_at": {
+                      "type": "integer"
+                    },
+                    "id": {
+                      "type": "integer"
+                    },
+                    "must_change_password": {
+                      "type": "boolean"
+                    },
+                    "nickname": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "username": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -1923,20 +1977,28 @@
         "operationId": "datasetListDatasets",
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "type": {
-                  "type": "string"
-                }
-              }
-            }
+            "type": "string",
+            "name": "name",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "type",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -1986,6 +2048,15 @@
                       }
                     }
                   }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
                 }
               }
             }
@@ -2485,7 +2556,7 @@
           "http",
           "https"
         ],
-        "summary": "列出数据集文档",
+        "summary": "列出数据集文档（分页）",
         "operationId": "datasetListDocuments",
         "parameters": [
           {
@@ -2493,6 +2564,18 @@
             "name": "id",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -2561,6 +2644,15 @@
                       }
                     }
                   }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
                 }
               }
             }
@@ -4915,6 +5007,18 @@
             "name": "id",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -5107,6 +5211,18 @@
             "name": "id",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -5158,6 +5274,12 @@
                       }
                     }
                   }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
                 },
                 "total": {
                   "type": "integer"
@@ -6241,6 +6363,18 @@
             "name": "id",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -6278,6 +6412,12 @@
                       }
                     }
                   }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
                 },
                 "total": {
                   "type": "integer"
@@ -7357,6 +7497,36 @@
         }
       }
     },
+    "/api/v1/tasks/stream": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "summary": "TaskStream",
+        "operationId": "streamTaskStream",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {},
+                "event": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tools": {
       "get": {
         "produces": [
@@ -8057,12 +8227,24 @@
           "http",
           "https"
         ],
-        "summary": "列出全部账号（按创建时间倒序，暂不分页；keyword 可按用户名或昵称模糊搜索）",
+        "summary": "列出账号（按创建时间倒序分页；keyword 可按用户名或昵称模糊搜索）",
         "operationId": "userListUsers",
         "parameters": [
           {
             "type": "string",
             "name": "keyword",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
             "in": "query",
             "allowEmptyValue": true
           }
@@ -8114,6 +8296,12 @@
                       }
                     }
                   }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
                 },
                 "total": {
                   "type": "integer"
@@ -8485,7 +8673,7 @@
       }
     }
   },
-  "x-date": "2026-10-09 10:12:06",
+  "x-date": "2026-10-17 13:49:21",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

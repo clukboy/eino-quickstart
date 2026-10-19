@@ -14,16 +14,34 @@
 | 验收 API 业务 | `configs/acceptance/api.yaml` | `EINO_API_CONFIG` | 与 API 默认文件同结构，使用独立验收资源 |
 | 验收 API HTTP | `configs/acceptance/restapi.yaml` | `EINO_REST_CONFIG` | 本机 `127.0.0.1:8090` |
 | 验收 worker | `configs/acceptance/worker.yaml` | `EINO_WORKER_CONFIG` | 与 worker 默认文件同结构，使用独立验收资源 |
-| 共用索引定义 | `configs/es/chunk_mapping.yaml` | 两份业务配置的 `es.mappingFile` | 字段与检索权重定义，不是进程启动配置 |
+| 共用索引定义 | `configs/es/chunk_mapping.yaml` | 两份业务配置的 `ES.MappingFile` | 字段与检索权重定义，不是进程启动配置 |
 
 **第一步建议：只打开两份 `configs/acceptance/*.yaml` 业务模板，先填数据库、Redis、Milvus 和 embedding，不要从 Agent 代码切入。**
 
-- worker 不再读取 API 的 `model` / `auth` / `security` / `runtime` / `workspace` 等配置，也不创建工作区。
-- API 不再配置 `indexer`、worker 并发数、消费队列权重、消费重试间隔和 worker 关闭超时。
+- worker 不再读取 API 的 `Model` / `Auth` / `Security` / `Runtime` / `Workspace` 等配置，也不创建工作区。
+- API 不再配置 `Indexer`、worker 并发数、消费队列权重、消费重试间隔和 worker 关闭超时。
 - API 创建纯投递客户端，不再构造未启动的 asynq 消费服务。
-- 不允许把另一进程专属字段混进文件；拼错字段也会在配置加载时失败。
-- 两个进程各用自己的 `observability.serviceName`，并分别写 `server.json` / `worker.json`。
+- 不允许把另一进程专属字段混进文件；拼错字段也会在配置加载时失败（键名约定见 1.1）。
+- 两个进程各用自己的 `Observability.ServiceName`，并分别写 `server.json` / `worker.json`。
 - 文件路径和文件内的相对目录都按**进程工作目录**解释；以下命令要求从仓库根执行。
+
+### 1.1 键名怎么写：大驼峰 = json tag 名
+
+配置文件里的键名就是 `internal/platform/config` 结构体上的 `json` tag 名，也就是大驼峰字段名：
+
+```yaml
+Knowledge:
+  MaxDocumentBytes: 5242880
+  MaxChunksPerDocument: 2000
+```
+
+三条必须记住的规则：
+
+1. **拼写必须一致，大小写不敏感**。go-zero 的解析把键名和 tag 名都转小写后精确比较：`MaxDocumentBytes` 和 `MAXDOCUMENTBYTES` 都能绑上，`max_document_bytes`、`maxDocumentBytes` 绑不上。
+2. **绑不上不会报错**（go-zero 会静默忽略不认识的键，那一项保持零值），所以加载前会按 tag 树逐个键校验：未知键直接让进程启动失败，并尽量给出 `did you mean "MaxDocumentBytes"?`。这条校验同时适用于 `config.Load`（历史完整配置）。
+3. **文件扩展名决定解析器**：`.yaml` / `.yml` / `.json` 都可以，共用同一套结构体与同一套键名（`EINO_API_CONFIG=/path/config.json` 是合法的）。
+
+例外：`configs/es/chunk_mapping.yaml` 是索引映射声明，由 `internal/platform/storage/es` 单独加载，键名是它自己的 schema（`name` / `from` / `boost` …），不适用上面的约定；`configs/observability/otel-collector.yaml`、`configs/acceptance/compose.yaml` 分别是 OTel collector 与 Docker Compose 的配置文件，格式由它们自己规定。
 
 ## 2. 旧配置怎么处理
 
@@ -41,16 +59,16 @@ API / worker（以及评测工具的默认选择）**不再读取 `EINO_CONFIG`�
 
 | 参数 | 为什么要一致 | 验收模板默认值 |
 | --- | --- | --- |
-| `storage.host / port / dbName` | API 写文档、worker 读同一篇文档 | `127.0.0.1:5432` / `eino_acceptance` |
+| `Storage.Host / Port / DBName` | API 写文档、worker 读同一篇文档 | `127.0.0.1:5432` / `eino_acceptance` |
 | 数据库用户权限 | 两边都需要访问相关表；当前启动还会执行 schema 同步 | `postgres`，请按你的环境更换 |
-| `asynq.redis.addr / db` | API 投递、worker 消费同一个 Redis 逻辑库 | `127.0.0.1:6379` / **15** |
-| worker `asynq.queues` | 索引任务投递到契约固定的 `index` 队列 | `index`，权重 1 |
-| `milvus.address / collection / metricType` | worker 写向量、API 检索或删除向量 | `127.0.0.1:19530` / `eino_acceptance_document_chunks_v1` / `COSINE` |
-| `embedding.baseURL / model / dimensions` | 文档向量和查询向量必须属于同一向量空间 | 保留现有模型示例，维度 1024；上线前向服务商核实并实测 |
-| `es.address / index / mappingFile` | worker 写关键词索引，API 搜索同一索引 | 默认 `address: []`，明确关闭 ES |
-| `knowledge.maxDocumentBytes` | API 接受的正文应能由 worker 完整读取 | 5 MiB |
+| `Asynq.Redis.Addr / DB` | API 投递、worker 消费同一个 Redis 逻辑库 | `127.0.0.1:6379` / **15** |
+| worker `Asynq.Queues` | 索引任务投递到契约固定的 `index` 队列 | `index`，权重 1 |
+| `Milvus.Address / Collection / MetricType` | worker 写向量、API 检索或删除向量 | `127.0.0.1:19530` / `eino_acceptance_document_chunks_v1` / `COSINE` |
+| `Embedding.BaseURL / Model / Dimensions` | 文档向量和查询向量必须属于同一向量空间 | 保留现有模型示例，维度 1024；上线前向服务商核实并实测 |
+| `ES.Address / Index / MappingFile` | worker 写关键词索引，API 搜索同一索引 | 默认 `Address: []`，明确关闭 ES |
+| `Knowledge.MaxDocumentBytes` | API 接受的正文应能由 worker 完整读取 | 5 MiB |
 
-`asynq.maxRetries` 决定任务最大重试次数，API 投递值与 worker 的终态判断应保持一致。
+`Asynq.MaxRetries` 决定任务最大重试次数，API 投递值与 worker 的终态判断应保持一致。
 
 ES 关闭时只是降级验证，不构成完整的关键词 / 精确召回验收。需要验证 ES 时，在**两份**模板同时填写独立服务地址、索引、分析器、证书和必要凭据；不要只开启 worker 或 API 一侧。
 
@@ -144,7 +162,7 @@ EINO_WORKER_CONFIG=./configs/acceptance/api.yaml \
   go run ./cmd/worker -check-config
 ```
 
-用模板副本测试，不改默认模板：在 worker 文件加入 `model:`，或在 API 文件加入 `indexer:`，也应该失败。修回原文件后再检查应恢复成功。
+用模板副本测试，不改默认模板：在 worker 文件加入 `Model:`，或在 API 文件加入 `Indexer:`，也应该失败。修回原文件后再检查应恢复成功。
 
 ## 5. 接真实服务时，按这个顺序做
 
