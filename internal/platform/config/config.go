@@ -71,12 +71,32 @@ type AgentConfig struct {
 	MaxIterations int    `json:"MaxIterations,optional"`
 }
 
+// 模型服务端内置工具的合法取值。放在这里而不是散在 agent 包里，是为了让
+// 「配置校验」和「翻译成请求参数」用的是同一组常量。
+const (
+	ServerToolWebSearch       = "web_search"
+	ServerToolCodeInterpreter = "code_interpreter"
+	ServerToolShell           = "shell"
+)
+
 type ModelConfig struct {
 	Provider    string  `json:"Provider,optional"`
 	BaseURL     string  `json:"BaseURL,optional"`
 	APIKey      string  `json:"APIKey,optional"`
 	Model       string  `json:"Model,optional"`
 	Temperature float32 `json:"Temperature,optional"`
+
+	// ServerTools 是**模型服务端自带**的工具（Responses API 的 web_search /
+	// code_interpreter / shell），本仓库不实现它们、也拿不到它们的执行权。
+	//
+	// 为什么必须在这里列一遍：接口「支持」某个内置工具，和「本次请求允许使用」
+	// 是两件事。不写进请求体的 tools 数组，模型就当自己没这个能力 —— 表现是
+	// 「模型明明能联网，却一直在拿旧知识作答」。留空表示只用本仓库注册的函数工具。
+	//
+	// 取值只有三个，别的名字会在启动期报错（写错了却不报，症状就是配了等于没配）。
+	// file_search 不在其中：它还必须带 vector store id，属于另一套要同步数据的
+	// 部署形态，不适合用一个名字开关。
+	ServerTools []string `json:"ServerTools,optional"`
 }
 
 type WorkspaceConfig struct {
@@ -373,6 +393,19 @@ func load(path string, profile configProfile) (*Config, error) {
 		}
 		if cfg.Agent.MaxIterations <= 0 {
 			return nil, fmt.Errorf("Agent.MaxIterations must be greater than zero")
+		}
+
+		// 内置工具写错名字不能静默放过：症状是「配了但模型还是不联网」，
+		// 而那时没人会想到去查拼写。
+		for _, tool := range cfg.Model.ServerTools {
+			switch tool {
+			case ServerToolWebSearch, ServerToolCodeInterpreter, ServerToolShell:
+			default:
+				return nil, fmt.Errorf(
+					"Model.ServerTools contains unsupported tool %q (allowed: %s, %s, %s)",
+					tool, ServerToolWebSearch, ServerToolCodeInterpreter, ServerToolShell,
+				)
+			}
 		}
 
 		if !cfg.Auth.Enabled {

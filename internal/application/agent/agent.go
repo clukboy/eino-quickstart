@@ -11,24 +11,21 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/agenticopenai"
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"github.com/openai/openai-go/v3/packages/param"
+	"github.com/openai/openai-go/v3/responses"
 )
 
 // knowledgeToolName 是这条链路上唯一的工具。
 const knowledgeToolName = "search_knowledge"
 
-// Harness 是「模型 + 工具 + 上下文策略」的装配结果，本身不跑业务规则。
-//
-// 它只有两个出口：
-//   - Runner：给定 agentic 消息序列，产出事件流（谁去消费、怎么落库不关它的事）；
-//   - Context：历史裁剪与工具输出截断的阈值（一轮对话怎么组织由 chat.Service 决定）。
-//
-// 一轮对话的编排在 internal/application/chat —— 这里刻意不引 persistence，
-// 否则「跑一轮」和「存一轮」又会粘在一起。
 type Harness struct {
 	Runner  *adk.TypedRunner[*schema.AgenticMessage]
 	Context *contextmgr.Manager
+
+	ModelOptions []model.Option
 }
 
 func NewHarness(ctx context.Context, cfg *config.Config, toolRegistry *registry.Registry) (*Harness, error) {
@@ -39,12 +36,15 @@ func NewHarness(ctx context.Context, cfg *config.Config, toolRegistry *registry.
 	// Responses API（agentic 体系）：消息是 content blocks，runner 是泛型
 	// TypedRunner[*schema.AgenticMessage]。换回 Chat Completions 时整条链路的
 	// 事件类型都要跟着换，不是只改这一行。
+	serverTools, include := serverToolOptions(cfg.Model.ServerTools)
+
 	am, err := agenticopenai.NewResponsesModel(ctx, &agenticopenai.ResponsesConfig{
 		APIKey:          cfg.Model.APIKey,
 		Model:           cfg.Model.Model,
 		BaseURL:         cfg.Model.BaseURL,
 		Temperature:     &cfg.Model.Temperature,
 		EnableAutoCache: true,
+		Include:         include,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create responses model: %w", err)
@@ -75,7 +75,7 @@ func NewHarness(ctx context.Context, cfg *config.Config, toolRegistry *registry.
 		return nil, fmt.Errorf("create agent: %w", err)
 	}
 
-	return &Harness{
+	harness := &Harness{
 		Runner: adk.NewTypedRunner(adk.TypedRunnerConfig[*schema.AgenticMessage]{
 			Agent:           chatAgent,
 			EnableStreaming: true,
@@ -84,11 +84,49 @@ func NewHarness(ctx context.Context, cfg *config.Config, toolRegistry *registry.
 			cfg.Context.MaxHistoryMessages,
 			cfg.Context.MaxToolOutputBytes,
 		),
-	}, nil
+	}
+
+	if len(serverTools) > 0 {
+		harness.ModelOptions = []model.Option{
+			agenticopenai.WithResponsesServerTools(serverTools),
+		}
+	}
+
+	return harness, nil
 }
 
-// UserMessage 让应用层不必依赖 HTTP 层的消息类型。
-//
-// 返回值必须与 Runner 的元素类型一致（AgenticMessage）：这一轮的输入要和
-// History 从库里读出来的历史排在同一个切片里，类型一旦不同就拼不起来。
+func serverToolOptions(names []string) (tools []*agenticopenai.ResponsesServerToolConfig, include []responses.ResponseIncludable) {
+	for _, name := range names {
+		switch name {
+		case config.ServerToolWebSearch:
+			tools = append(tools, &agenticopenai.ResponsesServerToolConfig{
+				WebSearch: &responses.WebSearchToolParam{
+					Type: responses.WebSearchToolTypeWebSearch,
+				},
+			})
+			include = append(include, responses.ResponseIncludableWebSearchCallActionSources)
+
+		case config.ServerToolCodeInterpreter:
+			tools = append(tools, &agenticopenai.ResponsesServerToolConfig{
+				CodeInterpreter: &responses.ToolCodeInterpreterParam{
+					// container 是必填项：不指定容器时传 "auto"，由服务端临时起一个。
+					Container: responses.ToolCodeInterpreterContainerUnionParam{
+						OfString: param.NewOpt("auto"),
+					},
+				},
+			})
+
+		case config.ServerToolShell:
+			tools = append(tools, &agenticopenai.ResponsesServerToolConfig{
+				Shell: &responses.FunctionShellToolParam{},
+			})
+
+		default:
+			return nil, nil
+		}
+	}
+
+	return tools, include
+}
+
 func UserMessage(content string) *schema.AgenticMessage { return schema.UserAgenticMessage(content) }

@@ -80,11 +80,18 @@ func (s *Store) Start(ctx context.Context, turnID string, sessionID string, owne
 			return err
 		}
 
+		// 用户消息也写 blocks：对外的历史接口要「每条消息都有结构化视图」，
+		// 让前端永远不用区分「这条是老数据（blocks 为 null）还是新数据」。
+		// 用户输入目前只有文本一种形态，所以就是一个 text 块。
 		return tx.SessionMessage.
 			Create().
 			SetSession(sessionRecord).
 			SetRole(string(schema.User)).
 			SetContent(userContent).
+			SetBlocks([]agenticmsg.Block{{
+				Type: agenticmsg.BlockText,
+				Text: userContent,
+			}}).
 			Exec(ctx)
 	})
 	if err != nil {

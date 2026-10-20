@@ -62,9 +62,6 @@ func (s *Service) Stream(ctx context.Context, req Request, sink Sink) error {
 		sessionID = uuid.NewString()
 	}
 
-	// 会话不存在就地建一个，而不是报错：客户端可能把 session_id 丢了
-	// （刷新、换标签页、本地存储被清），带着一个陌生 uuid 回来。GetOrCreate
-	// 先按 subject 查，命中不了才建，所以带别人的 id 仍然会被拒。
 	if err := s.Sessions.GetOrCreate(ctx, sessionID, req.Subject); err != nil {
 		return fail(sink, sessionID, "open session failed", err)
 	}
@@ -79,8 +76,6 @@ func (s *Service) Stream(ctx context.Context, req Request, sink Sink) error {
 		return fail(sink, sessionID, "create chat turn failed", err)
 	}
 
-	// 标题取首条用户消息。写不进去只记日志、不掐流：退化的结果只是这条会话
-	// 在侧栏里继续显示「新对话」，而掐流会让用户直接发不出话。
 	if err := s.Sessions.SetTitleIfEmpty(
 		ctx, sessionID, req.Subject, session.DeriveTitle(req.Message),
 	); err != nil {
@@ -90,19 +85,22 @@ func (s *Service) Stream(ctx context.Context, req Request, sink Sink) error {
 	history = append(history, agent.UserMessage(req.Message))
 	history = s.Agent.Context.Prepare(history)
 
-	iter := s.Agent.Runner.Run(
-		ctx,
-		history,
+	runOpts := []adk.AgentRunOption{
 		adk.WithSessionValues(map[string]any{
 			"session_id": sessionID,
 			"turn_id":    turnID,
 		}),
-	)
+	}
+
+	if len(s.Agent.ModelOptions) > 0 {
+		runOpts = append(runOpts, adk.WithChatModelOptions(s.Agent.ModelOptions))
+	}
+
+	iter := s.Agent.Runner.Run(ctx, history, runOpts...)
 
 	round, clientGone := pump(ctx, iter, sessionID, s.Agent.Context.MaxToolOutputBytes, sink)
 	if clientGone {
-		// ctx 已经取消，收尾写入要用一个不被取消的衍生 context，
-		// 否则这次 Fail 会直接失败，turn 永远停在 RUNNING。
+		
 		_ = s.Turns.Fail(context.WithoutCancel(ctx), turnID, req.Subject)
 		return nil
 	}

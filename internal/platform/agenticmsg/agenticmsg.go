@@ -44,17 +44,7 @@ func FromStored(role string, content string) *schema.AgenticMessage {
 	}
 }
 
-// Text 抽出一条消息里「人看得见的正文」。
-//
-// 只认两种 block：UserInputText（用户说的话）与 AssistantGenText（模型说的话）。
-// 其余一律跳过，原因各不相同：
-//   - Reasoning：思考过程不属于回答，混进正文会让前端出现两遍答案；
-//   - FunctionToolCall / FunctionToolResult：是过程细节，不是给人的内容；
-//     工具结果尤其不能漏 —— 它是 role=user 的消息，抽出来就等于把工具原始
-//     输出当成用户发言回显给客户端。
-//
-// 用「指针非空」而不是 block.Type 判断，是因为流式分片的 Type 依赖生产方
-// 正确填充，而指针是 concat 与增量两路都会保证的。
+
 func Text(msg *schema.AgenticMessage) string {
 	if msg == nil {
 		return ""
@@ -67,6 +57,7 @@ func Text(msg *schema.AgenticMessage) string {
 		}
 
 		switch {
+		
 		case block.UserInputText != nil:
 			sb.WriteString(block.UserInputText.Text)
 		case block.AssistantGenText != nil:

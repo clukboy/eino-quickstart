@@ -37,7 +37,6 @@ func pump(ctx context.Context, iter *adk.AsyncIterator[*agenticEvent], sessionID
 			return res, false
 		}
 
-		// 没有工具能产生审批中断；出现中断只可能是 runtime 异常，记下来当错误。
 		if event.Action != nil && event.Action.Interrupted != nil {
 			res.Errors = append(res.Errors, errors.New("unexpected agent interruption"))
 			return res, false
@@ -90,36 +89,24 @@ func pump(ctx context.Context, iter *adk.AsyncIterator[*agenticEvent], sessionID
 	}
 }
 
-// pumpStream 消费一段模型的流式输出。
-//
-// 返回的 blocks 是**这一段流**的块，已经抹掉分片序号：分片序号只在一条消息内
-// 唯一，跨消息合并会把不同调用的同序号工具调用拼到一起。
-func pumpStream(
-	ctx context.Context,
-	assistant *strings.Builder,
-	sessionID string,
-	maxBlockBytes int,
-	output *adk.TypedMessageVariant[*schema.AgenticMessage],
-	sink Sink,
-) ([]agenticmsg.Block, bool, error) {
+func pumpStream(_ context.Context, assistant *strings.Builder, sessionID string, maxBlockBytes int, output *adk.TypedMessageVariant[*schema.AgenticMessage], sink Sink) ([]agenticmsg.Block, bool, error) {
 	var pending []agenticmsg.Block
 
 	for {
 		message, err := output.MessageStream.Recv()
 		if errors.Is(err, io.EOF) {
-			sealed := agenticmsg.Sealed(pending)
-			if !emitToolEvents(sealed, sessionID, sink) {
-				return sealed, false, nil
-			}
-			return sealed, true, nil
+			return agenticmsg.Sealed(pending), true, nil
 		}
 		if err != nil {
 			return agenticmsg.Sealed(pending), true, err
 		}
 
+		added := len(pending)
 		pending = agenticmsg.Merge(pending, agenticmsg.Blocks(message, maxBlockBytes))
+		if !emitToolEvents(pending[added:], sessionID, sink) {
+			return agenticmsg.Sealed(pending), false, nil
+		}
 
-		// 带 tool call 的分片没有任何自然语言正文，Text 返回空串，不外发即可。
 		text := agenticmsg.Text(message)
 		if text == "" {
 			continue
@@ -132,10 +119,10 @@ func pumpStream(
 	}
 }
 
-// emitToolEvents 把一条消息里的工具块推成 tool 事件。
+// emitToolEvents 把工具块推成 tool 事件。
 //
-// 在**一条消息处理完**之后一次性推，而不是逐片推：工具调用的入参是流式到达的，
-// 逐片推会让前端看到十几个「正在调用」。
+// 传进来的应当只有**新出现的块**（流式里是 pending 这次增长的那一段）：同一
+// index 的后续分片已经并进老块，不会再出现在这里，所以一次调用只出一条帧。
 //
 // 返回 false 表示客户端断开。
 func emitToolEvents(blocks []agenticmsg.Block, sessionID string, sink Sink) bool {
@@ -144,7 +131,8 @@ func emitToolEvents(blocks []agenticmsg.Block, sessionID string, sink Sink) bool
 		switch block.Type {
 		case agenticmsg.BlockToolCall:
 			summary = "开始调用"
-		case agenticmsg.BlockToolResult:
+		case agenticmsg.BlockToolResult, agenticmsg.BlockToolSearch,
+			agenticmsg.BlockApprovalRequest, agenticmsg.BlockApprovalResponse:
 			summary = block.Summary
 		default:
 			continue

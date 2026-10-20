@@ -78,7 +78,19 @@ type SessionMessagesReq {
 // blocks 是给界面渲染的结构化视图。老数据没有 blocks（json 里是 null），
 // 前端按「回退到 content」处理即可，不需要区分版本。
 type SessionMessageBlockResp {
-	// Type 是块类型：text / tool_call / tool_result / image / audio / video / file。
+	// Type 是块类型，当前有 12 种（与模型协议的 ContentBlockType 一一对应地投影，
+	// 但不是照抄：同一类语义的多个协议块会落到同一个展示类型上）：
+	//
+	//   text               正文（用户输入与模型输出都是）
+	//   reasoning          模型的思考过程，text 字段承载，已按上限截断
+	//   tool_call          调用工具，name + arguments；覆盖本地函数工具、模型服务端
+	//                      内置工具（web_search 等）、MCP 工具
+	//   tool_result        工具结果，name + summary（只有摘要，没有原文）
+	//   tool_search        服务端工具检索的结果，summary 是「发现 N 个工具」
+	//   mcp_tools          MCP 服务器的工具清单，name 是服务标签
+	//   approval_request   工具调用等待审批，name + arguments
+	//   approval_response  审批结论，summary 是「已批准 / 已拒绝」
+	//   image / audio / video / file   多媒体，url / mime_type / filename
 	//
 	// 给 string 而不是枚举，理由与 role 相同：以后加一种块类型不该改动生成物，
 	// 而前端的正确行为本来就是「不认识的类型跳过」。

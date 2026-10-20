@@ -40,5 +40,4 @@ type Request struct {
 	Message   string
 }
 
-// Sink 接收事件，返回 false 表示调用方已经停止接收（客户端断开）。
 type Sink func(Event) bool

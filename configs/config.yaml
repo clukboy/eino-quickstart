@@ -46,6 +46,11 @@ Model:
   APIKey: ""
   Model: "qwen3.8-max"
   Temperature: 0.2
+  # ServerTools 列出**模型服务端自带**、允许本次请求使用的工具。接口支持不等于
+  # 允许使用：不写在这里，模型不会去调它，只会拿训练数据作答。
+  # 可选值：web_search / code_interpreter / shell（file_search 必须另带 vector
+  # store id，不在这个开关的范围内）。留空 [] 等于只用本仓库注册的函数工具。
+  ServerTools: []
 
 Context:
   MaxHistoryMessages: 40
