@@ -17,8 +17,7 @@ syntax = "v1"
 //                                          支持 dryRun 的 provider-neutral 用户同步）
 //   agent/agent.api         会话            POST /sessions、GET /sessions、
 //                                          GET /sessions/:id/messages
-//   stream/stream.api       流式对话与续跑   SSE：POST /chat、/approvals/:id/resume
-//   approver/approver.api   审批读取与决策   /approvals/:id*
+//   stream/stream.api       流式对话        SSE：POST /chat
 //   admin/admin.api         agent 数据集授权与主体矩阵 /agents/:subject/dataset*、
 //                           /subjects、/dataset/:id/subjects
 //   dataset/dataset.api     数据集与文档     /dataset*（含文档 CRUD 与重建索引）
@@ -31,8 +30,8 @@ syntax = "v1"
 // 所以路由必须按组归位，不要图省事塞进别人的文件。
 //
 // 例外只有 stream 组，但它仍是「一个子文件 = 一个功能组」：组上的 sse: true
-// 是**组级**开关（组内每条路由都变 SSE），而 chat 与审批续跑本来就在同一条流
-// 上，所以它们共处一组，而不是各自成组。
+// 是**组级**开关（组内每条路由都变 SSE），而 /chat 是这一组里唯一的路由
+// （早先那条 /tasks/stream 是个恒定两小时推一条假消息的占位实现，已删除）。
 //
 // ⚠️ goctl 会覆盖 types/routes/Swagger，保留已存在的 handler/logic。
 //    改签名后必须手动适配业务代码；先执行 make check-api（隔离生成+编译），
@@ -42,11 +41,9 @@ syntax = "v1"
 // 全部路由都由本文件驱动生成
 //
 // 曾经有 2 条 SSE 路由不在 .api 里：POST /api/v1/chat 与
-// POST /api/v1/approvals/:id/resume。它们手写在
-// internal/transport/restapi/stream.go，理由是 goctl 的 SSE 生成有两处对不上
-// 当时的客户端契约（帧只有 data、没有 event 行；logic 是单响应类型的推送模型）。
+// POST /api/v1/approvals/:id/resume。后者已随审批流一起删除，现在只剩 /chat。
 //
-// 现在它们回到了生成链路：stream/stream.api 的 @server 块带 `sse: true`
+// /chat 已经回到生成链路：stream/stream.api 的 @server 块带 `sse: true`
 // 注解，goctl 据此选用 sse_handler.tpl / sse_logic.tpl，并给路由加上
 // rest.WithSSE()（清写超时 + 预置 SSE 响应头）。随之而来的契约变化 —— 帧不再
 // 有 `event:` 行（事件种类看 payload 的 type 字段）、语义校验失败改为流上
@@ -85,7 +82,6 @@ import "auth/auth.api"
 import "user/user.api"
 import "agent/agent.api"
 import "stream/stream.api"
-import "approver/approver.api"
 import "admin/admin.api"
 import "dataset/dataset.api"
 import "console/types.api"
@@ -95,8 +91,6 @@ import "console/audit.api"
 import "console/usage.api"
 import "console/agent.api"
 import "console/tool.api"
-import "console/model.api"
-import "console/approval.api"
 import "console/security.api"
 import "console/org.api"
 import "console/eval.api"

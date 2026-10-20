@@ -8,36 +8,27 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"eino-quickstart/internal/application/agent"
+	"eino-quickstart/internal/application/chat"
 	"eino-quickstart/internal/application/knowledge"
-	appmiddleware "eino-quickstart/internal/application/middleware"
 	"eino-quickstart/internal/application/usersync"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/config"
-	"eino-quickstart/internal/platform/execution"
 	"eino-quickstart/internal/platform/im/wechat"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/account"
-	"eino-quickstart/internal/platform/persistence/approval"
-	"eino-quickstart/internal/platform/persistence/checkpoint"
-	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/platform/persistence/turn"
-	"eino-quickstart/internal/platform/privacy"
 	"eino-quickstart/internal/platform/queue/asynq"
-	"eino-quickstart/internal/platform/secretbox"
 	"eino-quickstart/internal/platform/storage/entx"
 	"eino-quickstart/internal/platform/storage/es"
 	"eino-quickstart/internal/platform/usersource/work"
 	"eino-quickstart/internal/rag/grouping"
 	"eino-quickstart/internal/rag/store/milvus"
-	"eino-quickstart/internal/skill"
 	"eino-quickstart/internal/tool"
-	"eino-quickstart/internal/tool/builtin"
 	"eino-quickstart/internal/tool/registry"
 	"eino-quickstart/internal/transport/restapi"
 
@@ -67,8 +58,6 @@ func main() {
 	}
 }
 
-// runServer is named rather than `run` because the composition root also
-// imports internal/platform/persistence/run.
 func runServer() error {
 	businessConfigPath := config.APIConfigPath()
 	transportConfigPath := config.APITransportConfigPath()
@@ -77,55 +66,12 @@ func runServer() error {
 	if err != nil {
 		return fmt.Errorf("load business config: %w", err)
 	}
-	if err := os.MkdirAll(cfg.Workspace.Root, 0o755); err != nil {
-		return err
-	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	registryInstance := registry.New()
 
-	fileSystemTools, err := builtin.NewFileSystem(filepath.Clean(cfg.Workspace.Root), 256*1024)
-	if err != nil {
-		return err
-	}
-	for _, fileSystemTool := range fileSystemTools {
-		if err := registryInstance.Register(fileSystemTool); err != nil {
-			return err
-		}
-	}
-
-	runner, err := newRunner(cfg)
-	if err != nil {
-		return err
-	}
-
-	if cfg.Execution.Mode != "disabled" {
-		shell, err := builtin.NewShell(
-			cfg.Workspace.Root,
-			time.Duration(cfg.Workspace.ShellTimeoutSeconds)*time.Second,
-			runner,
-		)
-		if err != nil {
-			return err
-		}
-		if err := registryInstance.Register(shell); err != nil {
-			return err
-		}
-	}
-
-	skillTools, err := skill.NewLoader(cfg.Skills.Root, cfg.Skills.MaxReadBytes)
-	if err != nil {
-		return err
-	}
-	for _, skillTool := range skillTools {
-		if err := registryInstance.Register(skillTool); err != nil {
-			return err
-		}
-	}
-
-	// entClient, err := entx.OpenWithoutMigration(ctx, cfg.Storage)
 	entClient, err := entx.OpenDevelopment(ctx, cfg.Storage)
 	if err != nil {
 		return err
@@ -205,49 +151,16 @@ func runServer() error {
 		return err
 	}
 
-	argumentPolicy, err := privacy.NewArgumentPolicy(
-		cfg.Security.MaxApprovalArgumentBytes,
-		cfg.Security.SensitiveArgumentKeys,
-	)
+	harness, err := agent.NewHarness(ctx, cfg, registryInstance)
 	if err != nil {
 		return err
 	}
 
-	approvals := approval.NewStore(
-		entClient,
-		argumentPolicy,
-		time.Duration(cfg.Security.ApprovalTTLSeconds)*time.Second,
-	)
-	policy := appmiddleware.NewPolicy(
-		cfg.Security.AllowedTools,
-		cfg.Security.RequireApprovalForShell,
-		cfg.Security.RequireApprovalForWrite,
-		approvals,
-	)
-	checkpoints := checkpoint.NewStore(entClient)
-
-	// 模型供应商密钥的主密钥。三种状态要分开：
-	//   - 配了且合法：可以解密数据库里的供应商密钥，兜底专员走外部平台；
-	//   - 配了但环境变量为空：这次部署不启用数据库供应商，兜底回落统一配置；
-	//   - 配了但内容不合法（长度/编码不对）：这是部署错误，直接启动失败 ——
-	//     让它跑起来只会表现为「密钥明明配了却解不开」。
-	var secretBox *secretbox.Box
-	if cfg.Security.SecretKey != "" {
-		secretBox, err = secretbox.New(cfg.Security.SecretKey)
-		if err != nil {
-			return fmt.Errorf("解析 %s: %w", cfg.Security.SecretKeyEnv, err)
-		}
-	} else if cfg.Security.SecretKeyEnv != "" {
-		log.Printf(
-			"warning: %s is empty; database model providers will be ignored and the general agent falls back to the configured model",
-			cfg.Security.SecretKeyEnv,
-		)
-	}
-
-	harness, err := agent.NewHarness(ctx, cfg, registryInstance, policy, checkpoints, entClient, secretBox)
-	if err != nil {
-		return err
-	}
+	// 对话链路的三个依赖在组合根装配一次：chat 服务编排它们，传输层只拿到
+	// chat.Service —— 它不需要知道 session/turn 是怎么存的。
+	sessionStore := session.NewStore(entClient)
+	turnStore := turn.NewStore(entClient)
+	chatService := chat.NewService(harness, sessionStore, turnStore, logger)
 
 	apiKeys := make([]auth.APIKey, 0, len(cfg.Auth.APIKeys))
 	for _, configuredKey := range cfg.Auth.APIKeys {
@@ -323,12 +236,9 @@ func runServer() error {
 
 	server, err := restapi.New(restapi.Options{
 		ConfigFile:                transportConfigPath,
-		Agent:                     harness,
 		Knowledge:                 knowledgeService,
-		Sessions:                  session.NewStore(entClient),
-		Approvals:                 approvals,
-		Runs:                      run.NewStore(entClient),
-		Turns:                     turn.NewStore(entClient),
+		Chat:                      chatService,
+		Sessions:                  sessionStore,
 		Auth:                      authenticator,
 		Anonymous:                 anonymousIssuer,
 		Accounts:                  accountIssuer,
@@ -338,9 +248,9 @@ func runServer() error {
 		UploadMaxRequestBodyBytes: int64(cfg.Knowledge.MaxUploadRequestBytes),
 		UploadMaxDocumentBytes:    int64(cfg.Knowledge.MaxDocumentBytes),
 		UploadMaxFiles:            cfg.Knowledge.MaxUploadFiles,
+		EmbeddingModel:            cfg.Embedding.Model,
 		Logger:                    logger,
 		EntClient:                 entClient,
-		SecretBox:                 secretBox,
 		Metrics:                   metrics,
 	})
 	if err != nil {
@@ -366,7 +276,6 @@ func runServer() error {
 		"eino harness restapi started",
 		slog.String("business_config", businessConfigPath),
 		slog.String("transport_config", transportConfigPath),
-		slog.String("workspace", cfg.Workspace.Root),
 	)
 
 	// 阻塞到 HTTP server 停下：监听由 go-zero 的 proc 关闭链收起，main 随之
@@ -375,30 +284,6 @@ func runServer() error {
 
 	logger.Info("eino harness restapi stopped")
 	return nil
-}
-
-// newRunner builds the tool executor from the API-owned business config.
-func newRunner(cfg *config.Config) (execution.Runner, error) {
-	switch cfg.Execution.Mode {
-	case "docker":
-		return execution.NewDockerRunner(execution.DockerConfig{
-			Binary:       cfg.Execution.DockerBinary,
-			Image:        cfg.Execution.Image,
-			User:         cfg.Execution.User,
-			MemoryLimit:  cfg.Execution.MemoryLimit,
-			CPULimit:     cfg.Execution.CPULimit,
-			PIDsLimit:    cfg.Execution.PIDsLimit,
-			TmpFSSize:    cfg.Execution.TmpFSSize,
-			AllowNetwork: cfg.Execution.AllowNetwork,
-			MaxOutput:    cfg.Workspace.MaxOutputBytes,
-		})
-	case "local":
-		return execution.NewLocalRunner(cfg.Workspace.MaxOutputBytes)
-	case "disabled":
-		return execution.NewDisabledRunner(), nil
-	default:
-		return nil, fmt.Errorf("unsupported execution mode: %s", cfg.Execution.Mode)
-	}
 }
 
 // newAsynqConf maps API-owned connection and publish settings only.
@@ -435,7 +320,10 @@ func newVectorCleaner(
 			"vector store unavailable, document delete will skip vector cleanup",
 			slog.String("error", err.Error()),
 		)
-		panic(err)
+		// 这里曾经是 panic(err)：注释写着「失败只记警告」，代码却让整个 HTTP
+		// 进程起不来 —— 删文档那条路径的降级能力，被启动期一次连不上 Milvus
+		// 直接废掉。返回 nil 才是注释描述的行为。
+		return nil
 	}
 	return store
 }

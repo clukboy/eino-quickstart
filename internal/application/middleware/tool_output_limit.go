@@ -6,17 +6,18 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
 )
 
 type ToolOutputLimit struct {
-	*adk.BaseChatModelAgentMiddleware
+	adk.TypedChatModelAgentMiddleware[*schema.AgenticMessage]
 	context *contextmgr.Manager
 }
 
 func NewToolOutputLimit(maxBytes int) *ToolOutputLimit {
 	return &ToolOutputLimit{
-		BaseChatModelAgentMiddleware: &adk.BaseChatModelAgentMiddleware{},
-		context:                      contextmgr.New(0, maxBytes),
+		TypedChatModelAgentMiddleware: &adk.TypedBaseChatModelAgentMiddleware[*schema.AgenticMessage]{},
+		context:                       contextmgr.New(0, maxBytes),
 	}
 }
 

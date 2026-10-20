@@ -7,18 +7,14 @@ import (
 	"sync"
 
 	"eino-quickstart/ent"
-	"eino-quickstart/internal/application/agent"
+	"eino-quickstart/internal/application/chat"
 	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/application/usersync"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/account"
-	"eino-quickstart/internal/platform/persistence/approval"
 	consoleStore "eino-quickstart/internal/platform/persistence/console"
-	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
-	"eino-quickstart/internal/platform/persistence/turn"
-	"eino-quickstart/internal/platform/secretbox"
 	"eino-quickstart/internal/transport/restapi/internal/config"
 	"eino-quickstart/internal/transport/restapi/internal/handler"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
@@ -43,13 +39,13 @@ var _ service.Service = (*Server)(nil)
 type Options struct {
 	ConfigFile string
 
-	Agent     *agent.Harness
 	Knowledge *knowledge.Service
-	Sessions  *session.Store
-	Approvals *approval.Store
-	Runs      *run.Store
-	Turns     *turn.Store
-	Auth      *auth.Authenticator
+	// Chat 是一轮对话的编排入口。传输层只把它的 Event 写成 SSE 帧，
+	// 不参与会话/历史/轮次的任何决策 —— 所以这里没有 Harness，也没有 turn store：
+	// 它们属于应用层，露出这一层就会有人绕过 chat.Service 直接编排。
+	Chat     *chat.Service
+	Sessions *session.Store
+	Auth     *auth.Authenticator
 
 	// Anonymous 可选：为 nil 表示不开放匿名身份，此时 /auth/anonymous 会明确
 	// 回 503。签发者与校验者（Auth）必须是同一个密钥的两个视图，所以两者都在
@@ -70,6 +66,10 @@ type Options struct {
 	UploadMaxDocumentBytes    int64
 	UploadMaxFiles            int
 
+	// EmbeddingModel 是 config.yaml 里配置的 embedding 模型名。模型不再存库，
+	// 但建库表单仍需要它作为唯一选项，所以由组合根传进来。
+	EmbeddingModel string
+
 	// PasswordHashCost 是 bcrypt 成本，0 表示默认值。它属于**平台配置**
 	// （config.Auth.Accounts.BcryptCost），而本层拿到的 cfg 只有 RestConf，
 	// 所以由组合根读出来传进来 —— 与 Anonymous/Accounts 同一口径。
@@ -79,10 +79,6 @@ type Options struct {
 	EntClient *ent.Client
 	Metrics   *observability.Metrics
 	Console   *consoleStore.Store
-
-	// SecretBox 可选：为 nil 表示这次部署没配主密钥，此时 console 写入模型
-	// 供应商密钥会被明确拒绝，而不是明文落库。
-	SecretBox *secretbox.Box
 }
 
 func New(opts Options) (*Server, error) {
@@ -92,12 +88,9 @@ func New(opts Options) (*Server, error) {
 	}
 
 	deps := svc.Deps{
-		Agent:                     opts.Agent,
 		Knowledge:                 opts.Knowledge,
+		Chat:                      opts.Chat,
 		Sessions:                  opts.Sessions,
-		Approvals:                 opts.Approvals,
-		Runs:                      opts.Runs,
-		Turns:                     opts.Turns,
 		Auth:                      opts.Auth,
 		Anonymous:                 opts.Anonymous,
 		Accounts:                  opts.Accounts,
@@ -107,35 +100,26 @@ func New(opts Options) (*Server, error) {
 		UploadMaxRequestBodyBytes: opts.UploadMaxRequestBodyBytes,
 		UploadMaxDocumentBytes:    opts.UploadMaxDocumentBytes,
 		UploadMaxFiles:            opts.UploadMaxFiles,
+		EmbeddingModel:            opts.EmbeddingModel,
 		Logger:                    opts.Logger,
 		EntClient:                 opts.EntClient,
 		Metrics:                   opts.Metrics,
 		Console:                   opts.Console,
-		SecretBox:                 opts.SecretBox,
 	}
 
-	if deps.Agent == nil {
-		return nil, errors.New("restapi: agent harness is required")
-	}
 	if deps.Knowledge == nil {
 		return nil, errors.New("restapi: knowledge service is required")
 	}
 	if deps.Sessions == nil {
 		return nil, errors.New("restapi: session store is required")
 	}
-	if deps.Approvals == nil {
-		return nil, errors.New("restapi: approval store is required")
-	}
-	if deps.Runs == nil {
-		return nil, errors.New("restapi: run store is required")
-	}
-	if deps.Turns == nil {
-		return nil, errors.New("restapi: turn store is required")
+	if deps.Chat == nil {
+		return nil, errors.New("restapi: chat service is required")
 	}
 	if deps.Auth == nil {
 		return nil, errors.New("restapi: authenticator is required")
 	}
-	
+
 	if (deps.Accounts == nil) != (deps.AccountStore == nil) {
 		return nil, errors.New(
 			"restapi: account issuer and account store must be provided together",

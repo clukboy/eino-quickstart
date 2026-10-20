@@ -6,6 +6,7 @@ import (
 	"context"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
+	"eino-quickstart/internal/platform/agenticmsg"
 	"errors"
 	"fmt"
 	"time"
@@ -30,6 +31,12 @@ func (_c *SessionMessageCreate) SetRole(v string) *SessionMessageCreate {
 // SetContent sets the "content" field.
 func (_c *SessionMessageCreate) SetContent(v string) *SessionMessageCreate {
 	_c.mutation.SetContent(v)
+	return _c
+}
+
+// SetBlocks sets the "blocks" field.
+func (_c *SessionMessageCreate) SetBlocks(v []agenticmsg.Block) *SessionMessageCreate {
+	_c.mutation.SetBlocks(v)
 	return _c
 }
 
@@ -156,6 +163,10 @@ func (_c *SessionMessageCreate) createSpec() (*SessionMessage, *sqlgraph.CreateS
 	if value, ok := _c.mutation.Content(); ok {
 		_spec.SetField(sessionmessage.FieldContent, field.TypeString, value)
 		_node.Content = value
+	}
+	if value, ok := _c.mutation.Blocks(); ok {
+		_spec.SetField(sessionmessage.FieldBlocks, field.TypeJSON, value)
+		_node.Blocks = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(sessionmessage.FieldCreatedAt, field.TypeTime, value)

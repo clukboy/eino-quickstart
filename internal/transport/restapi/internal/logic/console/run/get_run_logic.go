@@ -2,11 +2,11 @@ package run
 
 import (
 	"context"
-	"eino-quickstart/ent/agentrun"
-	"eino-quickstart/ent/runretrievalhit"
-	"eino-quickstart/ent/runspan"
+
+	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -19,23 +19,44 @@ type GetRunLogic struct {
 func NewGetRunLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetRunLogic {
 	return &GetRunLogic{Logger: logx.WithContext(ctx), ctx: ctx, svcCtx: svcCtx}
 }
+
+// GetRun 返回一轮对话的详情。
+//
+// 三个附加数组的现状：spans 与 hits 没有数据源（run_spans / run_retrieval_hits
+// 从来没有写入路径，表已删除），所以恒为空；messages 由这一轮自己的提问和回答
+// 拼出来 —— 这正是排查「答得不对」时要看的两句话。
 func (l *GetRunLogic) GetRun(req *types.RunPathReq) (*types.RunDetailResp, error) {
-	x, e := l.svcCtx.EntClient.AgentRun.Query().Where(agentrun.RunIDEQ(req.RunID)).Only(l.ctx)
-	if e != nil {
-		return nil, fail(e)
+	turn, err := l.svcCtx.EntClient.ChatTurn.
+		Query().
+		Where(chatturn.TurnIDEQ(req.RunID)).
+		Only(l.ctx)
+	if err != nil {
+		return nil, fail(err)
 	}
-	spans, e := l.svcCtx.EntClient.RunSpan.Query().Where(runspan.RunIDEQ(req.RunID)).Order(runspan.ByStartedAt()).All(l.ctx)
-	if e != nil {
-		return nil, fail(e)
+
+	messages := []*types.RunMessageResp{
+		{
+			Role:      "user",
+			Content:   turn.UserContent,
+			CreatedAt: turn.CreatedAt.UnixMilli(),
+		},
 	}
-	spanOut := make([]*types.RunSpanResp, 0, len(spans))
-	for _, s := range spans {
-		spanOut = append(spanOut, spanDTO(s))
+	if turn.AssistantContent != nil && *turn.AssistantContent != "" {
+		createdAt := turn.CreatedAt.UnixMilli()
+		if turn.CompletedAt != nil {
+			createdAt = turn.CompletedAt.UnixMilli()
+		}
+		messages = append(messages, &types.RunMessageResp{
+			Role:      "assistant",
+			Content:   *turn.AssistantContent,
+			CreatedAt: createdAt,
+		})
 	}
-	hits, e := l.svcCtx.EntClient.RunRetrievalHit.Query().Where(runretrievalhit.RunIDEQ(req.RunID)).Order(runretrievalhit.ByRank()).All(l.ctx)
-	if e != nil {
-		return nil, fail(e)
-	}
-	_ = hits
-	return &types.RunDetailResp{Run: runDTO(x), Spans: spanOut, Hits: make([]*types.SearchHitResp, 0), Messages: make([]*types.RunMessageResp, 0)}, nil /* TODO: map retrieval hits and session messages to their complete frontend projections. */
+
+	return &types.RunDetailResp{
+		Run:      turnDTO(turn),
+		Spans:    make([]*types.RunSpanResp, 0),
+		Hits:     make([]*types.SearchHitResp, 0),
+		Messages: messages,
+	}, nil
 }

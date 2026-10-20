@@ -5,6 +5,8 @@ package ent
 import (
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
+	"eino-quickstart/internal/platform/agenticmsg"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -22,6 +24,8 @@ type SessionMessage struct {
 	Role string `json:"role,omitempty"`
 	// Content holds the value of the "content" field.
 	Content string `json:"content,omitempty"`
+	// Blocks holds the value of the "blocks" field.
+	Blocks []agenticmsg.Block `json:"blocks,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -56,6 +60,8 @@ func (*SessionMessage) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case sessionmessage.FieldBlocks:
+			values[i] = new([]byte)
 		case sessionmessage.FieldID:
 			values[i] = new(sql.NullInt64)
 		case sessionmessage.FieldRole, sessionmessage.FieldContent:
@@ -96,6 +102,14 @@ func (_m *SessionMessage) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field content", values[i])
 			} else if value.Valid {
 				_m.Content = value.String
+			}
+		case sessionmessage.FieldBlocks:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field blocks", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Blocks); err != nil {
+					return fmt.Errorf("unmarshal field blocks: %w", err)
+				}
 			}
 		case sessionmessage.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -156,6 +170,9 @@ func (_m *SessionMessage) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("content=")
 	builder.WriteString(_m.Content)
+	builder.WriteString(", ")
+	builder.WriteString("blocks=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Blocks))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

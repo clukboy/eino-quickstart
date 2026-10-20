@@ -29,8 +29,8 @@ syntax = "v1"
 // 接口都是全量返回」这句话不再成立；分页与否按各接口自己的场景定。）
 //
 // 没有删除 / 改名：sessions 表目前**没有任何删除路径**，而 session_messages 与
-// chat_turns 对它的外键是 NoAction（不是级联），删一条会话要按序清三张表，
-// 还要考虑 approvals / agent_runs 上的悬挂引用。那是个独立的设计题，
+// chat_turns 对它的外键是 NoAction（不是级联），删一条会话要按序清三张表
+// （assistant/user 两种消息、轮次记录、会话行）。那是个独立的设计题，
 // 不要顺手塞进这一组做个半成品。
 
 type CreateSessionResp {
@@ -68,6 +68,45 @@ type SessionMessagesReq {
 	ID string `path:"id"`
 }
 
+// SessionMessageBlockResp 是一条消息里的一个展示单元。
+//
+// 为什么历史消息不能只有一个 content 字符串：一轮对话实际包含的不只是正文 ——
+// 模型可能先调工具再作答，也可能只产出一张图。只给 content 的话，前端永远
+// 看不到「检索过什么」，而「只有图片」的一轮甚至连 content 都没有。
+//
+// blocks 与 content **不是二选一**：content 是纯文本投影（服务端回喂模型用它），
+// blocks 是给界面渲染的结构化视图。老数据没有 blocks（json 里是 null），
+// 前端按「回退到 content」处理即可，不需要区分版本。
+type SessionMessageBlockResp {
+	// Type 是块类型：text / tool_call / tool_result / image / audio / video / file。
+	//
+	// 给 string 而不是枚举，理由与 role 相同：以后加一种块类型不该改动生成物，
+	// 而前端的正确行为本来就是「不认识的类型跳过」。
+	Type string `json:"type"`
+
+	// Text 是 text 块的正文。流式回答的多个分片在服务端已经合并成一块，
+	// 前端拿到的就是完整段落，不需要自己拼接。
+	Text string `json:"text,omitempty"`
+
+	// Name 是 tool_call / tool_result 的工具名。
+	Name string `json:"name,omitempty"`
+
+	// Arguments 是 tool_call 的入参 JSON，按服务端的工具输出上限截断过。
+	Arguments string `json:"arguments,omitempty"`
+
+	// Summary 是 tool_result 的一句话摘要，例如「召回 3 条」。
+	//
+	// 这里**刻意没有**工具结果正文：那是按提问当时的授权召回的原文，留在历史里
+	// 等于给已撤销的授权留一条后门，而且体积不可控。要排查请查日志。
+	Summary string `json:"summary,omitempty"`
+
+	// URL / MIMEType / Filename 描述多媒体块。
+	// 不返回 base64 原文：内联进 JSON 会让一条消息变成几 MB。
+	URL      string `json:"url,omitempty"`
+	MIMEType string `json:"mime_type,omitempty"`
+	Filename string `json:"filename,omitempty"`
+}
+
 // SessionMessageResp 是一条历史消息。
 type SessionMessageResp {
 	ID uint64 `json:"id"`
@@ -81,6 +120,11 @@ type SessionMessageResp {
 	// 上限截断（正文可能几十 KB），历史消息是用户自己说过的话，截了没有意义。
 	Content   string `json:"content"`
 	CreatedAt int64  `json:"created_at"`
+	// Blocks 是结构化展示块，按实际发生顺序排列（先说的话在前）。
+	//
+	// 为 null 只表示「这条消息没有 blocks」—— 存量老数据全是这样，新建的
+	// user 消息也是（用户输入本来就是纯文本）。前端遇到 null 就渲染 Content。
+	Blocks []*SessionMessageBlockResp `json:"blocks,omitempty"`
 }
 
 type SessionMessagesResp {

@@ -200,6 +200,16 @@ func ContentContainsFold(v string) predicate.SessionMessage {
 	return predicate.SessionMessage(sql.FieldContainsFold(FieldContent, v))
 }
 
+// BlocksIsNil applies the IsNil predicate on the "blocks" field.
+func BlocksIsNil() predicate.SessionMessage {
+	return predicate.SessionMessage(sql.FieldIsNull(FieldBlocks))
+}
+
+// BlocksNotNil applies the NotNil predicate on the "blocks" field.
+func BlocksNotNil() predicate.SessionMessage {
+	return predicate.SessionMessage(sql.FieldNotNull(FieldBlocks))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.SessionMessage {
 	return predicate.SessionMessage(sql.FieldEQ(FieldCreatedAt, v))

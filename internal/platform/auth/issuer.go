@@ -105,7 +105,7 @@ func newSubjectIssuer(cfg subjectIssuerConfig) (subjectIssuer, error) {
 		role = RoleAgent
 	}
 	switch role {
-	case RoleAgent, RoleApprover, RoleAdmin:
+	case RoleAgent, RoleAdmin:
 	default:
 		return subjectIssuer{}, fmt.Errorf(
 			"auth: %s role %q is not a known role", cfg.Label, role,
@@ -213,7 +213,7 @@ func (i *subjectIssuer) identity(payload tokenPayload) (Identity, bool) {
 		// 载荷虽被签名保护，角色取值仍要复核：密钥轮换、或同一个密钥被两类
 		// issuer 共用时，签名有效并不保证角色是本系统认识的枚举值。
 		switch role {
-		case RoleAgent, RoleApprover, RoleAdmin:
+		case RoleAgent, RoleAdmin:
 		default:
 			return Identity{}, false
 		}

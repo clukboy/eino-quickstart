@@ -7,18 +7,14 @@ import (
 	"log/slog"
 
 	"eino-quickstart/ent"
-	"eino-quickstart/internal/application/agent"
+	"eino-quickstart/internal/application/chat"
 	"eino-quickstart/internal/application/knowledge"
 	"eino-quickstart/internal/application/usersync"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/observability"
 	"eino-quickstart/internal/platform/persistence/account"
-	"eino-quickstart/internal/platform/persistence/approval"
 	consoleStore "eino-quickstart/internal/platform/persistence/console"
-	"eino-quickstart/internal/platform/persistence/run"
 	"eino-quickstart/internal/platform/persistence/session"
-	"eino-quickstart/internal/platform/persistence/turn"
-	"eino-quickstart/internal/platform/secretbox"
 	"eino-quickstart/internal/transport/restapi/internal/config"
 	"eino-quickstart/internal/transport/restapi/internal/middleware"
 
@@ -32,13 +28,12 @@ import (
 // 早先这里挂着一个 queue.Producer，让 handler 直接拼队列消息 —— 那等于把
 // 队列的内部概念（任务类型、载荷字段）暴露成了对外 HTTP 契约。
 type Deps struct {
-	Agent     *agent.Harness
 	Knowledge *knowledge.Service
-	Sessions  *session.Store
-	Approvals *approval.Store
-	Runs      *run.Store
-	Turns     *turn.Store
-	Auth      *auth.Authenticator
+	// Chat 是应用层的对话编排。handler 只依赖它，不直接编排 store，
+	// 因此这里没有 Harness、也没有 turn store。
+	Chat     *chat.Service
+	Sessions *session.Store
+	Auth     *auth.Authenticator
 
 	// Anonymous 是匿名身份的签发者，为 nil 表示这次部署不开放匿名访问
 	// （此时 /auth/anonymous 返回 503，而不是签发一个没人能校验的身份）。
@@ -67,28 +62,22 @@ type Deps struct {
 	UploadMaxRequestBodyBytes int64
 	UploadMaxDocumentBytes    int64
 	UploadMaxFiles            int
+	EmbeddingModel            string
 
 	Logger    *slog.Logger
 	EntClient *ent.Client
 	Metrics   *observability.Metrics
 	Console   *consoleStore.Store
-
-	// SecretBox 用于加密 console 提交的模型供应商密钥。为 nil 表示这次部署
-	// 没有配主密钥，此时写密钥会被拒绝（而不是明文落库）。
-	SecretBox *secretbox.Box
 }
 
 // ServiceContext is what goctl passes to every handler and logic. goctl owns the
-// Config/RoleAdmin/RoleAgent/RoleApprover fields; the business dependencies
+// Config/RoleAdmin/RoleAgent fields; the business dependencies
 // above were added by hand.
 type ServiceContext struct {
 	Config       config.Config
-	Agent        *agent.Harness
 	Knowledge    *knowledge.Service
+	Chat         *chat.Service
 	Sessions     *session.Store
-	Approvals    *approval.Store
-	Runs         *run.Store
-	Turns        *turn.Store
 	Anonymous    *auth.AnonymousIssuer
 	Accounts     *auth.AccountIssuer
 	AccountStore *account.Store
@@ -100,15 +89,14 @@ type ServiceContext struct {
 	UploadMaxRequestBodyBytes int64
 	UploadMaxDocumentBytes    int64
 	UploadMaxFiles            int
+	EmbeddingModel            string
 
-	Logger       *slog.Logger
-	EntClient    *ent.Client
-	Metrics      *observability.Metrics
-	Console      *consoleStore.Store
-	SecretBox    *secretbox.Box
-	RoleAdmin    rest.Middleware
-	RoleAgent    rest.Middleware
-	RoleApprover rest.Middleware
+	Logger    *slog.Logger
+	EntClient *ent.Client
+	Metrics   *observability.Metrics
+	Console   *consoleStore.Store
+	RoleAdmin rest.Middleware
+	RoleAgent rest.Middleware
 }
 
 // NewServiceContext wires the dependency set into a ServiceContext.
@@ -119,12 +107,9 @@ func NewServiceContext(c config.Config, deps Deps) *ServiceContext {
 
 	return &ServiceContext{
 		Config:                    c,
-		Agent:                     deps.Agent,
 		Knowledge:                 deps.Knowledge,
+		Chat:                      deps.Chat,
 		Sessions:                  deps.Sessions,
-		Approvals:                 deps.Approvals,
-		Runs:                      deps.Runs,
-		Turns:                     deps.Turns,
 		Anonymous:                 deps.Anonymous,
 		Accounts:                  deps.Accounts,
 		AccountStore:              deps.AccountStore,
@@ -133,13 +118,12 @@ func NewServiceContext(c config.Config, deps Deps) *ServiceContext {
 		UploadMaxRequestBodyBytes: deps.UploadMaxRequestBodyBytes,
 		UploadMaxDocumentBytes:    deps.UploadMaxDocumentBytes,
 		UploadMaxFiles:            deps.UploadMaxFiles,
+		EmbeddingModel:            deps.EmbeddingModel,
 		Logger:                    deps.Logger,
 		EntClient:                 deps.EntClient,
 		Metrics:                   deps.Metrics,
 		Console:                   deps.Console,
-		SecretBox:                 deps.SecretBox,
 		RoleAdmin:                 middleware.NewRoleAdminMiddleware().Handle,
 		RoleAgent:                 middleware.NewRoleAgentMiddleware().Handle,
-		RoleApprover:              middleware.NewRoleApproverMiddleware().Handle,
 	}
 }

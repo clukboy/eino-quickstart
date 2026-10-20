@@ -35,6 +35,8 @@ var migrationPlan = []Migration{
 	{Version: "0001_schema_migrations", Description: "create the idempotent migration ledger", SQL: "migrations/0001_schema_migrations.sql"},
 	{Version: "0002_user_nickname_backfill", Description: "backfill legacy user nicknames", SQL: "migrations/0002_user_nickname_backfill.sql"},
 	{Version: "0003_user_external_id", Description: "add nullable stable upstream user identity", SQL: "migrations/0003_user_external_id.sql"},
+	{Version: "0004_drop_agent_runtime_legacy", Description: "drop approval, checkpoint and model tables removed from the agent runtime", SQL: "migrations/0004_drop_agent_runtime_legacy.sql"},
+	{Version: "0005_chat_runtime_slim", Description: "drop agent_runs, run_spans and run_retrieval_hits", SQL: "migrations/0005_chat_runtime_slim.sql"},
 }
 
 // PlannedMigrations returns the checked-in migration plan without exposing the

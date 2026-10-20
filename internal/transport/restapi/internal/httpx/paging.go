@@ -4,8 +4,7 @@ package httpx
 //
 // 放在这里而不是继续在每条 list logic 里内联：口径一旦漂开，前端按服务端回传的
 // page_size 渲染分页器就会算出不同的页数。现状已经有分叉（tools/runs/audit/feedback
-// 是 200，agent-defs/models/model-providers/approvals 是 100），新接口一律用这一份，
-// 老接口要收敛就顺手换过来。
+// 是 200，agent-defs 是 100），新接口一律用这一份，老接口要收敛就顺手换过来。
 const (
 	// DefaultPageSize 是「没传 page_size」或传了非法值时实际返回的条数。
 	DefaultPageSize = 20

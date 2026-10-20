@@ -110,64 +110,6 @@ var (
 			},
 		},
 	}
-	// AgentRunsColumns holds the columns for the "agent_runs" table.
-	AgentRunsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "run_id", Type: field.TypeString, Unique: true},
-		{Name: "session_id", Type: field.TypeString},
-		{Name: "requested_by", Type: field.TypeString},
-		{Name: "agent_key", Type: field.TypeString, Default: ""},
-		{Name: "agent_version", Type: field.TypeInt, Default: 0},
-		{Name: "user_message", Type: field.TypeString, Size: 2147483647},
-		{Name: "checkpoint_id", Type: field.TypeString, Nullable: true},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"RUNNING", "INTERRUPTED", "RESUMING", "COMPLETED", "FAILED", "EXPIRED"}, Default: "RUNNING"},
-		{Name: "approval_id", Type: field.TypeString, Nullable: true},
-		{Name: "error_code", Type: field.TypeString, Nullable: true},
-		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "steps", Type: field.TypeInt, Default: 0},
-		{Name: "tool_calls", Type: field.TypeInt, Default: 0},
-		{Name: "tokens_in", Type: field.TypeInt64, Default: 0},
-		{Name: "tokens_out", Type: field.TypeInt64, Default: 0},
-		{Name: "latency_ms", Type: field.TypeInt64, Default: 0},
-		{Name: "cost_micros", Type: field.TypeInt64, Default: 0},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
-		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
-	}
-	// AgentRunsTable holds the schema information for the "agent_runs" table.
-	AgentRunsTable = &schema.Table{
-		Name:       "agent_runs",
-		Columns:    AgentRunsColumns,
-		PrimaryKey: []*schema.Column{AgentRunsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "agentrun_session_id_status",
-				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[2], AgentRunsColumns[8]},
-			},
-			{
-				Name:    "agentrun_requested_by_created_at",
-				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[3], AgentRunsColumns[18]},
-			},
-			{
-				Name:    "agentrun_agent_key_created_at",
-				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[4], AgentRunsColumns[18]},
-			},
-			{
-				Name:    "agentrun_checkpoint_id",
-				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[7]},
-			},
-			{
-				Name:    "agentrun_expires_at",
-				Unique:  false,
-				Columns: []*schema.Column{AgentRunsColumns[21]},
-			},
-		},
-	}
 	// AgentVersionsColumns holds the columns for the "agent_versions" table.
 	AgentVersionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -207,75 +149,6 @@ var (
 				Name:    "agentversion_agent_def_id_status",
 				Unique:  false,
 				Columns: []*schema.Column{AgentVersionsColumns[12], AgentVersionsColumns[8]},
-			},
-		},
-	}
-	// ApprovalsColumns holds the columns for the "approvals" table.
-	ApprovalsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "approval_id", Type: field.TypeString, Unique: true},
-		{Name: "session_id", Type: field.TypeString},
-		{Name: "run_id", Type: field.TypeString, Nullable: true},
-		{Name: "turn_id", Type: field.TypeString, Nullable: true},
-		{Name: "tool", Type: field.TypeString},
-		{Name: "arguments_hash", Type: field.TypeString, Nullable: true},
-		{Name: "display_arguments", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "APPROVED", "REJECTED", "RESUMING", "EXECUTED", "EXPIRED"}, Default: "PENDING"},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "requested_by", Type: field.TypeString},
-		{Name: "decided_at", Type: field.TypeTime, Nullable: true},
-		{Name: "executed_at", Type: field.TypeTime, Nullable: true},
-		{Name: "decided_by", Type: field.TypeString, Nullable: true},
-		{Name: "checkpoint_id", Type: field.TypeString, Nullable: true},
-		{Name: "interrupt_id", Type: field.TypeString, Nullable: true},
-		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
-	}
-	// ApprovalsTable holds the schema information for the "approvals" table.
-	ApprovalsTable = &schema.Table{
-		Name:       "approvals",
-		Columns:    ApprovalsColumns,
-		PrimaryKey: []*schema.Column{ApprovalsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "approval_status_expires_at",
-				Unique:  false,
-				Columns: []*schema.Column{ApprovalsColumns[8], ApprovalsColumns[16]},
-			},
-			{
-				Name:    "approval_checkpoint_id",
-				Unique:  false,
-				Columns: []*schema.Column{ApprovalsColumns[14]},
-			},
-		},
-	}
-	// ApprovalPoliciesColumns holds the columns for the "approval_policies" table.
-	ApprovalPoliciesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "tool_key", Type: field.TypeString},
-		{Name: "risk_tier", Type: field.TypeString},
-		{Name: "mode", Type: field.TypeEnum, Enums: []string{"auto", "notify", "inline", "multi"}},
-		{Name: "approver_roles", Type: field.TypeJSON},
-		{Name: "quorum", Type: field.TypeInt, Default: 1},
-		{Name: "timeout_seconds", Type: field.TypeInt, Default: 0},
-		{Name: "on_timeout", Type: field.TypeString, Default: "reject"},
-		{Name: "enabled", Type: field.TypeBool, Default: true},
-		{Name: "updated_at", Type: field.TypeTime},
-	}
-	// ApprovalPoliciesTable holds the schema information for the "approval_policies" table.
-	ApprovalPoliciesTable = &schema.Table{
-		Name:       "approval_policies",
-		Columns:    ApprovalPoliciesColumns,
-		PrimaryKey: []*schema.Column{ApprovalPoliciesColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "approvalpolicy_tool_key_risk_tier",
-				Unique:  true,
-				Columns: []*schema.Column{ApprovalPoliciesColumns[1], ApprovalPoliciesColumns[2]},
-			},
-			{
-				Name:    "approvalpolicy_enabled",
-				Unique:  false,
-				Columns: []*schema.Column{ApprovalPoliciesColumns[8]},
 			},
 		},
 	}
@@ -330,8 +203,6 @@ var (
 		{Name: "user_content", Type: field.TypeString, Size: 2147483647},
 		{Name: "assistant_content", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"RUNNING", "INTERRUPTED", "COMPLETED", "FAILED"}, Default: "RUNNING"},
-		{Name: "approval_id", Type: field.TypeString, Nullable: true},
-		{Name: "checkpoint_id", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
 	}
@@ -344,39 +215,19 @@ var (
 			{
 				Name:    "chatturn_session_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ChatTurnsColumns[2], ChatTurnsColumns[9]},
+				Columns: []*schema.Column{ChatTurnsColumns[2], ChatTurnsColumns[7]},
 			},
 			{
 				Name:    "chatturn_owner_subject_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ChatTurnsColumns[3], ChatTurnsColumns[9]},
-			},
-			{
-				Name:    "chatturn_approval_id",
-				Unique:  true,
-				Columns: []*schema.Column{ChatTurnsColumns[7]},
+				Columns: []*schema.Column{ChatTurnsColumns[3], ChatTurnsColumns[7]},
 			},
 			{
 				Name:    "chatturn_status_completed_at",
 				Unique:  false,
-				Columns: []*schema.Column{ChatTurnsColumns[6], ChatTurnsColumns[10]},
+				Columns: []*schema.Column{ChatTurnsColumns[6], ChatTurnsColumns[8]},
 			},
 		},
-	}
-	// CheckpointsColumns holds the columns for the "checkpoints" table.
-	CheckpointsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "checkpoint_id", Type: field.TypeString, Unique: true},
-		{Name: "payload", Type: field.TypeBytes},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
-	}
-	// CheckpointsTable holds the schema information for the "checkpoints" table.
-	CheckpointsTable = &schema.Table{
-		Name:       "checkpoints",
-		Columns:    CheckpointsColumns,
-		PrimaryKey: []*schema.Column{CheckpointsColumns[0]},
 	}
 	// DatasetsColumns holds the columns for the "datasets" table.
 	DatasetsColumns = []*schema.Column{
@@ -654,92 +505,6 @@ var (
 			},
 		},
 	}
-	// ModelsColumns holds the columns for the "models" table.
-	ModelsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "key", Type: field.TypeString, Unique: true},
-		{Name: "provider_key", Type: field.TypeString},
-		{Name: "kind", Type: field.TypeEnum, Enums: []string{"chat", "embedding", "rerank", "image"}},
-		{Name: "context_window", Type: field.TypeInt, Default: 0},
-		{Name: "max_output_tokens", Type: field.TypeInt, Default: 0},
-		{Name: "input_price_micros_per_k", Type: field.TypeInt64, Default: 0},
-		{Name: "output_price_micros_per_k", Type: field.TypeInt64, Default: 0},
-		{Name: "enabled", Type: field.TypeBool, Default: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "provider_id", Type: field.TypeUint64},
-	}
-	// ModelsTable holds the schema information for the "models" table.
-	ModelsTable = &schema.Table{
-		Name:       "models",
-		Columns:    ModelsColumns,
-		PrimaryKey: []*schema.Column{ModelsColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "models_model_providers_models",
-				Columns:    []*schema.Column{ModelsColumns[11]},
-				RefColumns: []*schema.Column{ModelProvidersColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "model_provider_id_kind",
-				Unique:  false,
-				Columns: []*schema.Column{ModelsColumns[11], ModelsColumns[3]},
-			},
-			{
-				Name:    "model_provider_key_kind",
-				Unique:  false,
-				Columns: []*schema.Column{ModelsColumns[2], ModelsColumns[3]},
-			},
-			{
-				Name:    "model_enabled_kind",
-				Unique:  false,
-				Columns: []*schema.Column{ModelsColumns[8], ModelsColumns[3]},
-			},
-		},
-	}
-	// ModelProvidersColumns holds the columns for the "model_providers" table.
-	ModelProvidersColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "key", Type: field.TypeString, Unique: true},
-		{Name: "name", Type: field.TypeString},
-		{Name: "base_url", Type: field.TypeString, Default: ""},
-		{Name: "auth_type", Type: field.TypeEnum, Enums: []string{"none", "bearer", "api_key", "oauth2"}, Default: "none"},
-		{Name: "secret_ciphertext", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "enabled", Type: field.TypeBool, Default: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-	}
-	// ModelProvidersTable holds the schema information for the "model_providers" table.
-	ModelProvidersTable = &schema.Table{
-		Name:       "model_providers",
-		Columns:    ModelProvidersColumns,
-		PrimaryKey: []*schema.Column{ModelProvidersColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "modelprovider_enabled",
-				Unique:  false,
-				Columns: []*schema.Column{ModelProvidersColumns[6]},
-			},
-		},
-	}
-	// ModelRoutingsColumns holds the columns for the "model_routings" table.
-	ModelRoutingsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "config_key", Type: field.TypeString, Unique: true},
-		{Name: "default_chat_model", Type: field.TypeString, Default: ""},
-		{Name: "default_embedding_model", Type: field.TypeString, Default: ""},
-		{Name: "fallback_chain", Type: field.TypeJSON},
-		{Name: "updated_at", Type: field.TypeTime},
-	}
-	// ModelRoutingsTable holds the schema information for the "model_routings" table.
-	ModelRoutingsTable = &schema.Table{
-		Name:       "model_routings",
-		Columns:    ModelRoutingsColumns,
-		PrimaryKey: []*schema.Column{ModelRoutingsColumns[0]},
-	}
 	// OrgMembersColumns holds the columns for the "org_members" table.
 	OrgMembersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -830,77 +595,6 @@ var (
 		Columns:    PasswordPoliciesColumns,
 		PrimaryKey: []*schema.Column{PasswordPoliciesColumns[0]},
 	}
-	// RunRetrievalHitsColumns holds the columns for the "run_retrieval_hits" table.
-	RunRetrievalHitsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "run_id", Type: field.TypeString},
-		{Name: "chunk_id", Type: field.TypeUint64, Default: 0},
-		{Name: "document_id", Type: field.TypeUint64, Default: 0},
-		{Name: "source", Type: field.TypeString, Default: ""},
-		{Name: "title", Type: field.TypeString, Default: ""},
-		{Name: "heading_path", Type: field.TypeString, Default: ""},
-		{Name: "content", Type: field.TypeString, Size: 2147483647, Default: ""},
-		{Name: "score", Type: field.TypeFloat64, Default: 0},
-		{Name: "content_truncated", Type: field.TypeBool, Default: false},
-		{Name: "rank", Type: field.TypeInt, Default: 0},
-		{Name: "created_at", Type: field.TypeTime},
-	}
-	// RunRetrievalHitsTable holds the schema information for the "run_retrieval_hits" table.
-	RunRetrievalHitsTable = &schema.Table{
-		Name:       "run_retrieval_hits",
-		Columns:    RunRetrievalHitsColumns,
-		PrimaryKey: []*schema.Column{RunRetrievalHitsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "runretrievalhit_run_id_rank",
-				Unique:  false,
-				Columns: []*schema.Column{RunRetrievalHitsColumns[1], RunRetrievalHitsColumns[10]},
-			},
-			{
-				Name:    "runretrievalhit_document_id",
-				Unique:  false,
-				Columns: []*schema.Column{RunRetrievalHitsColumns[3]},
-			},
-		},
-	}
-	// RunSpansColumns holds the columns for the "run_spans" table.
-	RunSpansColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUint64, Increment: true},
-		{Name: "run_id", Type: field.TypeString},
-		{Name: "span_id", Type: field.TypeString, Unique: true},
-		{Name: "parent_id", Type: field.TypeString, Nullable: true},
-		{Name: "kind", Type: field.TypeString},
-		{Name: "name", Type: field.TypeString},
-		{Name: "status", Type: field.TypeString},
-		{Name: "latency_ms", Type: field.TypeInt64, Default: 0},
-		{Name: "tokens_in", Type: field.TypeInt64, Default: 0},
-		{Name: "tokens_out", Type: field.TypeInt64, Default: 0},
-		{Name: "input", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "output", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "input_truncated", Type: field.TypeBool, Default: false},
-		{Name: "output_truncated", Type: field.TypeBool, Default: false},
-		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647},
-		{Name: "started_at", Type: field.TypeTime},
-		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
-	}
-	// RunSpansTable holds the schema information for the "run_spans" table.
-	RunSpansTable = &schema.Table{
-		Name:       "run_spans",
-		Columns:    RunSpansColumns,
-		PrimaryKey: []*schema.Column{RunSpansColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "runspan_run_id_started_at",
-				Unique:  false,
-				Columns: []*schema.Column{RunSpansColumns[1], RunSpansColumns[15]},
-			},
-			{
-				Name:    "runspan_parent_id",
-				Unique:  false,
-				Columns: []*schema.Column{RunSpansColumns[3]},
-			},
-		},
-	}
 	// SessionsColumns holds the columns for the "sessions" table.
 	SessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUint64, Increment: true},
@@ -928,6 +622,7 @@ var (
 		{Name: "id", Type: field.TypeUint64, Increment: true},
 		{Name: "role", Type: field.TypeString},
 		{Name: "content", Type: field.TypeString},
+		{Name: "blocks", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "session_messages", Type: field.TypeUint64},
 	}
@@ -939,7 +634,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "session_messages_sessions_messages",
-				Columns:    []*schema.Column{SessionMessagesColumns[4]},
+				Columns:    []*schema.Column{SessionMessagesColumns[5]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -948,7 +643,7 @@ var (
 			{
 				Name:    "sessionmessage_session_messages",
 				Unique:  false,
-				Columns: []*schema.Column{SessionMessagesColumns[4]},
+				Columns: []*schema.Column{SessionMessagesColumns[5]},
 			},
 		},
 	}
@@ -1012,13 +707,9 @@ var (
 		AgentDatasetsTable,
 		AgentDefsTable,
 		AgentDefDatasetsTable,
-		AgentRunsTable,
 		AgentVersionsTable,
-		ApprovalsTable,
-		ApprovalPoliciesTable,
 		AuditEventsTable,
 		ChatTurnsTable,
-		CheckpointsTable,
 		DatasetsTable,
 		DocumentsTable,
 		DocumentChunksTable,
@@ -1027,14 +718,9 @@ var (
 		EvalRunsTable,
 		EvalSetsTable,
 		FeedbacksTable,
-		ModelsTable,
-		ModelProvidersTable,
-		ModelRoutingsTable,
 		OrgMembersTable,
 		OrgUnitsTable,
 		PasswordPoliciesTable,
-		RunRetrievalHitsTable,
-		RunSpansTable,
 		SessionsTable,
 		SessionMessagesTable,
 		ToolsTable,
@@ -1053,7 +739,6 @@ func init() {
 	EvalCaseResultsTable.ForeignKeys[0].RefTable = EvalCasesTable
 	EvalCaseResultsTable.ForeignKeys[1].RefTable = EvalRunsTable
 	EvalRunsTable.ForeignKeys[0].RefTable = EvalSetsTable
-	ModelsTable.ForeignKeys[0].RefTable = ModelProvidersTable
 	OrgMembersTable.ForeignKeys[0].RefTable = OrgUnitsTable
 	OrgUnitsTable.ForeignKeys[0].RefTable = OrgUnitsTable
 	SessionsTable.Annotation = &entsql.Annotation{

@@ -2,10 +2,8 @@ package config
 
 import (
 	"eino-quickstart/internal/platform/im/wechat"
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/redis/go-redis/v9"
@@ -34,13 +32,9 @@ type Config struct {
 
 	Agent       AgentConfig       `json:"Agent,optional"`
 	Model       ModelConfig       `json:"Model,optional"`
-	Workspace   WorkspaceConfig   `json:"Workspace,optional"`
 	Context     Context           `json:"Context,optional"`
-	Skills      Skills            `json:"Skills,optional"`
-	Security    Security          `json:"Security,optional"`
 	Storage     Storage           `json:"Storage,optional"`
 	Auth        Auth              `json:"Auth,optional"`
-	Execution   ExecutionConfig   `json:"Execution,optional"`
 	Knowledge   KnowledgeConfig   `json:"Knowledge,optional"`
 	Embedding   EmbeddingConfig   `json:"Embedding,optional"`
 	Milvus      MilvusConfig      `json:"Milvus,optional"`
@@ -94,24 +88,6 @@ type WorkspaceConfig struct {
 type Context struct {
 	MaxHistoryMessages int `json:"MaxHistoryMessages,optional"`
 	MaxToolOutputBytes int `json:"MaxToolOutputBytes,optional"`
-}
-type Skills struct {
-	Root         string `json:"Root,optional"`
-	MaxReadBytes int    `json:"MaxReadBytes,optional"`
-}
-type Security struct {
-	AllowedTools             []string `json:"AllowedTools,optional"`
-	RequireApprovalForShell  bool     `json:"RequireApprovalForShell,optional"`
-	RequireApprovalForWrite  bool     `json:"RequireApprovalForWrite,optional"`
-	MaxApprovalArgumentBytes int      `json:"MaxApprovalArgumentBytes,optional"`
-	SensitiveArgumentKeys    []string `json:"SensitiveArgumentKeys,optional"`
-	ApprovalTTLSeconds       int      `json:"ApprovalTTLSeconds,optional"`
-
-	// SecretKeyEnv 指向一个环境变量名，该变量里放 base64 编码的 32 字节主密钥，
-	// 用于加解密 ModelProvider.secret_ciphertext。SecretKey 是它的运行期取值，
-	// 不出现在 JSON 里。
-	SecretKeyEnv string `json:"SecretKeyEnv,optional"`
-	SecretKey    string `json:"-"`
 }
 
 type Storage struct {
@@ -214,18 +190,6 @@ func (c ObservabilityConfig) WorkerTraceName() string {
 	return "eino-worker"
 }
 
-type ExecutionConfig struct {
-	Mode             string `json:"Mode,optional"`
-	DockerBinary     string `json:"DockerBinary,optional"`
-	Image            string `json:"Image,optional"`
-	User             string `json:"User,optional"`
-	MemoryLimit      string `json:"MemoryLimit,optional"`
-	CPULimit         string `json:"CPULimit,optional"`
-	PIDsLimit        int    `json:"PIDsLimit,optional"`
-	TmpFSSize        string `json:"TmpFSSize,optional"`
-	AllowNetwork     bool   `json:"AllowNetwork,optional"`
-	AllowLocalRunner bool   `json:"AllowLocalRunner,optional"`
-}
 type KnowledgeConfig struct {
 	Root                  string            `json:"Root,optional"`
 	MaxDocumentBytes      int               `json:"MaxDocumentBytes,optional"`
@@ -258,11 +222,9 @@ type MilvusConfig struct {
 }
 
 type MaintenanceConfig struct {
-	CleanupIntervalSeconds   int `json:"CleanupIntervalSeconds,optional"`
-	ApprovalRetentionHours   int `json:"ApprovalRetentionHours,optional"`
-	CheckpointRetentionHours int `json:"CheckpointRetentionHours,optional"`
-	TurnRetentionHours       int `json:"TurnRetentionHours,optional"`
-	CleanupBatchSize         int `json:"CleanupBatchSize,optional"`
+	CleanupIntervalSeconds int `json:"CleanupIntervalSeconds,optional"`
+	TurnRetentionHours     int `json:"TurnRetentionHours,optional"`
+	CleanupBatchSize       int `json:"CleanupBatchSize,optional"`
 }
 
 type RetrievalConfig struct {
@@ -369,9 +331,6 @@ func load(path string, profile configProfile) (*Config, error) {
 				cfg.Server.Port = port
 			}
 		}
-		if v := os.Getenv("EINO_WORKSPACE_ROOT"); v != "" {
-			cfg.Workspace.Root = v
-		}
 	}
 
 	if cfg.Storage.PasswordEnv != "" {
@@ -388,12 +347,6 @@ func load(path string, profile configProfile) (*Config, error) {
 		cfg.Retrieval.RerankAPIKey = os.Getenv(cfg.Retrieval.RerankAPIKeyEnv)
 	}
 	if profile != profileWorker {
-		// 外部模型供应商密钥的主密钥：数据库里只存密文，明文密钥来自环境变量。
-		// 留空不算配置错误 —— 此时数据库里配置的供应商不可用，兜底专员会回落
-		// 到统一配置的 Model 段（见 application/providermodel）。
-		if cfg.Security.SecretKeyEnv != "" {
-			cfg.Security.SecretKey = os.Getenv(cfg.Security.SecretKeyEnv)
-		}
 		// 匿名令牌的签名密钥同理：它一旦泄漏，任何人都能伪造任意 subject。
 		if cfg.Auth.Anonymous.SecretEnv != "" {
 			cfg.Auth.Anonymous.Secret = os.Getenv(cfg.Auth.Anonymous.SecretEnv)
@@ -415,27 +368,11 @@ func load(path string, profile configProfile) (*Config, error) {
 		)
 	}
 	if profile != profileWorker {
-		if !filepath.IsAbs(cfg.Workspace.Root) {
-			abs, err := filepath.Abs(cfg.Workspace.Root)
-			if err != nil {
-				return nil, err
-			}
-			cfg.Workspace.Root = abs
+		if strings.TrimSpace(cfg.Agent.Instruction) == "" {
+			return nil, fmt.Errorf("Agent.Instruction is required")
 		}
-
-		if len(cfg.Security.AllowedTools) == 0 {
-			return nil, fmt.Errorf("Security.AllowedTools must contain at least one tool")
-		}
-		if cfg.Security.MaxApprovalArgumentBytes <= 0 {
-			return nil, errors.New("Security.MaxApprovalArgumentBytes must be greater than zero")
-		}
-		if len(cfg.Security.SensitiveArgumentKeys) == 0 {
-			return nil, errors.New("Security.SensitiveArgumentKeys must contain at least one key")
-		}
-		if cfg.Security.ApprovalTTLSeconds <= 0 {
-			return nil, fmt.Errorf(
-				"Security.ApprovalTTLSeconds must be greater than zero",
-			)
+		if cfg.Agent.MaxIterations <= 0 {
+			return nil, fmt.Errorf("Agent.MaxIterations must be greater than zero")
 		}
 
 		if !cfg.Auth.Enabled {
@@ -456,7 +393,7 @@ func load(path string, profile configProfile) (*Config, error) {
 				)
 			}
 			switch key.Role {
-			case "agent", "approver", "admin":
+			case "agent", "admin":
 			default:
 				return nil, fmt.Errorf(
 					"Auth.APIKeys entry %q has invalid Role %q",
@@ -478,7 +415,7 @@ func load(path string, profile configProfile) (*Config, error) {
 		// 与没开匿名一模一样 —— 所以宁可启动失败。
 		if cfg.Auth.Anonymous.Enabled {
 			switch cfg.Auth.Anonymous.Role {
-			case "agent", "approver", "admin":
+			case "agent", "admin":
 			default:
 				return nil, fmt.Errorf(
 					"Auth.Anonymous.Role %q is not a known role",
@@ -668,53 +605,6 @@ func load(path string, profile configProfile) (*Config, error) {
 		)
 	}
 
-	if profile != profileWorker {
-		switch cfg.Execution.Mode {
-		case "disabled", "docker", "local":
-		default:
-			return nil, fmt.Errorf(
-				"Execution.Mode must be docker or local",
-			)
-		}
-
-		if cfg.Execution.Mode == "docker" &&
-			cfg.Server.Host != "127.0.0.1" &&
-			cfg.Server.Host != "localhost" {
-			if cfg.Execution.Image == "" {
-				return nil, fmt.Errorf(
-					"Execution.Image is required in docker mode",
-				)
-			}
-			if cfg.Execution.User == "" {
-				return nil, fmt.Errorf(
-					"Execution.User is required in docker mode",
-				)
-			}
-			if cfg.Execution.MemoryLimit == "" {
-				return nil, fmt.Errorf(
-					"Execution.MemoryLimit is required in docker mode",
-				)
-			}
-			if cfg.Execution.CPULimit == "" {
-				return nil, fmt.Errorf(
-					"Execution.CPULimit is required in docker mode",
-				)
-			}
-			if cfg.Execution.PIDsLimit <= 0 {
-				return nil, fmt.Errorf(
-					"Execution.PIDsLimit must be greater than zero",
-				)
-			}
-		}
-
-		if cfg.Execution.Mode == "local" &&
-			!cfg.Execution.AllowLocalRunner {
-			return nil, fmt.Errorf(
-				"local execution requires Execution.AllowLocalRunner=true",
-			)
-		}
-	}
-
 	if profile != profileAPI {
 		if cfg.Knowledge.Root == "" {
 			return nil, fmt.Errorf("Knowledge.Root is required")
@@ -782,18 +672,6 @@ func load(path string, profile configProfile) (*Config, error) {
 	if cfg.Maintenance.CleanupIntervalSeconds <= 0 {
 		return nil, fmt.Errorf(
 			"Maintenance.CleanupIntervalSeconds must be greater than zero",
-		)
-	}
-
-	if cfg.Maintenance.ApprovalRetentionHours <= 0 {
-		return nil, fmt.Errorf(
-			"Maintenance.ApprovalRetentionHours must be greater than zero",
-		)
-	}
-
-	if cfg.Maintenance.CheckpointRetentionHours <= 0 {
-		return nil, fmt.Errorf(
-			"Maintenance.CheckpointRetentionHours must be greater than zero",
 		)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"eino-quickstart/ent"
 	entSession "eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
+	"eino-quickstart/internal/platform/agenticmsg"
 	"errors"
 	"strings"
 	"time"
@@ -45,6 +46,12 @@ type MessageRecord struct {
 	Role      string
 	Content   string
 	CreatedAt time.Time
+	// Blocks 是这条消息的展示块（text / tool_call / tool_result 摘要 / image…）。
+	//
+	// 老数据没有这一列，读出来是 nil —— 调用方要按「回退到 Content」处理，
+	// 而不是按「消息没有内容」处理。Content 与 Blocks 不是二选一：Content 是
+	// 纯文本投影（History 回喂模型用它），Blocks 是给前端渲染的结构化视图。
+	Blocks []agenticmsg.Block
 }
 
 type Store struct {
@@ -171,6 +178,7 @@ func (s *Store) Messages(ctx context.Context, sessionID string, subject string) 
 			Role:      record.Role,
 			Content:   record.Content,
 			CreatedAt: record.CreatedAt,
+			Blocks:    record.Blocks,
 		})
 	}
 
@@ -182,44 +190,29 @@ func (s *Store) GetOrCreate(ctx context.Context, id string, subject string) erro
 	return err
 }
 
-// History 是 Messages 的 eino 视图：对话链路要的是喂给模型的消息序列。
+// History 是 Messages 的 agentic 视图：对话链路要的是喂给模型的消息序列。
 //
 // 与 Messages 的区别只有返回类型 —— 查询、排序、越权口径全部共用，
-// 免得两条读路径各自演化出不一致的行为。
-func (s *Store) History(
-	ctx context.Context,
-	sessionID string,
-	subject string,
-) ([]*schema.Message, error) {
+// 免得两条读路径各自演化出不一致的行为。库里存的是 (role, content) 两列，
+// 还原成 content blocks 的规则只有 agenticmsg 一份，读写两侧靠它对齐。
+func (s *Store) History(ctx context.Context, sessionID string, subject string) ([]*schema.AgenticMessage, error) {
 	records, err := s.Messages(ctx, sessionID, subject)
 	if err != nil {
 		return nil, err
 	}
 
-	messages := make([]*schema.Message, len(records))
-	for i, record := range records {
-		messages[i] = &schema.Message{
-			Role:    schema.RoleType(record.Role),
-			Content: record.Content,
+	messages := make([]*schema.AgenticMessage, 0, len(records))
+	for _, record := range records {
+		// 未知 role 会被 FromStored 判成 nil —— 跳过而不是硬塞成 user，
+		// 否则一条脏数据就等于凭空多出一句「用户说的话」。
+		if message := agenticmsg.FromStored(record.Role, record.Content); message != nil {
+			messages = append(messages, message)
 		}
 	}
 
 	return messages, nil
 }
 
-func (s *Store) Append(ctx context.Context, sessionID string, subject string, message *schema.Message) error {
-	sessionRecord, err := s.getOwned(ctx, sessionID, subject)
-	if err != nil {
-		return err
-	}
-
-	return s.client.SessionMessage.
-		Create().
-		SetSession(sessionRecord).
-		SetRole(string(message.Role)).
-		SetContent(message.Content).
-		Exec(ctx)
-}
 func (s *Store) getOrCreate(ctx context.Context, id string, subject string) (*ent.Session, error) {
 	record, err := s.getOwned(ctx, id, subject)
 	if err == nil {

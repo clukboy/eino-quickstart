@@ -1,6 +1,6 @@
 # Eino Harness
 
-基于 [Eino](https://github.com/cloudwego/eino) ADK 的多 Agent 软件工程 Harness。服务将请求分派给知识库、工作区和自动化专项 Agent；RAG 使用 PostgreSQL 保存文档与分块、Milvus 保存向量、Elasticsearch 保存关键词索引（BM25），文档索引由 asynq（Redis）队列驱动，写请求不等待 embedding。
+基于 [Eino](https://github.com/cloudwego/eino) ADK 的知识库问答服务，面向**服务器部署**：一个 Agent 同时承担知识库检索与通用对话，只有 `search_knowledge` 一个工具，没有本地工作区文件读写、shell 执行或审批流。RAG 使用 PostgreSQL 保存文档与分块、Milvus 保存向量、Elasticsearch 保存关键词索引（BM25），文档索引由 asynq（Redis）队列驱动，写请求不等待 embedding。
 
 ## 当前能力
 
@@ -9,7 +9,7 @@
 | 对话 + 知识库 API | `go run ./cmd/restapi` | 一个进程同时提供 API Key 认证的 SSE 对话 API 和知识库 admin 接口。**只投递不消费**：收到文档写请求时把正文写进 `documents.content`、建文档行、往 asynq（Redis）投一个索引任务就返回。 |
 | 索引 worker | `go run ./cmd/worker` | 独立的消费进程：领任务后从库里读正文（空则从旧的托管目录导入一次）、切块、调 embedding、写 Milvus、写关键词索引（配了 `ES.Address` 时），并把文档状态收敛到 `ready` / `failed`。 |
 | RAG 调试入口 | `go run ./cmd/ragserver` | 本地手动跑一遍 RAG 链路的调试用入口，不是生产运行形态。 |
-| 召回评测 | `go run ./cmd/rag-test` | 拿金标用例集打真实检索链路，输出 Recall@K / MRR / ACL 泄漏 / P95，并按 `internal/eval/thresholds.yaml` 判定退出码 —— 可以直接卡在 CI 或发布流水线里阻断质量回退。用法见 [RAG 本地验证](docs/rag-testing.md#召回评测)。 |
+| 召回评测 | `go run ./cmd/rag-test` | 拿金标用例集打真实检索链路，输出 Recall@K / MRR / ACL 泄漏 / P95，并按 `internal/eval/thresholds.yaml` 判定退出码 —— 可以直接卡在 CI 或发布流水线里阻断质量回退。`internal/eval/thresholds.yaml` 是对应的阈值文件。 |
 
 两个进程之间没有函数调用，唯一的连接是共享 Redis 队列 + `internal/platform/queue/tasks`
 里的任务契约，所以它们可以分别部署、分别重启。拆分带来的一个必要依赖：**Redis 不可用
@@ -23,33 +23,24 @@
 权重、值从元数据的哪个路径取，都在这一处声明 —— 换产品线改文件即可，不用改代码。
 HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge` 共用同一条
 混合检索装配链路；对话工具会在每次调用时解析认证主体的知识库授权，并输出带 source、章节
-和 chunk id 的引用。检索质量持续评测与发布门禁仍见 [待完善项](docs/known-gaps.md)。
+和 chunk id 的引用。检索质量持续评测与发布门禁由 `internal/eval` 负责。
 
-维护清理（过期审批、检查点、对话轮次）的实现在 `internal/maintenance`，目前**没有**
-入口进程把它接起来。
+维护清理（过期对话轮次）的实现在 `internal/maintenance`，目前**没有**入口进程把它接起来。
 
 ## 文档
 
-- [P02 独立配置与验收准备](docs/p02-configuration.md)：API / worker 各改哪份文件、离线配置检查、隔离资源与启动步骤；可选 Docker 依赖栈也在这里。
-- [四个交付批次与直接验收入口](docs/delivery-batches.md)：按四个目标聚合执行 P01–P29 的本地验收，并区分真实依赖出口。
-- [P01 指标与全量测试验收](docs/p01-metrics-acceptance.md)：独立 Prometheus 端口、启用/禁用行为测试、全量回归和运行中抓取命令。
-- [架构与运行说明](docs/architecture.md)：组件、数据流、配置和 HTTP API。
-- [P03/P04 契约与生命周期验收](docs/p03-p04-acceptance.md)：只读生成检查、无需真实依赖的回归、真实联调命令及报告。
-- [RAG 本地验证](docs/rag-testing.md)：上传 Markdown、检查分块、创建索引，以及跑召回评测。
-- [扩展 Agent、工具与 Skill](docs/agent-development.md)：专项 Agent、工具和 Skill 的接入方式。
-- [待完善项](docs/known-gaps.md)：尚未完成或需要生产化的能力。
-- [数据集接口契约快照](docs/dataset-pending-contract.md)：前端 `agent-platform` 对齐用的字段清单，正文锚定在 git `e4569e6`，路径表述早于 restapi 改造，以 `internal/transport/restapi/docs/*.api` 为准。
+接口契约以 `internal/transport/restapi/docs/*.api` 为准（入口 `restapi.api`），
+生成物是 `internal/transport/restapi/internal/{handler,logic,types}` 与 `restapi.json`。
+改接口只动对应的 `.api` 子文件，再执行 `make gen-api`。
 
 ## 快速开始
 
 1. 准备 PostgreSQL、Redis、Milvus，以及可选但强烈建议的 Elasticsearch，并按部署环境分别修改
    `configs/api/config.yaml` 和 `configs/worker/config.yaml`（对应数据源必须一致）。
-   HTTP 参数单独配置在 `configs/api/restapi.yaml`；P02 隔离验收请用 `configs/acceptance/`，
-   详见 [配置指南](docs/p02-configuration.md)。如果本机使用 Docker Desktop，可先执行
+   HTTP 参数单独配置在 `configs/api/restapi.yaml`；隔离验收请用 `configs/acceptance/`。如果本机使用 Docker Desktop，可先执行
    `EINO_STORAGE_PASSWORD=... bash scripts/acceptance/dependencies.sh up` 启动本地验收依赖。
    配置内的地址仅是示例，不应直接用于生产。ES 留空时系统照常
-   运行，只是关键词通道搜不到产品型号（型号只存在于分块元数据里，见
-   [待完善项](docs/known-gaps.md)）。
+   运行，只是关键词通道搜不到产品型号（型号只存在于分块元数据里）。
 2. 设置运行所需的环境变量：
 
    ```bash
@@ -58,7 +49,6 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
    export EINO_STORAGE_PASSWORD=...
    export EINO_ES_PASSWORD=...      # 配了 ES.PasswordEnv 时需要
    export EINO_API_KEY_DEVELOPER=...
-   export EINO_API_KEY_APPROVER=...
    export EINO_API_KEY_ADMIN=...
    export EINO_ANONYMOUS_SECRET=...
    export EINO_ACCOUNT_SECRET=...
@@ -88,7 +78,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 
 服务默认监听 `:8090`（以 API HTTP 配置的 `Port` 为准）；`GET /health` 用于存活检查，`GET /ready` 检查 PostgreSQL 连通性。
 `Asynq.Enabled=false` 时 worker 拒绝启动，HTTP 仍可起来但文档写操作会报错。完整的 RAG
-验证命令见 [RAG 本地验证](docs/rag-testing.md)。
+验证命令见 `cmd/rag-test`。
 
 ## 目录
 
@@ -100,7 +90,7 @@ HTTP 侧的 `POST /api/v1/dataset/:id/search` 与对话侧的 `search_knowledge`
 | `internal/transport/restapi` | HTTP API、SSE 传输层与 goctl 契约（`docs/*.api`） |
 | `internal/application` | Agent 组装、上下文与工具中间件、`knowledge` 用例 |
 | `internal/rag` | Loader、parser、Chunker、embedder 与向量存储（Milvus） |
-| `internal/platform` | 配置、认证、执行、可观测性、队列、持久化与关键词索引（`storage/es`） |
+| `internal/platform` | 配置、认证、可观测性、队列、持久化与关键词索引（`storage/es`） |
 | `configs/api/config.yaml` / `restapi.yaml` | API 业务配置 / HTTP 监听配置 |
 | `configs/worker/config.yaml` | 独立索引消费配置 |
 | `configs/acceptance` | API / worker 分离的隔离验收模板 |

@@ -12,19 +12,23 @@ func fail(err error) error {
 	}
 	return httpx.Internal("run operation failed")
 }
-func str(v *string) string {
-	if v == nil {
-		return ""
+
+// turnDTO 把一轮对话映射成控制台「运行记录」的一行。
+//
+// 字段口径：run_id 就是 turn_id（两个概念已经合并成一张表）；steps / tool_calls /
+// tokens / cost / latency 保持 0 —— 这一版没有采集，宁可留空也不编数字。
+// agent_key 恒为空：只有一个 agent，按 key 分组已经没有意义。
+func turnDTO(turn *ent.ChatTurn) *types.RunResp {
+	resp := &types.RunResp{
+		RunID:     turn.TurnID,
+		SessionID: turn.SessionID,
+		Subject:   turn.OwnerSubject,
+		Status:    string(turn.Status),
+		StartedAt: turn.CreatedAt.UnixMilli(),
 	}
-	return *v
-}
-func runDTO(x *ent.AgentRun) *types.RunResp {
-	r := &types.RunResp{RunID: x.RunID, SessionID: x.SessionID, AgentKey: x.AgentKey, AgentVersion: x.AgentVersion, Subject: x.RequestedBy, Status: string(x.Status), Steps: x.Steps, ToolCalls: x.ToolCalls, TokensIn: x.TokensIn, TokensOut: x.TokensOut, LatencyMS: x.LatencyMs, CostMicros: x.CostMicros, StartedAt: x.CreatedAt.UnixMilli(), Error: str(x.Error)}
-	if x.CompletedAt != nil {
-		r.FinishedAt = x.CompletedAt.UnixMilli()
+	if turn.CompletedAt != nil {
+		resp.FinishedAt = turn.CompletedAt.UnixMilli()
 	}
-	return r
-}
-func spanDTO(x *ent.RunSpan) *types.RunSpanResp {
-	return &types.RunSpanResp{SpanID: x.SpanID, ParentID: str(x.ParentID), Kind: x.Kind, Name: x.Name, Status: x.Status, LatencyMS: x.LatencyMs, TokensIn: x.TokensIn, TokensOut: x.TokensOut, Input: str(x.Input), Output: str(x.Output), InputTruncated: x.InputTruncated, OutputTruncated: x.OutputTruncated, Error: str(x.Error), StartedAt: x.StartedAt.UnixMilli()}
+
+	return resp
 }

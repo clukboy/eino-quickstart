@@ -15,26 +15,14 @@ type AgentDef func(*sql.Selector)
 // AgentDefDataset is the predicate function for agentdefdataset builders.
 type AgentDefDataset func(*sql.Selector)
 
-// AgentRun is the predicate function for agentrun builders.
-type AgentRun func(*sql.Selector)
-
 // AgentVersion is the predicate function for agentversion builders.
 type AgentVersion func(*sql.Selector)
-
-// Approval is the predicate function for approval builders.
-type Approval func(*sql.Selector)
-
-// ApprovalPolicy is the predicate function for approvalpolicy builders.
-type ApprovalPolicy func(*sql.Selector)
 
 // AuditEvent is the predicate function for auditevent builders.
 type AuditEvent func(*sql.Selector)
 
 // ChatTurn is the predicate function for chatturn builders.
 type ChatTurn func(*sql.Selector)
-
-// Checkpoint is the predicate function for checkpoint builders.
-type Checkpoint func(*sql.Selector)
 
 // Dataset is the predicate function for dataset builders.
 type Dataset func(*sql.Selector)
@@ -60,15 +48,6 @@ type EvalSet func(*sql.Selector)
 // Feedback is the predicate function for feedback builders.
 type Feedback func(*sql.Selector)
 
-// Model is the predicate function for model builders.
-type Model func(*sql.Selector)
-
-// ModelProvider is the predicate function for modelprovider builders.
-type ModelProvider func(*sql.Selector)
-
-// ModelRouting is the predicate function for modelrouting builders.
-type ModelRouting func(*sql.Selector)
-
 // OrgMember is the predicate function for orgmember builders.
 type OrgMember func(*sql.Selector)
 
@@ -77,12 +56,6 @@ type OrgUnit func(*sql.Selector)
 
 // PasswordPolicy is the predicate function for passwordpolicy builders.
 type PasswordPolicy func(*sql.Selector)
-
-// RunRetrievalHit is the predicate function for runretrievalhit builders.
-type RunRetrievalHit func(*sql.Selector)
-
-// RunSpan is the predicate function for runspan builders.
-type RunSpan func(*sql.Selector)
 
 // Session is the predicate function for session builders.
 type Session func(*sql.Selector)

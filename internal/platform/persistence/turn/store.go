@@ -9,6 +9,7 @@ import (
 	"eino-quickstart/ent"
 	entchatturn "eino-quickstart/ent/chatturn"
 	entsession "eino-quickstart/ent/session"
+	"eino-quickstart/internal/platform/agenticmsg"
 	"eino-quickstart/internal/platform/storage/entx"
 
 	"github.com/cloudwego/eino/schema"
@@ -32,8 +33,6 @@ type Record struct {
 	UserContent      string
 	AssistantContent *string
 	Status           string
-	ApprovalID       *string
-	CheckpointID     *string
 	CreatedAt        time.Time
 	CompletedAt      *time.Time
 }
@@ -95,39 +94,6 @@ func (s *Store) Start(ctx context.Context, turnID string, sessionID string, owne
 	return toRecord(created), nil
 }
 
-// MarkInterrupted binds the turn to the approval and ADK checkpoint.
-func (s *Store) MarkInterrupted(
-	ctx context.Context,
-	turnID string,
-	ownerSubject string,
-	approvalID string,
-	checkpointID string,
-) error {
-	affected, err := s.client.ChatTurn.
-		Update().
-		Where(
-			entchatturn.TurnIDEQ(turnID),
-			entchatturn.OwnerSubjectEQ(ownerSubject),
-			entchatturn.StatusEQ(StatusRunning),
-		).
-		SetStatus(StatusInterrupted).
-		SetApprovalID(approvalID).
-		SetCheckpointID(checkpointID).
-		Save(ctx)
-	if err != nil {
-		return err
-	}
-
-	if affected != 1 {
-		return fmt.Errorf(
-			"chat turn %s is not running",
-			turnID,
-		)
-	}
-
-	return nil
-}
-
 // GetOwned gets a turn only when the requesting subject owns it.
 func (s *Store) GetOwned(
 	ctx context.Context,
@@ -157,13 +123,16 @@ func (s *Store) GetOwned(
 // session message are updated in one transaction, a retry cannot add a second
 // assistant message after a successful completion.
 //
-// An empty assistantContent still completes the turn but appends nothing to the
-// session history — see the branch below for why that is not merely a nicety.
+// assistantContent 是**文本投影**（回喂模型与旧前端兜底用），blocks 是结构化
+// 展示块（工具调用、图片等）。两者一起写：只写 blocks 会让 History 读到空正文，
+// 只写 content 会让前端丢掉工具过程。调用方要保证「blocks 非空时 content 也非空」
+// （见 agenticmsg.FallbackText），这里的空正文分支只在「整轮真没产出」时命中。
 func (s *Store) Complete(
 	ctx context.Context,
 	turnID string,
 	ownerSubject string,
 	assistantContent string,
+	blocks []agenticmsg.Block,
 ) error {
 	return entx.WithTx(ctx, s.client, func(tx *ent.Tx) error {
 		record, err := tx.ChatTurn.
@@ -241,16 +210,26 @@ func (s *Store) Complete(
 		// 的校验错误，让**整个事务回滚**（轮次就永远卡在 RUNNING 了，而且这是
 		// 静默的：调用方只看到一个校验错误）；就算写得进去，它也会作为一段空
 		// 上下文被重新喂给模型。
+		//
+		// 注意「只有图片、没有文字」**不属于**这一类：那种情况调用方会用
+		// agenticmsg.FallbackText 补一句占位正文，走到这里时 content 非空。
 		if assistantContent == "" {
 			return nil
 		}
 
-		return tx.SessionMessage.
+		create := tx.SessionMessage.
 			Create().
 			SetSession(sessionRecord).
 			SetRole(string(schema.Assistant)).
-			SetContent(assistantContent).
-			Exec(ctx)
+			SetContent(assistantContent)
+
+		// blocks 为空时干脆不写这一列，让库里留 NULL 而不是 "[]"：读侧用
+		// 「nil 表示老数据、回退 content」判断，写个空数组会把这个语义弄混。
+		if len(blocks) > 0 {
+			create = create.SetBlocks(blocks)
+		}
+
+		return create.Exec(ctx)
 	})
 }
 
@@ -339,8 +318,6 @@ func toRecord(record *ent.ChatTurn) *Record {
 		UserContent:      record.UserContent,
 		AssistantContent: record.AssistantContent,
 		Status:           record.Status.String(),
-		ApprovalID:       record.ApprovalID,
-		CheckpointID:     record.CheckpointID,
 		CreatedAt:        record.CreatedAt,
 		CompletedAt:      record.CompletedAt,
 	}

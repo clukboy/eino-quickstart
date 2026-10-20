@@ -9,6 +9,8 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+
+	"eino-quickstart/internal/platform/agenticmsg"
 )
 
 // SessionMessage holds the schema definition for the SessionMessage entity.
@@ -20,7 +22,19 @@ type SessionMessage struct {
 func (SessionMessage) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("role").NotEmpty(),
+		// content 是**文本投影**：History 拿它回喂模型、旧前端拿它兜底渲染。
+		// 它不是「这条消息的全部内容」—— 非文本产物（图片、工具调用）在 blocks 里。
 		field.String("content").NotEmpty(),
+		// blocks 是展示块（见 internal/platform/agenticmsg.Block）：
+		// text / tool_call / tool_result 摘要 / image / file 等。
+		//
+		// 用 Optional 是为了兼容存量的老行：老数据没有 blocks，读接口返回 null，
+		// 前端回退到 content。于是这次加列不需要数据回填，也不会在迁移窗口里
+		// 出现「老会话打不开」。
+		//
+		// 刻意**不存**工具结果正文与 base64：前者是按当时授权召回的原文（落库
+		// 等于留一条永久越权通道），后者体积不可控。详见 agenticmsg 的说明。
+		field.JSON("blocks", []agenticmsg.Block{}).Optional(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

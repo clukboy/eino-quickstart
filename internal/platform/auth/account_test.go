@@ -27,7 +27,7 @@ func TestAccountIssueForAndVerifyRoundTrip(t *testing.T) {
 	issuer := newTestAccountIssuer(t)
 
 	subject := NewAccountSubject(42)
-	token, expiresAt, err := issuer.IssueFor(subject, RoleApprover, true)
+	token, expiresAt, err := issuer.IssueFor(subject, RoleAgent, true)
 	if err != nil {
 		t.Fatalf("issue: %v", err)
 	}
@@ -45,8 +45,8 @@ func TestAccountIssueForAndVerifyRoundTrip(t *testing.T) {
 	if identity.Subject != subject {
 		t.Fatalf("subject round-trip: got %q, want %q", identity.Subject, subject)
 	}
-	if identity.Role != RoleApprover {
-		t.Fatalf("role round-trip: got %q, want %q", identity.Role, RoleApprover)
+	if identity.Role != RoleAgent {
+		t.Fatalf("role round-trip: got %q, want %q", identity.Role, RoleAgent)
 	}
 	// mcp 必须跟着令牌走：它是「还没改过初始密码」的唯一载体，丢了就等于
 	// 放行一个管理员设定的、管理员本人知道的密码。
@@ -246,7 +246,7 @@ func TestAuthenticatorAcceptsAccountToken(t *testing.T) {
 	}
 
 	subject := NewAccountSubject(9)
-	token, _, err := issuer.IssueFor(subject, RoleApprover, false)
+	token, _, err := issuer.IssueFor(subject, RoleAgent, false)
 	if err != nil {
 		t.Fatalf("issue: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestAuthenticatorAcceptsAccountToken(t *testing.T) {
 	if !ok {
 		t.Fatal("authenticator rejected an account token")
 	}
-	if identity.Subject != subject || identity.Role != RoleApprover {
+	if identity.Subject != subject || identity.Role != RoleAgent {
 		t.Fatalf("account identity changed: %+v", identity)
 	}
 }

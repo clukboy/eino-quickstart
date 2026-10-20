@@ -84,7 +84,5 @@ Asynq:
 Maintenance:
   # 维护入口复用 worker 配置；周期任务首次启动会先执行一次清理。
   CleanupIntervalSeconds: 300
-  ApprovalRetentionHours: 168
-  CheckpointRetentionHours: 168
   TurnRetentionHours: 168
   CleanupBatchSize: 100

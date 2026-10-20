@@ -12,9 +12,8 @@ import (
 type Role string
 
 const (
-	RoleAgent    Role = "agent"
-	RoleApprover Role = "approver"
-	RoleAdmin    Role = "admin"
+	RoleAgent Role = "agent"
+	RoleAdmin Role = "admin"
 )
 
 type Identity struct {

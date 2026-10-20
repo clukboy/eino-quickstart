@@ -39,8 +39,8 @@ func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserReq) (*types.UserResp,
 		}
 	}
 	if req.Role != "" {
-		if req.Role != string(entUser.RoleAgent) && req.Role != string(entUser.RoleApprover) && req.Role != string(entUser.RoleAdmin) {
-			return nil, httpx.BadRequest("角色必须是 agent、approver 或 admin")
+		if req.Role != string(entUser.RoleAgent) && req.Role != string(entUser.RoleAdmin) {
+			return nil, httpx.BadRequest("角色必须是 agent 或 admin")
 		}
 	}
 	if req.Status != "" && req.Status != string(entUser.StatusACTIVE) && req.Status != string(entUser.StatusDISABLED) {

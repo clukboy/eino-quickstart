@@ -72,34 +72,6 @@ func (_c *ChatTurnCreate) SetNillableStatus(v *chatturn.Status) *ChatTurnCreate 
 	return _c
 }
 
-// SetApprovalID sets the "approval_id" field.
-func (_c *ChatTurnCreate) SetApprovalID(v string) *ChatTurnCreate {
-	_c.mutation.SetApprovalID(v)
-	return _c
-}
-
-// SetNillableApprovalID sets the "approval_id" field if the given value is not nil.
-func (_c *ChatTurnCreate) SetNillableApprovalID(v *string) *ChatTurnCreate {
-	if v != nil {
-		_c.SetApprovalID(*v)
-	}
-	return _c
-}
-
-// SetCheckpointID sets the "checkpoint_id" field.
-func (_c *ChatTurnCreate) SetCheckpointID(v string) *ChatTurnCreate {
-	_c.mutation.SetCheckpointID(v)
-	return _c
-}
-
-// SetNillableCheckpointID sets the "checkpoint_id" field if the given value is not nil.
-func (_c *ChatTurnCreate) SetNillableCheckpointID(v *string) *ChatTurnCreate {
-	if v != nil {
-		_c.SetCheckpointID(*v)
-	}
-	return _c
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (_c *ChatTurnCreate) SetCreatedAt(v time.Time) *ChatTurnCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -247,14 +219,6 @@ func (_c *ChatTurnCreate) createSpec() (*ChatTurn, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(chatturn.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
-	}
-	if value, ok := _c.mutation.ApprovalID(); ok {
-		_spec.SetField(chatturn.FieldApprovalID, field.TypeString, value)
-		_node.ApprovalID = &value
-	}
-	if value, ok := _c.mutation.CheckpointID(); ok {
-		_spec.SetField(chatturn.FieldCheckpointID, field.TypeString, value)
-		_node.CheckpointID = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(chatturn.FieldCreatedAt, field.TypeTime, value)

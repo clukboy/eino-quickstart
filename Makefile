@@ -10,8 +10,7 @@ gen-ent: # Generate Ent codes | 生成 Ent 的代码
 #   docs/common/types.api        跨组共享类型
 #   docs/health/health.api       健康检查
 #   docs/agent/agent.api         会话
-#   docs/stream/stream.api       流式对话与审批续跑（SSE）
-#   docs/approver/approver.api   审批
+#   docs/stream/stream.api       流式对话（SSE）
 #   docs/admin/admin.api         agent 知识库授权
 #   docs/dataset/dataset.api     知识库与文档
 # 改接口只动对应子文件，入口不用碰。

@@ -18,6 +18,8 @@ const (
 	FieldRole = "role"
 	// FieldContent holds the string denoting the content field in the database.
 	FieldContent = "content"
+	// FieldBlocks holds the string denoting the blocks field in the database.
+	FieldBlocks = "blocks"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeSession holds the string denoting the session edge name in mutations.
@@ -38,6 +40,7 @@ var Columns = []string{
 	FieldID,
 	FieldRole,
 	FieldContent,
+	FieldBlocks,
 	FieldCreatedAt,
 }
 

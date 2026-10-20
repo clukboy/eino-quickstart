@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"eino-quickstart/ent"
+	"eino-quickstart/internal/platform/agenticmsg"
 	"eino-quickstart/internal/platform/auth"
 	"eino-quickstart/internal/platform/persistence/session"
 	"eino-quickstart/internal/transport/restapi/internal/httpx"
@@ -55,5 +56,32 @@ func messageDTO(record session.MessageRecord) *types.SessionMessageResp {
 		Role:      record.Role,
 		Content:   record.Content,
 		CreatedAt: record.CreatedAt.UnixMilli(),
+		Blocks:    blockDTOs(record.Blocks),
 	}
+}
+
+// blockDTOs 把存储层的展示块翻成接口类型。
+//
+// 空切片返回 nil 而不是空数组：契约里 null 的含义是「这条消息没有结构化内容，
+// 请用 content」，写成 [] 会让前端多一个「有 blocks 但全是空」的分支要处理。
+func blockDTOs(blocks []agenticmsg.Block) []*types.SessionMessageBlockResp {
+	if len(blocks) == 0 {
+		return nil
+	}
+
+	result := make([]*types.SessionMessageBlockResp, 0, len(blocks))
+	for _, block := range blocks {
+		result = append(result, &types.SessionMessageBlockResp{
+			Type:      block.Type,
+			Text:      block.Text,
+			Name:      block.Name,
+			Arguments: block.Arguments,
+			Summary:   block.Summary,
+			URL:       block.URL,
+			MIMEType:  block.MIMEType,
+			Filename:  block.Filename,
+		})
+	}
+
+	return result
 }

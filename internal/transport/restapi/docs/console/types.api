@@ -18,7 +18,6 @@ type OverviewKpiResp {
 	TokensIn int64 `json:"tokens_in"`
 	TokensOut int64 `json:"tokens_out"`
 	CostMicros int64 `json:"cost_micros"`
-	PendingApprovals int `json:"pending_approvals"`
 	FailedRuns int `json:"failed_runs"`
 }
 
@@ -346,112 +345,7 @@ type ToolTestResp {
 	Error string `json:"error,optional"`
 }
 
-// ---------- 模型、Provider、路由 ----------
-
-type ModelProviderListReq {
-	Page int `form:"page,optional"`
-	PageSize int `form:"page_size,optional"`
-}
-
-type ModelProviderResp {
-	Key string `json:"key"`
-	Name string `json:"name"`
-	BaseURL string `json:"base_url"`
-	AuthType string `json:"auth_type"`
-	HasSecret bool `json:"has_secret"`
-	Enabled bool `json:"enabled"`
-	UpdatedAt int64 `json:"updated_at"`
-}
-
-type ModelProviderListResp {
-	Data []*ModelProviderResp `json:"data"`
-	Total int `json:"total"`
-	Page int `json:"page"`
-	PageSize int `json:"page_size"`
-}
-
-type ModelProviderKeyReq { Key string `path:"key"` }
-
-type UpsertModelProviderReq {
-	Key string `path:"key"`
-	Name string `json:"name"`
-	BaseURL string `json:"base_url"`
-	AuthType string `json:"auth_type"`
-	Secret string `json:"secret,optional"`
-	Enabled bool `json:"enabled,optional"`
-}
-
-type ModelListReq {
-	Kind string `form:"kind,optional"`
-	ProviderKey string `form:"provider_key,optional"`
-	Page int `form:"page,optional"`
-	PageSize int `form:"page_size,optional"`
-}
-
-type ModelResp {
-	Key string `json:"key"`
-	ProviderKey string `json:"provider_key"`
-	Kind string `json:"kind"`
-	ContextWindow int64 `json:"context_window"`
-	MaxOutputTokens int64 `json:"max_output_tokens"`
-	InputPriceMicrosPerK int64 `json:"input_price_micros_per_k"`
-	OutputPriceMicrosPerK int64 `json:"output_price_micros_per_k"`
-	Enabled bool `json:"enabled"`
-	UpdatedAt int64 `json:"updated_at"`
-}
-
-type ModelListResp {
-	Data []*ModelResp `json:"data"`
-	Total int `json:"total"`
-	Page int `json:"page"`
-	PageSize int `json:"page_size"`
-}
-
-type UpsertModelReq {
-	Key string `path:"key"`
-	ProviderKey string `json:"provider_key"`
-	Kind string `json:"kind"`
-	ContextWindow int64 `json:"context_window,optional"`
-	MaxOutputTokens int64 `json:"max_output_tokens,optional"`
-	InputPriceMicrosPerK int64 `json:"input_price_micros_per_k,optional"`
-	OutputPriceMicrosPerK int64 `json:"output_price_micros_per_k,optional"`
-	Enabled bool `json:"enabled,optional"`
-}
-
-type EnableModelReq {
-	Key string `path:"key"`
-	Enabled bool `json:"enabled"`
-}
-
-type ModelRoutingResp {
-	DefaultChatModel string `json:"default_chat_model"`
-	DefaultEmbeddingModel string `json:"default_embedding_model"`
-	FallbackChain []string `json:"fallback_chain"`
-	UpdatedAt int64 `json:"updated_at"`
-}
-
-type PutModelRoutingReq {
-	DefaultChatModel string `json:"default_chat_model"`
-	DefaultEmbeddingModel string `json:"default_embedding_model"`
-	FallbackChain []string `json:"fallback_chain,optional"`
-}
-
-// ---------- 审批策略、安全策略 ----------
-
-type ApprovalPolicyResp {
-	ToolKey string `json:"tool_key"`
-	RiskTier string `json:"risk_tier"`
-	Mode string `json:"mode"`
-	ApproverRoles []string `json:"approver_roles"`
-	Quorum int `json:"quorum"`
-	TimeoutSeconds int `json:"timeout_seconds"`
-	OnTimeout string `json:"on_timeout"`
-	Enabled bool `json:"enabled"`
-	UpdatedAt int64 `json:"updated_at"`
-}
-
-type ApprovalPolicyListResp { Data []*ApprovalPolicyResp `json:"data"` }
-type PutApprovalPoliciesReq { Data []*ApprovalPolicyResp `json:"data"` }
+// ---------- 安全策略 ----------
 
 type PasswordPolicyResp {
 	MinLength int `json:"min_length"`

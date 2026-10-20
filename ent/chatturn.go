@@ -29,10 +29,6 @@ type ChatTurn struct {
 	AssistantContent *string `json:"assistant_content,omitempty"`
 	// Status holds the value of the "status" field.
 	Status chatturn.Status `json:"status,omitempty"`
-	// ApprovalID holds the value of the "approval_id" field.
-	ApprovalID *string `json:"approval_id,omitempty"`
-	// CheckpointID holds the value of the "checkpoint_id" field.
-	CheckpointID *string `json:"checkpoint_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// CompletedAt holds the value of the "completed_at" field.
@@ -47,7 +43,7 @@ func (*ChatTurn) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case chatturn.FieldID:
 			values[i] = new(sql.NullInt64)
-		case chatturn.FieldTurnID, chatturn.FieldSessionID, chatturn.FieldOwnerSubject, chatturn.FieldUserContent, chatturn.FieldAssistantContent, chatturn.FieldStatus, chatturn.FieldApprovalID, chatturn.FieldCheckpointID:
+		case chatturn.FieldTurnID, chatturn.FieldSessionID, chatturn.FieldOwnerSubject, chatturn.FieldUserContent, chatturn.FieldAssistantContent, chatturn.FieldStatus:
 			values[i] = new(sql.NullString)
 		case chatturn.FieldCreatedAt, chatturn.FieldCompletedAt:
 			values[i] = new(sql.NullTime)
@@ -108,20 +104,6 @@ func (_m *ChatTurn) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = chatturn.Status(value.String)
-			}
-		case chatturn.FieldApprovalID:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field approval_id", values[i])
-			} else if value.Valid {
-				_m.ApprovalID = new(string)
-				*_m.ApprovalID = value.String
-			}
-		case chatturn.FieldCheckpointID:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field checkpoint_id", values[i])
-			} else if value.Valid {
-				_m.CheckpointID = new(string)
-				*_m.CheckpointID = value.String
 			}
 		case chatturn.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -191,16 +173,6 @@ func (_m *ChatTurn) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
-	builder.WriteString(", ")
-	if v := _m.ApprovalID; v != nil {
-		builder.WriteString("approval_id=")
-		builder.WriteString(*v)
-	}
-	builder.WriteString(", ")
-	if v := _m.CheckpointID; v != nil {
-		builder.WriteString("checkpoint_id=")
-		builder.WriteString(*v)
-	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

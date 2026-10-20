@@ -62,46 +62,6 @@ func (_u *ChatTurnUpdate) SetNillableStatus(v *chatturn.Status) *ChatTurnUpdate 
 	return _u
 }
 
-// SetApprovalID sets the "approval_id" field.
-func (_u *ChatTurnUpdate) SetApprovalID(v string) *ChatTurnUpdate {
-	_u.mutation.SetApprovalID(v)
-	return _u
-}
-
-// SetNillableApprovalID sets the "approval_id" field if the given value is not nil.
-func (_u *ChatTurnUpdate) SetNillableApprovalID(v *string) *ChatTurnUpdate {
-	if v != nil {
-		_u.SetApprovalID(*v)
-	}
-	return _u
-}
-
-// ClearApprovalID clears the value of the "approval_id" field.
-func (_u *ChatTurnUpdate) ClearApprovalID() *ChatTurnUpdate {
-	_u.mutation.ClearApprovalID()
-	return _u
-}
-
-// SetCheckpointID sets the "checkpoint_id" field.
-func (_u *ChatTurnUpdate) SetCheckpointID(v string) *ChatTurnUpdate {
-	_u.mutation.SetCheckpointID(v)
-	return _u
-}
-
-// SetNillableCheckpointID sets the "checkpoint_id" field if the given value is not nil.
-func (_u *ChatTurnUpdate) SetNillableCheckpointID(v *string) *ChatTurnUpdate {
-	if v != nil {
-		_u.SetCheckpointID(*v)
-	}
-	return _u
-}
-
-// ClearCheckpointID clears the value of the "checkpoint_id" field.
-func (_u *ChatTurnUpdate) ClearCheckpointID() *ChatTurnUpdate {
-	_u.mutation.ClearCheckpointID()
-	return _u
-}
-
 // SetCompletedAt sets the "completed_at" field.
 func (_u *ChatTurnUpdate) SetCompletedAt(v time.Time) *ChatTurnUpdate {
 	_u.mutation.SetCompletedAt(v)
@@ -185,18 +145,6 @@ func (_u *ChatTurnUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(chatturn.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := _u.mutation.ApprovalID(); ok {
-		_spec.SetField(chatturn.FieldApprovalID, field.TypeString, value)
-	}
-	if _u.mutation.ApprovalIDCleared() {
-		_spec.ClearField(chatturn.FieldApprovalID, field.TypeString)
-	}
-	if value, ok := _u.mutation.CheckpointID(); ok {
-		_spec.SetField(chatturn.FieldCheckpointID, field.TypeString, value)
-	}
-	if _u.mutation.CheckpointIDCleared() {
-		_spec.ClearField(chatturn.FieldCheckpointID, field.TypeString)
-	}
 	if value, ok := _u.mutation.CompletedAt(); ok {
 		_spec.SetField(chatturn.FieldCompletedAt, field.TypeTime, value)
 	}
@@ -254,46 +202,6 @@ func (_u *ChatTurnUpdateOne) SetNillableStatus(v *chatturn.Status) *ChatTurnUpda
 	if v != nil {
 		_u.SetStatus(*v)
 	}
-	return _u
-}
-
-// SetApprovalID sets the "approval_id" field.
-func (_u *ChatTurnUpdateOne) SetApprovalID(v string) *ChatTurnUpdateOne {
-	_u.mutation.SetApprovalID(v)
-	return _u
-}
-
-// SetNillableApprovalID sets the "approval_id" field if the given value is not nil.
-func (_u *ChatTurnUpdateOne) SetNillableApprovalID(v *string) *ChatTurnUpdateOne {
-	if v != nil {
-		_u.SetApprovalID(*v)
-	}
-	return _u
-}
-
-// ClearApprovalID clears the value of the "approval_id" field.
-func (_u *ChatTurnUpdateOne) ClearApprovalID() *ChatTurnUpdateOne {
-	_u.mutation.ClearApprovalID()
-	return _u
-}
-
-// SetCheckpointID sets the "checkpoint_id" field.
-func (_u *ChatTurnUpdateOne) SetCheckpointID(v string) *ChatTurnUpdateOne {
-	_u.mutation.SetCheckpointID(v)
-	return _u
-}
-
-// SetNillableCheckpointID sets the "checkpoint_id" field if the given value is not nil.
-func (_u *ChatTurnUpdateOne) SetNillableCheckpointID(v *string) *ChatTurnUpdateOne {
-	if v != nil {
-		_u.SetCheckpointID(*v)
-	}
-	return _u
-}
-
-// ClearCheckpointID clears the value of the "checkpoint_id" field.
-func (_u *ChatTurnUpdateOne) ClearCheckpointID() *ChatTurnUpdateOne {
-	_u.mutation.ClearCheckpointID()
 	return _u
 }
 
@@ -409,18 +317,6 @@ func (_u *ChatTurnUpdateOne) sqlSave(ctx context.Context) (_node *ChatTurn, err 
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(chatturn.FieldStatus, field.TypeEnum, value)
-	}
-	if value, ok := _u.mutation.ApprovalID(); ok {
-		_spec.SetField(chatturn.FieldApprovalID, field.TypeString, value)
-	}
-	if _u.mutation.ApprovalIDCleared() {
-		_spec.ClearField(chatturn.FieldApprovalID, field.TypeString)
-	}
-	if value, ok := _u.mutation.CheckpointID(); ok {
-		_spec.SetField(chatturn.FieldCheckpointID, field.TypeString, value)
-	}
-	if _u.mutation.CheckpointIDCleared() {
-		_spec.ClearField(chatturn.FieldCheckpointID, field.TypeString)
 	}
 	if value, ok := _u.mutation.CompletedAt(); ok {
 		_spec.SetField(chatturn.FieldCompletedAt, field.TypeTime, value)

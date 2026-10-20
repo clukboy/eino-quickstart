@@ -8,14 +8,11 @@ import (
 
 	admin "eino-quickstart/internal/transport/restapi/internal/handler/admin"
 	agent "eino-quickstart/internal/transport/restapi/internal/handler/agent"
-	approver "eino-quickstart/internal/transport/restapi/internal/handler/approver"
 	auth "eino-quickstart/internal/transport/restapi/internal/handler/auth"
 	consoleagent "eino-quickstart/internal/transport/restapi/internal/handler/console/agent"
-	consoleapproval "eino-quickstart/internal/transport/restapi/internal/handler/console/approval"
 	consoleaudit "eino-quickstart/internal/transport/restapi/internal/handler/console/audit"
 	consoleeval "eino-quickstart/internal/transport/restapi/internal/handler/console/eval"
 	consolefeedback "eino-quickstart/internal/transport/restapi/internal/handler/console/feedback"
-	consolemodel "eino-quickstart/internal/transport/restapi/internal/handler/console/model"
 	consoleorg "eino-quickstart/internal/transport/restapi/internal/handler/console/org"
 	consoleoverview "eino-quickstart/internal/transport/restapi/internal/handler/console/overview"
 	consolerun "eino-quickstart/internal/transport/restapi/internal/handler/console/run"
@@ -87,30 +84,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodGet,
 					Path:    "/sessions/:id/messages",
 					Handler: agent.ListSessionMessagesHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.RoleApprover},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/approvals",
-					Handler: approver.ListApprovalsHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/approvals/:id",
-					Handler: approver.GetApprovalHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/approvals/:id/decision",
-					Handler: approver.DecideApprovalHandler(serverCtx),
 				},
 			}...,
 		),
@@ -212,25 +185,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/approval-policies",
-					Handler: consoleapproval.ListApprovalPoliciesHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/approval-policies",
-					Handler: consoleapproval.PutApprovalPoliciesHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.RoleAdmin},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
 					Path:    "/audit-logs",
 					Handler: consoleaudit.ListAuditLogsHandler(serverCtx),
 				},
@@ -311,60 +265,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPatch,
 					Path:    "/feedback/:id",
 					Handler: consolefeedback.LabelFeedbackHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.RoleAdmin},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/model-providers",
-					Handler: consolemodel.ListModelProvidersHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/model-providers/:key",
-					Handler: consolemodel.UpsertModelProviderHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/model-providers/:key",
-					Handler: consolemodel.DeleteModelProviderHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/model-routing",
-					Handler: consolemodel.GetModelRoutingHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/model-routing",
-					Handler: consolemodel.PutModelRoutingHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/models",
-					Handler: consolemodel.ListModelsHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/models/:key",
-					Handler: consolemodel.UpsertModelHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/models/:key",
-					Handler: consolemodel.DeleteModelHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPatch,
-					Path:    "/models/:key/enabled",
-					Handler: consolemodel.EnableModelHandler(serverCtx),
 				},
 			}...,
 		),

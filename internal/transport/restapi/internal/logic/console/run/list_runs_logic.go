@@ -2,11 +2,14 @@ package run
 
 import (
 	"context"
-	"eino-quickstart/ent/agentrun"
+	"time"
+
+	"eino-quickstart/ent"
+	"eino-quickstart/ent/chatturn"
 	"eino-quickstart/internal/transport/restapi/internal/svc"
 	"eino-quickstart/internal/transport/restapi/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
-	"time"
 )
 
 type ListRunsLogic struct {
@@ -18,41 +21,53 @@ type ListRunsLogic struct {
 func NewListRunsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListRunsLogic {
 	return &ListRunsLogic{Logger: logx.WithContext(ctx), ctx: ctx, svcCtx: svcCtx}
 }
+
+// ListRuns 按时间倒序列出对话轮次。
+//
+// 数据源是 chat_turns（一轮一行）。早先读的 agent_runs 与它逐列重复，已经删除。
+// req.AgentKey 不再参与过滤：只有一个 agent，按 key 筛等于全选；保留字段是为了
+// 不动前端契约。
 func (l *ListRunsLogic) ListRuns(req *types.RunListReq) (*types.RunListResp, error) {
-	p, s := req.Page, req.PageSize
-	if p <= 0 {
-		p = 1
+	page, pageSize := req.Page, req.PageSize
+	if page <= 0 {
+		page = 1
 	}
-	if s <= 0 || s > 200 {
-		s = 20
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
 	}
-	q := l.svcCtx.EntClient.AgentRun.Query()
+
+	query := l.svcCtx.EntClient.ChatTurn.Query()
 	if req.Subject != "" {
-		q.Where(agentrun.RequestedByEQ(req.Subject))
-	}
-	if req.AgentKey != "" {
-		q.Where(agentrun.AgentKeyEQ(req.AgentKey))
+		query.Where(chatturn.OwnerSubjectEQ(req.Subject))
 	}
 	if req.Status != "" {
-		q.Where(agentrun.StatusEQ(agentrun.Status(req.Status)))
+		query.Where(chatturn.StatusEQ(chatturn.Status(req.Status)))
 	}
 	if req.FromMS > 0 {
-		q.Where(agentrun.CreatedAtGTE(time.UnixMilli(req.FromMS)))
+		query.Where(chatturn.CreatedAtGTE(time.UnixMilli(req.FromMS)))
 	}
 	if req.ToMS > 0 {
-		q.Where(agentrun.CreatedAtLTE(time.UnixMilli(req.ToMS)))
+		query.Where(chatturn.CreatedAtLTE(time.UnixMilli(req.ToMS)))
 	}
-	total, e := q.Count(l.ctx)
-	if e != nil {
-		return nil, fail(e)
+
+	total, err := query.Count(l.ctx)
+	if err != nil {
+		return nil, fail(err)
 	}
-	rows, e := q.Order(agentrun.ByCreatedAt()).Offset((p - 1) * s).Limit(s).All(l.ctx)
-	if e != nil {
-		return nil, fail(e)
+
+	turns, err := query.
+		Order(ent.Desc(chatturn.FieldCreatedAt)).
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		All(l.ctx)
+	if err != nil {
+		return nil, fail(err)
 	}
-	out := make([]*types.RunResp, 0, len(rows))
-	for _, x := range rows {
-		out = append(out, runDTO(x))
+
+	data := make([]*types.RunResp, 0, len(turns))
+	for _, turn := range turns {
+		data = append(data, turnDTO(turn))
 	}
-	return &types.RunListResp{Data: out, Total: total, Page: p, PageSize: s}, nil
+
+	return &types.RunListResp{Data: data, Total: total, Page: page, PageSize: pageSize}, nil
 }

@@ -17,7 +17,6 @@ case "${1:---list}" in
       'P05 [--local]: product split, stable IDs, unchanged replay, and incremental update' \
       'P06 [--local]: retrieval channels, granularity, budgets, and degradation' \
       'P07 [--local]: SSE routes, frame format, and chat validation' \
-      'P08 [--local]: approval decision, checkpoint resume, and single-use execution' \
       'P09 [--local]: subject-to-dataset binding refresh and authorization' \
       'P10 [--local]: idempotent document enable/disable, parent path guard, and search visibility' \
       'P11 [--local]: no-ES structured exact matching, mapping normalization, filtering, and fusion' \
@@ -27,7 +26,6 @@ case "${1:---list}" in
       'P15 [--local]: rerank candidate budget, timeout, invalid-result fallback, and degradation report' \
       'P16 [--local]: LLM product split contract, schema validation, and failure boundary' \
       'P17 [--local]: LLM split replay fingerprint, stable keys, and incremental idempotency' \
-      'P18 [--local]: workspace specialist skill-tool wiring and read-only boundary' \
       'P19 [--local]: provider-neutral user sync, dry-run, idempotency, and no-delete boundary' \
       'P24 [--local]: maintenance dry-run/report and mutation-count contract' \
       'P25 [--local]: business metrics, queue depth, retrieval degradation, and low-cardinality labels' \
@@ -171,21 +169,6 @@ EOF
       status=$?; cat "$REPORT/tests.log"; echo "P07 local SSE contract failed; report: $REPORT" >&2; exit "$status"
     fi
     ;;
-  P08)
-    [ "$#" -le 2 ] || { echo 'usage: P08 [--local]' >&2; exit 2; }
-    [ "${2:-}" = '' ] || [ "${2:-}" = '--local' ] || { echo 'usage: P08 [--local]' >&2; exit 2; }
-    REPORT="$ROOT/logs/acceptance/P08/$(date +%Y%m%d-%H%M%S)-$$-local"
-    mkdir -p "$REPORT"
-    if (cd "$ROOT" && go test -count=1 ./internal/platform/persistence/approval ./internal/application/middleware -run 'TestApprovalLifecycleIsSingleUseAndAudited|TestNewStorePreservesDependencies|TestPolicyApprovalByRisk' -v) > "$REPORT/tests.log" 2>&1; then
-      cat "$REPORT/tests.log"
-      cat > "$REPORT/summary.json" <<EOF
-{"plan":"P08","mode":"local","status":"passed","checks":["approval create/decision","checkpoint claim","single-use consume","audit records","risk approval policy"]}
-EOF
-      echo "PASS P08 local approval contract; report: $REPORT"
-    else
-      status=$?; cat "$REPORT/tests.log"; echo "P08 local approval contract failed; report: $REPORT" >&2; exit "$status"
-    fi
-    ;;
   P09)
     [ "$#" -le 2 ] || { echo 'usage: P09 [--local]' >&2; exit 2; }
     [ "${2:-}" = '' ] || [ "${2:-}" = '--local' ] || { echo 'usage: P09 [--local]' >&2; exit 2; }
@@ -304,23 +287,6 @@ EOF
       echo "PASS P17 local LLM replay/idempotency contract; report: $REPORT"
     else
       status=$?; cat "$REPORT/tests.log"; echo "P17 local LLM replay/idempotency contract failed; report: $REPORT" >&2; exit "$status"
-    fi
-    ;;
-  P18)
-    [ "$#" -le 2 ] || { echo 'usage: P18 [--local]' >&2; exit 2; }
-    [ "${2:-}" = '' ] || [ "${2:-}" = '--local' ] || { echo 'usage: P18 [--local]' >&2; exit 2; }
-    REPORT="$ROOT/logs/acceptance/P18/$(date +%Y%m%d-%H%M%S)-$$-local"
-    mkdir -p "$REPORT"
-    if (cd "$ROOT" && GOCACHE="${GOCACHE:-/tmp/eino-go-cache}" go test -count=1 ./internal/application/agent ./internal/skill -v) > "$REPORT/tests.log" 2>&1 && \
-       grep -q 'list_skills.*load_skill' "$ROOT/internal/application/agent/factory.go" && \
-       grep -q 'list_skills first.*load_skill' "$ROOT/internal/application/agent/workspace.go"; then
-      cat "$REPORT/tests.log"
-      cat > "$REPORT/summary.json" <<EOF
-{"plan":"P18","mode":"local","status":"passed","checks":["workspace specialist receives list_skills and load_skill","instruction requires list-before-load","Skill loader path and size boundary tests compile","write/execute powers remain outside Skill grant","real model tool-call trace remains environment-dependent"]}
-EOF
-      echo "PASS P18 local Skill wiring contract; report: $REPORT"
-    else
-      status=$?; cat "$REPORT/tests.log" 2>/dev/null || true; echo "P18 local Skill wiring contract failed; report: $REPORT" >&2; exit "$status"
     fi
     ;;
   P19)

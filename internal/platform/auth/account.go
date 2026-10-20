@@ -125,7 +125,7 @@ func (i *AccountIssuer) IssueFor(
 	}
 
 	switch role {
-	case RoleAgent, RoleApprover, RoleAdmin:
+	case RoleAgent, RoleAdmin:
 	default:
 		return "", time.Time{}, fmt.Errorf(
 			"auth: account role %q is not a known role", role,

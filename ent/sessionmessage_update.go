@@ -7,11 +7,13 @@ import (
 	"eino-quickstart/ent/predicate"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
+	"eino-quickstart/internal/platform/agenticmsg"
 	"errors"
 	"fmt"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 )
 
@@ -53,6 +55,24 @@ func (_u *SessionMessageUpdate) SetNillableContent(v *string) *SessionMessageUpd
 	if v != nil {
 		_u.SetContent(*v)
 	}
+	return _u
+}
+
+// SetBlocks sets the "blocks" field.
+func (_u *SessionMessageUpdate) SetBlocks(v []agenticmsg.Block) *SessionMessageUpdate {
+	_u.mutation.SetBlocks(v)
+	return _u
+}
+
+// AppendBlocks appends value to the "blocks" field.
+func (_u *SessionMessageUpdate) AppendBlocks(v []agenticmsg.Block) *SessionMessageUpdate {
+	_u.mutation.AppendBlocks(v)
+	return _u
+}
+
+// ClearBlocks clears the value of the "blocks" field.
+func (_u *SessionMessageUpdate) ClearBlocks() *SessionMessageUpdate {
+	_u.mutation.ClearBlocks()
 	return _u
 }
 
@@ -141,6 +161,17 @@ func (_u *SessionMessageUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(sessionmessage.FieldContent, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Blocks(); ok {
+		_spec.SetField(sessionmessage.FieldBlocks, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedBlocks(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, sessionmessage.FieldBlocks, value)
+		})
+	}
+	if _u.mutation.BlocksCleared() {
+		_spec.ClearField(sessionmessage.FieldBlocks, field.TypeJSON)
+	}
 	if _u.mutation.SessionCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -215,6 +246,24 @@ func (_u *SessionMessageUpdateOne) SetNillableContent(v *string) *SessionMessage
 	if v != nil {
 		_u.SetContent(*v)
 	}
+	return _u
+}
+
+// SetBlocks sets the "blocks" field.
+func (_u *SessionMessageUpdateOne) SetBlocks(v []agenticmsg.Block) *SessionMessageUpdateOne {
+	_u.mutation.SetBlocks(v)
+	return _u
+}
+
+// AppendBlocks appends value to the "blocks" field.
+func (_u *SessionMessageUpdateOne) AppendBlocks(v []agenticmsg.Block) *SessionMessageUpdateOne {
+	_u.mutation.AppendBlocks(v)
+	return _u
+}
+
+// ClearBlocks clears the value of the "blocks" field.
+func (_u *SessionMessageUpdateOne) ClearBlocks() *SessionMessageUpdateOne {
+	_u.mutation.ClearBlocks()
 	return _u
 }
 
@@ -332,6 +381,17 @@ func (_u *SessionMessageUpdateOne) sqlSave(ctx context.Context) (_node *SessionM
 	}
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(sessionmessage.FieldContent, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Blocks(); ok {
+		_spec.SetField(sessionmessage.FieldBlocks, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedBlocks(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, sessionmessage.FieldBlocks, value)
+		})
+	}
+	if _u.mutation.BlocksCleared() {
+		_spec.ClearField(sessionmessage.FieldBlocks, field.TypeJSON)
 	}
 	if _u.mutation.SessionCleared() {
 		edge := &sqlgraph.EdgeSpec{

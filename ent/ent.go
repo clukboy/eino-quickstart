@@ -7,13 +7,9 @@ import (
 	"eino-quickstart/ent/agentdataset"
 	"eino-quickstart/ent/agentdef"
 	"eino-quickstart/ent/agentdefdataset"
-	"eino-quickstart/ent/agentrun"
 	"eino-quickstart/ent/agentversion"
-	"eino-quickstart/ent/approval"
-	"eino-quickstart/ent/approvalpolicy"
 	"eino-quickstart/ent/auditevent"
 	"eino-quickstart/ent/chatturn"
-	"eino-quickstart/ent/checkpoint"
 	"eino-quickstart/ent/dataset"
 	"eino-quickstart/ent/document"
 	"eino-quickstart/ent/documentchunk"
@@ -22,14 +18,9 @@ import (
 	"eino-quickstart/ent/evalrun"
 	"eino-quickstart/ent/evalset"
 	"eino-quickstart/ent/feedback"
-	"eino-quickstart/ent/model"
-	"eino-quickstart/ent/modelprovider"
-	"eino-quickstart/ent/modelrouting"
 	"eino-quickstart/ent/orgmember"
 	"eino-quickstart/ent/orgunit"
 	"eino-quickstart/ent/passwordpolicy"
-	"eino-quickstart/ent/runretrievalhit"
-	"eino-quickstart/ent/runspan"
 	"eino-quickstart/ent/session"
 	"eino-quickstart/ent/sessionmessage"
 	"eino-quickstart/ent/tool"
@@ -105,13 +96,9 @@ func checkColumn(t, c string) error {
 			agentdataset.Table:    agentdataset.ValidColumn,
 			agentdef.Table:        agentdef.ValidColumn,
 			agentdefdataset.Table: agentdefdataset.ValidColumn,
-			agentrun.Table:        agentrun.ValidColumn,
 			agentversion.Table:    agentversion.ValidColumn,
-			approval.Table:        approval.ValidColumn,
-			approvalpolicy.Table:  approvalpolicy.ValidColumn,
 			auditevent.Table:      auditevent.ValidColumn,
 			chatturn.Table:        chatturn.ValidColumn,
-			checkpoint.Table:      checkpoint.ValidColumn,
 			dataset.Table:         dataset.ValidColumn,
 			document.Table:        document.ValidColumn,
 			documentchunk.Table:   documentchunk.ValidColumn,
@@ -120,14 +107,9 @@ func checkColumn(t, c string) error {
 			evalrun.Table:         evalrun.ValidColumn,
 			evalset.Table:         evalset.ValidColumn,
 			feedback.Table:        feedback.ValidColumn,
-			model.Table:           model.ValidColumn,
-			modelprovider.Table:   modelprovider.ValidColumn,
-			modelrouting.Table:    modelrouting.ValidColumn,
 			orgmember.Table:       orgmember.ValidColumn,
 			orgunit.Table:         orgunit.ValidColumn,
 			passwordpolicy.Table:  passwordpolicy.ValidColumn,
-			runretrievalhit.Table: runretrievalhit.ValidColumn,
-			runspan.Table:         runspan.ValidColumn,
 			session.Table:         session.ValidColumn,
 			sessionmessage.Table:  sessionmessage.ValidColumn,
 			tool.Table:            tool.ValidColumn,

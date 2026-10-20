@@ -26,10 +26,6 @@ const (
 	FieldAssistantContent = "assistant_content"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
-	// FieldApprovalID holds the string denoting the approval_id field in the database.
-	FieldApprovalID = "approval_id"
-	// FieldCheckpointID holds the string denoting the checkpoint_id field in the database.
-	FieldCheckpointID = "checkpoint_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldCompletedAt holds the string denoting the completed_at field in the database.
@@ -47,8 +43,6 @@ var Columns = []string{
 	FieldUserContent,
 	FieldAssistantContent,
 	FieldStatus,
-	FieldApprovalID,
-	FieldCheckpointID,
 	FieldCreatedAt,
 	FieldCompletedAt,
 }
@@ -132,16 +126,6 @@ func ByAssistantContent(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
-}
-
-// ByApprovalID orders the results by the approval_id field.
-func ByApprovalID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldApprovalID, opts...).ToFunc()
-}
-
-// ByCheckpointID orders the results by the checkpoint_id field.
-func ByCheckpointID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCheckpointID, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

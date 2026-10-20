@@ -8,57 +8,34 @@ import (
 	"time"
 )
 
-type ApprovalCleaner interface {
-	ExpirePending(ctx context.Context, now time.Time, limit int) ([]string, error)
-	DeleteTerminalBefore(ctx context.Context, before time.Time, limit int) (int, error)
-}
-
-type CheckpointCleaner interface {
-	DeleteExpired(ctx context.Context, before time.Time, limit int) ([]string, error)
-}
-
 type TurnCleaner interface {
 	DeleteTerminalBefore(ctx context.Context, before time.Time, limit int) (int, error)
 }
 
-// Preview interfaces keep dry-run read-only. Stores may implement these beside
-// their mutating cleaner interface; Worker refuses a dry-run if one is absent.
-type ApprovalPreview interface {
-	CountExpiredPending(ctx context.Context, now time.Time) (int, error)
-	CountTerminalBefore(ctx context.Context, before time.Time) (int, error)
-}
-type CheckpointPreview interface {
-	CountExpired(ctx context.Context, before time.Time) (int, error)
-}
+// TurnPreview keeps dry-run read-only. Stores implement it beside the mutating
+// cleaner; Worker refuses a dry-run if it is absent.
 type TurnPreview interface {
 	CountTerminalBefore(ctx context.Context, before time.Time) (int, error)
 }
 
 type Report struct {
-	DryRun            bool      `json:"dry_run"`
-	At                time.Time `json:"at"`
-	ApprovalExpired   int       `json:"approval_expired"`
-	ApprovalDeleted   int       `json:"approval_deleted"`
-	CheckpointDeleted int       `json:"checkpoint_deleted"`
-	TurnDeleted       int       `json:"turn_deleted"`
-	Total             int       `json:"total"`
+	DryRun      bool      `json:"dry_run"`
+	At          time.Time `json:"at"`
+	TurnDeleted int       `json:"turn_deleted"`
+	Total       int       `json:"total"`
 }
 
 func (r Report) addTotal() Report {
-	r.Total = r.ApprovalExpired + r.ApprovalDeleted + r.CheckpointDeleted + r.TurnDeleted
+	r.Total = r.TurnDeleted
 	return r
 }
 
 type Worker struct {
-	Approvals           ApprovalCleaner
-	Checkpoints         CheckpointCleaner
-	Turns               TurnCleaner
-	Interval            time.Duration
-	ApprovalRetention   time.Duration
-	CheckpointRetention time.Duration
-	TurnRetention       time.Duration
-	BatchSize           int
-	Logger              *slog.Logger
+	Turns         TurnCleaner
+	Interval      time.Duration
+	TurnRetention time.Duration
+	BatchSize     int
+	Logger        *slog.Logger
 	// OnReport is called after every successful periodic cleanup. It is useful
 	// for the standalone maintenance command to persist the latest report.
 	OnReport func(Report)
@@ -109,36 +86,16 @@ func (w *Worker) Run(ctx context.Context) error {
 
 // Preview reports what the next cleanup would touch without mutating data.
 func (w *Worker) Preview(ctx context.Context) (Report, error) {
-	approvals, ok := w.Approvals.(ApprovalPreview)
-	if !ok {
-		return Report{}, fmt.Errorf("maintenance: approval cleaner does not support dry-run")
-	}
-	checkpoints, ok := w.Checkpoints.(CheckpointPreview)
-	if !ok {
-		return Report{}, fmt.Errorf("maintenance: checkpoint cleaner does not support dry-run")
-	}
 	turns, ok := w.Turns.(TurnPreview)
 	if !ok {
 		return Report{}, fmt.Errorf("maintenance: turn cleaner does not support dry-run")
 	}
 	now := time.Now().UTC()
-	approvalExpired, err := approvals.CountExpiredPending(ctx, now)
-	if err != nil {
-		return Report{}, err
-	}
-	approvalDeleted, err := approvals.CountTerminalBefore(ctx, now.Add(-w.ApprovalRetention))
-	if err != nil {
-		return Report{}, err
-	}
-	checkpointDeleted, err := checkpoints.CountExpired(ctx, now.Add(-w.CheckpointRetention))
-	if err != nil {
-		return Report{}, err
-	}
 	turnDeleted, err := turns.CountTerminalBefore(ctx, now.Add(-w.TurnRetention))
 	if err != nil {
 		return Report{}, err
 	}
-	return (Report{DryRun: true, At: now, ApprovalExpired: approvalExpired, ApprovalDeleted: approvalDeleted, CheckpointDeleted: checkpointDeleted, TurnDeleted: turnDeleted}).addTotal(), nil
+	return (Report{DryRun: true, At: now, TurnDeleted: turnDeleted}).addTotal(), nil
 }
 
 func (w *Worker) RunOnce(ctx context.Context) (Report, error) {
@@ -148,28 +105,10 @@ func (w *Worker) RunOnce(ctx context.Context) (Report, error) {
 	now := time.Now().UTC()
 	report := Report{At: now}
 
-	expired, err := w.Approvals.ExpirePending(ctx, now, w.BatchSize)
+	deleted, err := w.Turns.DeleteTerminalBefore(ctx, now.Add(-w.TurnRetention), w.BatchSize)
 	if err != nil {
 		return report, err
 	}
-	report.ApprovalExpired = len(expired)
-	for _, approvalID := range expired {
-		w.logger().Info("approval expired", "approval_id", approvalID)
-	}
-
-	deleted, err := w.Checkpoints.DeleteExpired(ctx, now.Add(-w.CheckpointRetention), w.BatchSize)
-	if err != nil {
-		return report, err
-	}
-	report.CheckpointDeleted = len(deleted)
-
-	report.ApprovalDeleted, err = w.Approvals.DeleteTerminalBefore(ctx, now.Add(-w.ApprovalRetention), w.BatchSize)
-	if err != nil {
-		return report, err
-	}
-	report.TurnDeleted, err = w.Turns.DeleteTerminalBefore(ctx, now.Add(-w.TurnRetention), w.BatchSize)
-	if err != nil {
-		return report, err
-	}
+	report.TurnDeleted = deleted
 	return report.addTotal(), nil
 }

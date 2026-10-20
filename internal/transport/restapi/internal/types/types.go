@@ -110,58 +110,6 @@ type AnonymousTokenResp struct {
 	ExpiresAt int64  `json:"expires_at"`
 }
 
-type ApprovalDecisionReq struct {
-	ID       string `path:"id"`
-	Approved bool   `json:"approved"`
-}
-
-type ApprovalListReq struct {
-	Status   string `form:"status,optional"`
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"page_size,optional"`
-}
-
-type ApprovalListResp struct {
-	Data     []*ApprovalResp `json:"data"`
-	Total    int             `json:"total"`
-	Page     int             `json:"page"`
-	PageSize int             `json:"page_size"`
-}
-
-type ApprovalPathReq struct {
-	ID string `path:"id"`
-}
-
-type ApprovalPolicyListResp struct {
-	Data []*ApprovalPolicyResp `json:"data"`
-}
-
-type ApprovalPolicyResp struct {
-	ToolKey        string   `json:"tool_key"`
-	RiskTier       string   `json:"risk_tier"`
-	Mode           string   `json:"mode"`
-	ApproverRoles  []string `json:"approver_roles"`
-	Quorum         int      `json:"quorum"`
-	TimeoutSeconds int      `json:"timeout_seconds"`
-	OnTimeout      string   `json:"on_timeout"`
-	Enabled        bool     `json:"enabled"`
-	UpdatedAt      int64    `json:"updated_at"`
-}
-
-type ApprovalResp struct {
-	ID               string `json:"id"`
-	SessionID        string `json:"sessionId"`
-	Tool             string `json:"tool"`
-	DisplayArguments string `json:"displayArguments,omitempty"`
-	Status           string `json:"status"`
-	RequestedBy      string `json:"requestedBy"`
-	DecidedBy        string `json:"decidedBy,omitempty"`
-	CheckpointID     string `json:"checkpointId,omitempty"`
-	InterruptID      string `json:"interruptId,omitempty"`
-	CreatedAt        string `json:"createdAt"`
-	ExpiresAt        string `json:"expiresAt,omitempty"`
-}
-
 type AuditDiffResp struct {
 	Before map[string]interface{} `json:"before,optional"`
 	After  map[string]interface{} `json:"after,optional"`
@@ -435,11 +383,6 @@ type DocumentUploadResp struct {
 	PartialFailure bool                      `json:"partial_failure"`
 }
 
-type EnableModelReq struct {
-	Key     string `path:"key"`
-	Enabled bool   `json:"enabled"`
-}
-
 type EnableToolReq struct {
 	Key     string `path:"key"`
 	Enabled bool   `json:"enabled"`
@@ -595,65 +538,6 @@ type LoginReq struct {
 	AnonymousToken string `json:"anonymous_token,optional"`
 }
 
-type ModelListReq struct {
-	Kind        string `form:"kind,optional"`
-	ProviderKey string `form:"provider_key,optional"`
-	Page        int    `form:"page,optional"`
-	PageSize    int    `form:"page_size,optional"`
-}
-
-type ModelListResp struct {
-	Data     []*ModelResp `json:"data"`
-	Total    int          `json:"total"`
-	Page     int          `json:"page"`
-	PageSize int          `json:"page_size"`
-}
-
-type ModelProviderKeyReq struct {
-	Key string `path:"key"`
-}
-
-type ModelProviderListReq struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"page_size,optional"`
-}
-
-type ModelProviderListResp struct {
-	Data     []*ModelProviderResp `json:"data"`
-	Total    int                  `json:"total"`
-	Page     int                  `json:"page"`
-	PageSize int                  `json:"page_size"`
-}
-
-type ModelProviderResp struct {
-	Key       string `json:"key"`
-	Name      string `json:"name"`
-	BaseURL   string `json:"base_url"`
-	AuthType  string `json:"auth_type"`
-	HasSecret bool   `json:"has_secret"`
-	Enabled   bool   `json:"enabled"`
-	UpdatedAt int64  `json:"updated_at"`
-}
-
-type ModelResp struct {
-	Key                   string `json:"key"`
-	ProviderKey           string `json:"provider_key"`
-	Kind                  string `json:"kind"`
-	ContextWindow         int64  `json:"context_window"`
-	MaxOutputTokens       int64  `json:"max_output_tokens"`
-	InputPriceMicrosPerK  int64  `json:"input_price_micros_per_k"`
-	OutputPriceMicrosPerK int64  `json:"output_price_micros_per_k"`
-	Enabled               bool   `json:"enabled"`
-	UpdatedAt             int64  `json:"updated_at"`
-}
-
-type ModelRoutingResp struct {
-	DefaultChatModel      string   `json:"default_chat_model"`
-	DefaultEmbeddingModel string   `json:"default_embedding_model"`
-	FallbackChain         []string `json:"fallback_chain"`
-	UpdatedAt             int64    `json:"updated_at"`
-}
-
 type OrgMemberListReq struct {
 	ID       uint64 `path:"id"`
 	Page     int    `form:"page,optional"`
@@ -693,14 +577,13 @@ type OrgUnitResp struct {
 }
 
 type OverviewKpiResp struct {
-	Sessions         int   `json:"sessions"`
-	Messages         int   `json:"messages"`
-	Runs             int   `json:"runs"`
-	TokensIn         int64 `json:"tokens_in"`
-	TokensOut        int64 `json:"tokens_out"`
-	CostMicros       int64 `json:"cost_micros"`
-	PendingApprovals int   `json:"pending_approvals"`
-	FailedRuns       int   `json:"failed_runs"`
+	Sessions   int   `json:"sessions"`
+	Messages   int   `json:"messages"`
+	Runs       int   `json:"runs"`
+	TokensIn   int64 `json:"tokens_in"`
+	TokensOut  int64 `json:"tokens_out"`
+	CostMicros int64 `json:"cost_micros"`
+	FailedRuns int   `json:"failed_runs"`
 }
 
 type OverviewPointResp struct {
@@ -741,16 +624,6 @@ type PasswordPolicyResp struct {
 	LockoutSeconds    int   `json:"lockout_seconds"`
 	SessionTTLHours   int   `json:"session_ttl_hours"`
 	UpdatedAt         int64 `json:"updated_at"`
-}
-
-type PutApprovalPoliciesReq struct {
-	Data []*ApprovalPolicyResp `json:"data"`
-}
-
-type PutModelRoutingReq struct {
-	DefaultChatModel      string   `json:"default_chat_model"`
-	DefaultEmbeddingModel string   `json:"default_embedding_model"`
-	FallbackChain         []string `json:"fallback_chain,optional"`
 }
 
 type PutPasswordPolicyReq struct {
@@ -893,11 +766,23 @@ type SessionListResp struct {
 	Data []*SessionResp `json:"data"`
 }
 
+type SessionMessageBlockResp struct {
+	Type      string `json:"type"`
+	Text      string `json:"text,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	URL       string `json:"url,omitempty"`
+	MIMEType  string `json:"mime_type,omitempty"`
+	Filename  string `json:"filename,omitempty"`
+}
+
 type SessionMessageResp struct {
-	ID        uint64 `json:"id"`
-	Role      string `json:"role"`
-	Content   string `json:"content"`
-	CreatedAt int64  `json:"created_at"`
+	ID        uint64                     `json:"id"`
+	Role      string                     `json:"role"`
+	Content   string                     `json:"content"`
+	CreatedAt int64                      `json:"created_at"`
+	Blocks    []*SessionMessageBlockResp `json:"blocks,omitempty"`
 }
 
 type SessionMessagesReq struct {
@@ -1040,26 +925,6 @@ type UpdateUserReq struct {
 	Nickname string `json:"nickname,optional"`
 	Role     string `json:"role,optional"`
 	Status   string `json:"status,optional"`
-}
-
-type UpsertModelProviderReq struct {
-	Key      string `path:"key"`
-	Name     string `json:"name"`
-	BaseURL  string `json:"base_url"`
-	AuthType string `json:"auth_type"`
-	Secret   string `json:"secret,optional"`
-	Enabled  bool   `json:"enabled,optional"`
-}
-
-type UpsertModelReq struct {
-	Key                   string `path:"key"`
-	ProviderKey           string `json:"provider_key"`
-	Kind                  string `json:"kind"`
-	ContextWindow         int64  `json:"context_window,optional"`
-	MaxOutputTokens       int64  `json:"max_output_tokens,optional"`
-	InputPriceMicrosPerK  int64  `json:"input_price_micros_per_k,optional"`
-	OutputPriceMicrosPerK int64  `json:"output_price_micros_per_k,optional"`
-	Enabled               bool   `json:"enabled,optional"`
 }
 
 type UsagePointResp struct {

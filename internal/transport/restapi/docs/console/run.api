@@ -1,6 +1,10 @@
 syntax = "v1"
 
 // run 控制台接口。路由路径保持 /api/v1 不变，group 只负责生成代码分包。
+//
+// 「运行」与「对话轮次」是同一条记录的两个叫法：早先 agent_runs 与 chat_turns
+// 各存一份（字段几乎逐列重复），现在只有 chat_turns，本组两个接口都改读它，
+// 响应形状不变 —— run_id 里装的是 turn_id。
 import "types.api"
 
 @server (

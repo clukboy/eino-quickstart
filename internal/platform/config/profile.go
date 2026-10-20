@@ -100,7 +100,7 @@ func validateProfileSections(doc *yaml.Node, profile configProfile) error {
 		"embedding": true, "milvus": true, "es": true, "asynq": true, "redis": true,
 	}
 	if profile == profileAPI {
-		for _, key := range []string{"server", "runtime", "agent", "model", "workspace", "context", "skills", "security", "auth", "execution", "maintenance", "retrieval"} {
+		for _, key := range []string{"server", "runtime", "agent", "model", "context", "auth", "maintenance", "retrieval"} {
 			allowed[key] = true
 		}
 	} else {

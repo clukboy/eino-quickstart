@@ -20,20 +20,12 @@ type Tx struct {
 	AgentDef *AgentDefClient
 	// AgentDefDataset is the client for interacting with the AgentDefDataset builders.
 	AgentDefDataset *AgentDefDatasetClient
-	// AgentRun is the client for interacting with the AgentRun builders.
-	AgentRun *AgentRunClient
 	// AgentVersion is the client for interacting with the AgentVersion builders.
 	AgentVersion *AgentVersionClient
-	// Approval is the client for interacting with the Approval builders.
-	Approval *ApprovalClient
-	// ApprovalPolicy is the client for interacting with the ApprovalPolicy builders.
-	ApprovalPolicy *ApprovalPolicyClient
 	// AuditEvent is the client for interacting with the AuditEvent builders.
 	AuditEvent *AuditEventClient
 	// ChatTurn is the client for interacting with the ChatTurn builders.
 	ChatTurn *ChatTurnClient
-	// Checkpoint is the client for interacting with the Checkpoint builders.
-	Checkpoint *CheckpointClient
 	// Dataset is the client for interacting with the Dataset builders.
 	Dataset *DatasetClient
 	// Document is the client for interacting with the Document builders.
@@ -50,22 +42,12 @@ type Tx struct {
 	EvalSet *EvalSetClient
 	// Feedback is the client for interacting with the Feedback builders.
 	Feedback *FeedbackClient
-	// Model is the client for interacting with the Model builders.
-	Model *ModelClient
-	// ModelProvider is the client for interacting with the ModelProvider builders.
-	ModelProvider *ModelProviderClient
-	// ModelRouting is the client for interacting with the ModelRouting builders.
-	ModelRouting *ModelRoutingClient
 	// OrgMember is the client for interacting with the OrgMember builders.
 	OrgMember *OrgMemberClient
 	// OrgUnit is the client for interacting with the OrgUnit builders.
 	OrgUnit *OrgUnitClient
 	// PasswordPolicy is the client for interacting with the PasswordPolicy builders.
 	PasswordPolicy *PasswordPolicyClient
-	// RunRetrievalHit is the client for interacting with the RunRetrievalHit builders.
-	RunRetrievalHit *RunRetrievalHitClient
-	// RunSpan is the client for interacting with the RunSpan builders.
-	RunSpan *RunSpanClient
 	// Session is the client for interacting with the Session builders.
 	Session *SessionClient
 	// SessionMessage is the client for interacting with the SessionMessage builders.
@@ -208,13 +190,9 @@ func (tx *Tx) init() {
 	tx.AgentDataset = NewAgentDatasetClient(tx.config)
 	tx.AgentDef = NewAgentDefClient(tx.config)
 	tx.AgentDefDataset = NewAgentDefDatasetClient(tx.config)
-	tx.AgentRun = NewAgentRunClient(tx.config)
 	tx.AgentVersion = NewAgentVersionClient(tx.config)
-	tx.Approval = NewApprovalClient(tx.config)
-	tx.ApprovalPolicy = NewApprovalPolicyClient(tx.config)
 	tx.AuditEvent = NewAuditEventClient(tx.config)
 	tx.ChatTurn = NewChatTurnClient(tx.config)
-	tx.Checkpoint = NewCheckpointClient(tx.config)
 	tx.Dataset = NewDatasetClient(tx.config)
 	tx.Document = NewDocumentClient(tx.config)
 	tx.DocumentChunk = NewDocumentChunkClient(tx.config)
@@ -223,14 +201,9 @@ func (tx *Tx) init() {
 	tx.EvalRun = NewEvalRunClient(tx.config)
 	tx.EvalSet = NewEvalSetClient(tx.config)
 	tx.Feedback = NewFeedbackClient(tx.config)
-	tx.Model = NewModelClient(tx.config)
-	tx.ModelProvider = NewModelProviderClient(tx.config)
-	tx.ModelRouting = NewModelRoutingClient(tx.config)
 	tx.OrgMember = NewOrgMemberClient(tx.config)
 	tx.OrgUnit = NewOrgUnitClient(tx.config)
 	tx.PasswordPolicy = NewPasswordPolicyClient(tx.config)
-	tx.RunRetrievalHit = NewRunRetrievalHitClient(tx.config)
-	tx.RunSpan = NewRunSpanClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.SessionMessage = NewSessionMessageClient(tx.config)
 	tx.Tool = NewToolClient(tx.config)

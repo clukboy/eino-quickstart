@@ -42,14 +42,13 @@ func TaskStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				if !ok {
 					return
 				}
-				if _, err := fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", data.ID, data.Event, func() string {
-					output, err := json.Marshal(data.Data)
-					if err != nil {
-						logc.Errorw(r.Context(), "TaskStreamHandler", logc.Field("error", err))
-						return ""
-					}
-					return string(output)
-				}()); err != nil {
+				output, err := json.Marshal(data)
+				if err != nil {
+					logc.Errorw(r.Context(), "TaskStreamHandler", logc.Field("error", err))
+					continue
+				}
+
+				if _, err := fmt.Fprintf(w, "data: %s\n\n", string(output)); err != nil {
 					logc.Errorw(r.Context(), "TaskStreamHandler", logc.Field("error", err))
 					return
 				}

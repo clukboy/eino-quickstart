@@ -44,18 +44,6 @@ func (f AgentDefDatasetFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentDefDatasetMutation", m)
 }
 
-// The AgentRunFunc type is an adapter to allow the use of ordinary
-// function as AgentRun mutator.
-type AgentRunFunc func(context.Context, *ent.AgentRunMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f AgentRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.AgentRunMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentRunMutation", m)
-}
-
 // The AgentVersionFunc type is an adapter to allow the use of ordinary
 // function as AgentVersion mutator.
 type AgentVersionFunc func(context.Context, *ent.AgentVersionMutation) (ent.Value, error)
@@ -66,30 +54,6 @@ func (f AgentVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentVersionMutation", m)
-}
-
-// The ApprovalFunc type is an adapter to allow the use of ordinary
-// function as Approval mutator.
-type ApprovalFunc func(context.Context, *ent.ApprovalMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ApprovalFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ApprovalMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ApprovalMutation", m)
-}
-
-// The ApprovalPolicyFunc type is an adapter to allow the use of ordinary
-// function as ApprovalPolicy mutator.
-type ApprovalPolicyFunc func(context.Context, *ent.ApprovalPolicyMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ApprovalPolicyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ApprovalPolicyMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ApprovalPolicyMutation", m)
 }
 
 // The AuditEventFunc type is an adapter to allow the use of ordinary
@@ -114,18 +78,6 @@ func (f ChatTurnFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatTurnMutation", m)
-}
-
-// The CheckpointFunc type is an adapter to allow the use of ordinary
-// function as Checkpoint mutator.
-type CheckpointFunc func(context.Context, *ent.CheckpointMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f CheckpointFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.CheckpointMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CheckpointMutation", m)
 }
 
 // The DatasetFunc type is an adapter to allow the use of ordinary
@@ -224,42 +176,6 @@ func (f FeedbackFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FeedbackMutation", m)
 }
 
-// The ModelFunc type is an adapter to allow the use of ordinary
-// function as Model mutator.
-type ModelFunc func(context.Context, *ent.ModelMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ModelFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ModelMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelMutation", m)
-}
-
-// The ModelProviderFunc type is an adapter to allow the use of ordinary
-// function as ModelProvider mutator.
-type ModelProviderFunc func(context.Context, *ent.ModelProviderMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ModelProviderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ModelProviderMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelProviderMutation", m)
-}
-
-// The ModelRoutingFunc type is an adapter to allow the use of ordinary
-// function as ModelRouting mutator.
-type ModelRoutingFunc func(context.Context, *ent.ModelRoutingMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f ModelRoutingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ModelRoutingMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelRoutingMutation", m)
-}
-
 // The OrgMemberFunc type is an adapter to allow the use of ordinary
 // function as OrgMember mutator.
 type OrgMemberFunc func(context.Context, *ent.OrgMemberMutation) (ent.Value, error)
@@ -294,30 +210,6 @@ func (f PasswordPolicyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordPolicyMutation", m)
-}
-
-// The RunRetrievalHitFunc type is an adapter to allow the use of ordinary
-// function as RunRetrievalHit mutator.
-type RunRetrievalHitFunc func(context.Context, *ent.RunRetrievalHitMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f RunRetrievalHitFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.RunRetrievalHitMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RunRetrievalHitMutation", m)
-}
-
-// The RunSpanFunc type is an adapter to allow the use of ordinary
-// function as RunSpan mutator.
-type RunSpanFunc func(context.Context, *ent.RunSpanMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f RunSpanFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.RunSpanMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RunSpanMutation", m)
 }
 
 // The SessionFunc type is an adapter to allow the use of ordinary
